@@ -2,6 +2,75 @@
 
 Sub2API is an AI API Gateway Platform for distributing and managing AI product subscription API quotas.
 
+## Building Local Image
+
+### Method 1: Direct docker build (Recommended)
+
+```bash
+# From project root directory
+cd /path/to/sub2api
+
+# Build image with default tag
+docker build -t sub2api:local .
+
+# Or with version info
+docker build \
+  --build-arg VERSION=1.0.0 \
+  --build-arg COMMIT=$(git rev-parse --short HEAD) \
+  -t sub2api:local .
+
+# For China mainland (use Chinese mirror)
+docker build \
+  --build-arg GOPROXY=https://goproxy.cn,direct \
+  --build-arg GOSUMDB=sum.golang.google.cn \
+  -t sub2api:local .
+```
+
+### Method 2: Using docker-compose.override.yml
+
+Create `deploy/docker-compose.override.yml`:
+
+```yaml
+services:
+  sub2api:
+    image: sub2api:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+```
+
+Then run:
+
+```bash
+cd deploy
+docker-compose build
+docker-compose up -d
+```
+
+### Build Architecture
+
+```
+Dockerfile (Multi-stage build)
+├── Stage 1: frontend-builder (Node 24 Alpine)
+│   └── pnpm build → outputs to backend/internal/web/dist/
+├── Stage 2: backend-builder (Go 1.25.5 Alpine)
+│   └── go build -tags embed → embeds frontend assets
+└── Stage 3: runtime (Alpine 3.20)
+    └── Final ~30MB image
+```
+
+### Verify Build
+
+```bash
+# Check image size
+docker images sub2api:local
+
+# Test run (requires PostgreSQL and Redis)
+docker run --rm sub2api:local --version
+```
+
+---
+
 ## Quick Start
 
 ```bash

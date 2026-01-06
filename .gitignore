@@ -126,3 +126,4 @@ vite.config.js
 !docs/
 docs/*
 !docs/dependency-security.md
+!docs/i18n-traditional-chinese.md
