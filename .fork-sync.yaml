@@ -1,14 +1,21 @@
 # Fork Sync Configuration
-# Track local customizations that should be re-applied after upstream merge
+# 同步 fork 時自動處理本地客製化
 
+# OpenCC 自動同步：當簡體中文更新時，自動重新產生繁體中文
+opencc_sync:
+  - source: frontend/src/i18n/locales/zh-Hans.ts
+    target: frontend/src/i18n/locales/zh-Hant.ts
+    config: s2twp  # 簡體 → 繁體（台灣用語）
+
+# 本地客製化 commits（合併後需要保留的修改）
+# 注意：opencc_sync 會自動處理翻譯檔，以下只需追蹤其他客製化
 local_commits:
   - hash: "76257ba"
-    description: "feat(i18n): 新增繁體中文介面支援"
+    description: "feat(i18n): 繁體中文支援 - index.ts 語言偵測邏輯"
     files:
       - frontend/src/i18n/index.ts
-      - frontend/src/i18n/locales/zh-Hant.ts
 
   - hash: "994d7d9"
-    description: "docs: 新增 Fork 同步工作流程指南"
+    description: "docs: Fork 同步工作流程指南"
     files:
       - docs/fork-sync-workflow.md
