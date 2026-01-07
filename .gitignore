@@ -127,3 +127,4 @@ vite.config.js
 docs/*
 !docs/dependency-security.md
 !docs/i18n-traditional-chinese.md
+!docs/fork-sync-workflow.md
