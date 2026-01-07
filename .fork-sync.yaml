@@ -1,0 +1,14 @@
+# Fork Sync Configuration
+# Track local customizations that should be re-applied after upstream merge
+
+local_commits:
+  - hash: "76257ba"
+    description: "feat(i18n): 新增繁體中文介面支援"
+    files:
+      - frontend/src/i18n/index.ts
+      - frontend/src/i18n/locales/zh-Hant.ts
+
+  - hash: "994d7d9"
+    description: "docs: 新增 Fork 同步工作流程指南"
+    files:
+      - docs/fork-sync-workflow.md
