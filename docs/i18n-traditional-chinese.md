@@ -141,7 +141,39 @@ opencc -i frontend/src/i18n/locales/zh-Hans.ts \
   - 「信息」→「資訊」
   - 「视频」→「影片」
 
-**後續:** 人工校對確保用語自然
+### Step 4: 手動校正詞彙
+
+OpenCC 無法完美處理所有詞彙，需要手動校正。
+
+> **唯一來源**：手動校正詞彙定義在 [.fork-sync.yaml](../.fork-sync.yaml) 的 `manual_corrections` 區塊。
+
+#### 從配置檔讀取並執行校正
+
+```bash
+# 查看目前的校正規則
+cat .fork-sync.yaml | grep -A 10 "manual_corrections:"
+
+# 手動執行（根據 .fork-sync.yaml 中的規則）
+# 格式：sed -i '' 's/<pattern>/<replacement>/g' <target>
+sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+```
+
+#### 新增校正詞彙
+
+發現新的需要校正的詞彙時，請更新 `.fork-sync.yaml`：
+
+```yaml
+manual_corrections:
+  - pattern: "賬"
+    replacement: "帳"
+    description: "台灣用語：帳號、帳戶、帳單"
+  # 新增規則放在這裡
+  - pattern: "新詞"
+    replacement: "台灣用語"
+    description: "說明"
+```
+
+然後同步更新 `CLAUDE.md` 中的快速命令。
 
 ---
 
@@ -173,3 +205,49 @@ opencc -i frontend/src/i18n/locales/zh-Hans.ts \
 - [ ] localStorage 舊值遷移 (zh → zh-Hans)
 - [ ] HTML `lang` 屬性更新
 - [ ] 所有翻譯 key 都有對應的繁體翻譯
+
+---
+
+## 上游同步後繁體中文化流程
+
+當從上游 (upstream) 拉取更新後，需要重新執行繁體中文化。
+
+### 完整流程
+
+```bash
+# 1. 同步上游（詳見 fork-sync-workflow.md）
+git fetch upstream
+git merge upstream/main
+# 解決衝突後 commit
+
+# 2. OpenCC 簡轉繁
+opencc -i frontend/src/i18n/locales/zh-Hans.ts \
+       -o frontend/src/i18n/locales/zh-Hant.ts \
+       -c s2twp.json
+
+# 3. 手動校正詞彙
+sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+
+# 4. 驗證（TypeScript 類型檢查）
+cd frontend && pnpm run typecheck
+
+# 5. 提交變更
+git add frontend/src/i18n/locales/zh-Hant.ts
+git commit -m "chore(i18n): update Traditional Chinese translations"
+```
+
+### 快速參考命令
+
+```bash
+# 一行完成 OpenCC + 手動校正
+opencc -i frontend/src/i18n/locales/zh-Hans.ts \
+       -o frontend/src/i18n/locales/zh-Hant.ts \
+       -c s2twp.json && \
+sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+```
+
+### 注意事項
+
+1. **上游 i18n 結構變更**：如果上游修改了 `index.ts`（如改回 `zh.ts`），需要手動恢復 `zh-Hans`/`zh-Hant` 結構
+2. **新增翻譯 key**：OpenCC 會自動處理新增的簡體內容
+3. **衝突處理**：i18n 檔案衝突時，優先採用上游版本，再重新執行中文化流程

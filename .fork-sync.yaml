@@ -1,11 +1,26 @@
 # Fork Sync Configuration
 # 同步 fork 時自動處理本地客製化
+#
+# 完整流程：
+#   1. git fetch upstream && git merge upstream/main
+#   2. opencc -i <source> -o <target> -c <config>.json
+#   3. 套用 manual_corrections 中的所有校正規則
+#   4. pnpm run typecheck 驗證
+#
+# 詳細說明：docs/i18n-traditional-chinese.md
 
 # OpenCC 自動同步：當簡體中文更新時，自動重新產生繁體中文
 opencc_sync:
   - source: frontend/src/i18n/locales/zh-Hans.ts
     target: frontend/src/i18n/locales/zh-Hant.ts
     config: s2twp  # 簡體 → 繁體（台灣用語）
+
+# 手動校正詞彙（OpenCC 後需額外處理）
+# 執行命令：sed -i '' 's/<pattern>/<replacement>/g' <target>
+manual_corrections:
+  - pattern: "賬"
+    replacement: "帳"
+    description: "台灣用語：帳號、帳戶、帳單"
 
 # 本地客製化 commits（合併後需要保留的修改）
 # 注意：opencc_sync 會自動處理翻譯檔，以下只需追蹤其他客製化

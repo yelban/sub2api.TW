@@ -247,3 +247,33 @@ git fetch upstream
 git merge upstream/main
 git push origin main
 ```
+
+---
+
+## 同步後繁體中文化
+
+本專案維護繁體中文翻譯，每次同步上游後需要重新執行中文化流程。
+
+> **配置檔**：同步規則定義在 [.fork-sync.yaml](../.fork-sync.yaml)
+
+### 快速流程
+
+```bash
+# 1. 同步上游
+git fetch upstream
+git merge upstream/main
+
+# 2. 重新中文化（OpenCC + 手動校正）
+# ⚠️ 手動校正規則定義在 .fork-sync.yaml 的 manual_corrections
+opencc -i frontend/src/i18n/locales/zh-Hans.ts \
+       -o frontend/src/i18n/locales/zh-Hant.ts \
+       -c s2twp.json && \
+sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+
+# 3. 提交
+git add frontend/src/i18n/locales/zh-Hant.ts
+git commit -m "chore(i18n): update Traditional Chinese translations"
+git push origin main
+```
+
+> **詳細說明**：參見 [i18n-traditional-chinese.md](./i18n-traditional-chinese.md)
