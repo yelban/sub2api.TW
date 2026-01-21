@@ -277,3 +277,49 @@ git push origin main
 ```
 
 > **詳細說明**：參見 [i18n-traditional-chinese.md](./i18n-traditional-chinese.md)
+
+---
+
+## 一般使用者更新
+
+使用此倉庫的人（非維護者）如何拉取更新：
+
+```bash
+# 拉取程式碼 + tags
+git pull --tags
+```
+
+| 內容 | `git pull` | 需要額外命令 |
+|------|------------|--------------|
+| Commits（程式碼） | ✅ 會拉取 | - |
+| 新 Tags | ❌ 不會 | `git pull --tags` 或 `git fetch --tags` |
+
+---
+
+## 放棄本地修改並更新
+
+當本地有修改想要放棄，直接同步遠端最新狀態：
+
+```bash
+# 重置到遠端狀態（推薦）
+git fetch origin
+git reset --hard origin/main
+git pull --tags
+```
+
+一行完成：
+
+```bash
+git fetch origin && git reset --hard origin/main
+```
+
+### 各種情況處理
+
+| 情況 | 命令 |
+|------|------|
+| 只有未提交的修改 | `git checkout .` 或 `git restore .` |
+| 有未追蹤的新檔案 | `git clean -fd`（刪除未追蹤檔案） |
+| 已提交的本地 commits | `git reset --hard origin/main` |
+| 全部清除重來 | `git fetch && git reset --hard origin/main && git clean -fd` |
+
+> ⚠️ **警告**：`reset --hard` 和 `clean -fd` 會永久刪除本地變更，無法復原。
