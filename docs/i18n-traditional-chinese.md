@@ -145,35 +145,26 @@ opencc -i frontend/src/i18n/locales/zh-Hans.ts \
 
 OpenCC 無法完美處理所有詞彙，需要手動校正。
 
-> **唯一來源**：手動校正詞彙定義在 [.fork-sync.yaml](../.fork-sync.yaml) 的 `manual_corrections` 區塊。
+> **配置檔**：腳本配置定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
 
-#### 從配置檔讀取並執行校正
+#### 查看目前的校正規則
 
 ```bash
-# 查看目前的校正規則
-cat .fork-sync.yaml | grep -A 10 "manual_corrections:"
-
-# 手動執行（根據 .fork-sync.yaml 中的規則）
-# 格式：sed -i '' 's/<pattern>/<replacement>/g' <target>
-sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+# 查看配置檔
+cat scripts/convert-config.sh
 ```
 
 #### 新增校正詞彙
 
-發現新的需要校正的詞彙時，請更新 `.fork-sync.yaml`：
+發現新的需要校正的詞彙時，請更新 `scripts/convert-config.sh`：
 
-```yaml
-manual_corrections:
-  - pattern: "賬"
-    replacement: "帳"
-    description: "台灣用語：帳號、帳戶、帳單"
-  # 新增規則放在這裡
-  - pattern: "新詞"
-    replacement: "台灣用語"
-    description: "說明"
+```bash
+MANUAL_CORRECTIONS=(
+    "賬|帳"    # 台灣用語：帳號、帳戶、帳單
+    # 新增規則放在這裡
+    "新詞|台灣用語"    # 說明
+)
 ```
-
-然後同步更新 `CLAUDE.md` 中的快速命令。
 
 ---
 
@@ -234,6 +225,7 @@ git commit -m "chore(i18n): update Traditional Chinese translations"
 ### 腳本說明
 
 批次轉換腳本：`scripts/convert-to-traditional-chinese.sh`
+腳本配置檔：`scripts/convert-config.sh`
 
 ```bash
 # 顯示說明
@@ -252,9 +244,26 @@ git commit -m "chore(i18n): update Traditional Chinese translations"
 **腳本功能：**
 - 遞迴處理 `.md`, `.yaml`, `.yml` 檔案
 - 使用 OpenCC s2twp（台灣正體+常用詞彙）
-- 自動套用手動校正規則（定義在 `.fork-sync.yaml`）
+- 自動套用手動校正規則（定義在 `scripts/convert-config.sh`）
 - 智慧偵測：只轉換包含簡體中文的檔案
 - 排除 node_modules、config 等不需轉換的檔案
+
+**配置檔結構（`scripts/convert-config.sh`）：**
+```bash
+# OpenCC 同步配置
+OPENCC_SYNC=(
+    "source|target"
+)
+
+# 手動校正詞彙
+MANUAL_CORRECTIONS=(
+    "pattern|replacement"
+)
+
+# 排除的目錄和檔案
+EXCLUDE_DIRS=(...)
+EXCLUDE_FILES=(...)
+```
 
 ### 手動流程（備用）
 

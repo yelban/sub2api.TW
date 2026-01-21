@@ -254,7 +254,7 @@ git push origin main
 
 本專案維護繁體中文翻譯，每次同步上游後需要重新執行中文化流程。
 
-> **配置檔**：同步規則定義在 [.fork-sync.yaml](../.fork-sync.yaml)
+> **腳本配置**：定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
 
 ### 快速流程（推薦）
 
@@ -294,7 +294,7 @@ git push origin main
 # OpenCC 轉換
 opencc -i <source> -o <target> -c s2twp.json
 
-# 手動校正（規則定義在 .fork-sync.yaml）
+# 手動校正（規則定義在 scripts/convert-config.sh）
 sed -i '' 's/賬/帳/g' <target>
 ```
 

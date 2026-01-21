@@ -17,6 +17,10 @@
 
 set -euo pipefail
 
+# 取得腳本所在目錄
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/convert-config.sh"
+
 # 顏色定義
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,36 +33,22 @@ DRY_RUN=false
 VERBOSE=false
 TARGET_DIR="."
 
-# 排除的目錄
-EXCLUDE_DIRS=(
-    "node_modules"
-    ".git"
-    "vendor"
-    "dist"
-    "build"
-    ".cache"
-    ".vscode"
-    ".idea"
-)
+# 預設配置（如果配置檔不存在）
+OPENCC_SYNC=()
+MANUAL_CORRECTIONS=("賬|帳")
+EXCLUDE_DIRS=("node_modules" ".git" "vendor" "dist" "build" ".cache" ".vscode" ".idea")
+EXCLUDE_FILES=("config.yaml" "config.example.yaml" "docker-compose.yml" "docker-compose.yaml" "HANDOFF.md")
 
-# 排除的檔案（不應轉換的配置檔）
-EXCLUDE_FILES=(
-    "config.yaml"
-    "config.example.yaml"
-    "docker-compose.yml"
-    "docker-compose.yaml"
-    "docker-compose-test.yml"
-    ".goreleaser.yaml"
-    ".goreleaser.simple.yaml"
-    "release.yml"
-    "HANDOFF.md"
-)
-
-# 手動校正詞彙（從 .fork-sync.yaml 同步）
-# 格式：pattern|replacement
-MANUAL_CORRECTIONS=(
-    "賬|帳"
-)
+# 載入配置檔
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        # shellcheck source=convert-config.sh
+        source "$CONFIG_FILE"
+        log_verbose "已載入配置檔：$CONFIG_FILE"
+    else
+        log_warning "找不到配置檔：$CONFIG_FILE，使用預設值"
+    fi
+}
 
 # 顯示說明
 show_help() {
@@ -80,13 +70,19 @@ show_help() {
     $(basename "$0") -v frontend/       # 詳細模式處理 frontend 目錄
 
 處理範圍：
-    1. i18n 翻譯檔：zh-Hans.ts → zh-Hant.ts
-    2. 文件檔案：.md, .yaml, .yml
+    1. opencc_sync：從配置檔讀取 source → target 配置
+    2. 文件檔案：遞迴處理 .md, .yaml, .yml
+
+配置檔：
+    ${CONFIG_FILE}
+    - OPENCC_SYNC: 指定的 source → target 轉換
+    - MANUAL_CORRECTIONS: 手動校正詞彙
+    - EXCLUDE_DIRS: 排除的目錄
+    - EXCLUDE_FILES: 排除的檔案
 
 注意：
     - 需要安裝 opencc（brew install opencc）
     - 會跳過 node_modules、.git 等目錄
-    - 手動校正規則定義在 .fork-sync.yaml
 EOF
 }
 
@@ -122,6 +118,51 @@ check_dependencies() {
     log_verbose "opencc 版本：$(opencc --version 2>&1 | head -1)"
 }
 
+# 套用手動校正
+apply_manual_corrections() {
+    local file="$1"
+    for correction in "${MANUAL_CORRECTIONS[@]}"; do
+        local pattern="${correction%%|*}"
+        local replacement="${correction##*|}"
+        [[ -z "$pattern" ]] && continue
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/${pattern}/${replacement}/g" "$file"
+        else
+            sed -i "s/${pattern}/${replacement}/g" "$file"
+        fi
+    done
+}
+
+# 處理 opencc_sync 配置
+process_opencc_sync() {
+    if [[ ${#OPENCC_SYNC[@]} -eq 0 ]]; then
+        log_verbose "沒有 opencc_sync 配置"
+        return
+    fi
+
+    log_info "=== opencc_sync（從配置檔）==="
+
+    for item in "${OPENCC_SYNC[@]}"; do
+        local source="${item%%|*}"
+        local target="${item##*|}"
+
+        if [[ -f "$source" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                log_info "會轉換：$source → $target"
+            else
+                if opencc -i "$source" -o "$target" -c s2twp.json 2>/dev/null; then
+                    apply_manual_corrections "$target"
+                    log_success "已轉換：$source → $target"
+                else
+                    log_error "轉換失敗：$source"
+                fi
+            fi
+        else
+            log_verbose "來源檔案不存在：$source"
+        fi
+    done
+}
+
 # 建立排除參數
 build_exclude_args() {
     local args=""
@@ -139,20 +180,6 @@ contains_simplified_chinese() {
         return 0
     fi
     return 1
-}
-
-# 套用手動校正
-apply_manual_corrections() {
-    local file="$1"
-    for correction in "${MANUAL_CORRECTIONS[@]}"; do
-        local pattern="${correction%%|*}"
-        local replacement="${correction##*|}"
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s/${pattern}/${replacement}/g" "$file"
-        else
-            sed -i "s/${pattern}/${replacement}/g" "$file"
-        fi
-    done
 }
 
 # 檢查檔案是否在排除清單中
@@ -238,6 +265,9 @@ main() {
         esac
     done
 
+    # 載入配置
+    load_config
+
     # 檢查目標目錄
     if [[ ! -d "$TARGET_DIR" ]]; then
         log_error "目錄不存在：$TARGET_DIR"
@@ -251,26 +281,11 @@ main() {
     log_info "目標目錄：$TARGET_DIR"
     [[ "$DRY_RUN" == true ]] && log_warning "Dry run 模式 - 不會實際修改檔案"
 
-    # === 特殊處理：i18n 翻譯檔 ===
-    local i18n_source="frontend/src/i18n/locales/zh-Hans.ts"
-    local i18n_target="frontend/src/i18n/locales/zh-Hant.ts"
-
-    if [[ -f "$i18n_source" ]]; then
-        log_info "=== i18n 翻譯檔 ==="
-        if [[ "$DRY_RUN" == true ]]; then
-            log_info "會轉換：$i18n_source → $i18n_target"
-        else
-            if opencc -i "$i18n_source" -o "$i18n_target" -c s2twp.json 2>/dev/null; then
-                apply_manual_corrections "$i18n_target"
-                log_success "已轉換：$i18n_source → $i18n_target"
-            else
-                log_error "轉換失敗：$i18n_source"
-            fi
-        fi
-    fi
+    # === 處理配置檔中定義的 opencc_sync ===
+    process_opencc_sync
 
     # === 處理 .md 和 .yaml 檔案 ===
-    log_info "=== 文件檔案 ==="
+    log_info "=== 文件檔案（.md, .yaml）==="
 
     # 建立排除參數
     local exclude_args
@@ -278,7 +293,7 @@ main() {
 
     # 找出所有 .md 和 .yaml/.yml 檔案
     local files
-    files=$(eval "find '$TARGET_DIR' -type f \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' \) $exclude_args" 2>/dev/null || true)
+    files=$(eval "find '$TARGET_DIR' -type f \\( -name '*.md' -o -name '*.yaml' -o -name '*.yml' \\) $exclude_args" 2>/dev/null || true)
 
     if [[ -z "$files" ]]; then
         log_warning "找不到任何 .md 或 .yaml 檔案"

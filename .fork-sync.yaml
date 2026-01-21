@@ -1,18 +1,17 @@
 # Fork Sync Configuration
 # 同步 fork 時自動處理本地客製化
 #
+# ⚠️ 此檔案僅供參考，實際腳本配置在：scripts/convert-config.sh
+#
 # 完整流程：
 #   1. git fetch upstream && git merge upstream/main
 #   2. ./scripts/convert-to-traditional-chinese.sh  # 批次繁體中文化
 #   3. cd frontend && pnpm run typecheck            # 驗證
 #   4. git add -A && git commit
 #
-# 或手動執行：
-#   opencc -i <source> -o <target> -c s2twp.json
-#   sed -i '' 's/賬/帳/g' <target>
-#
 # 詳細說明：docs/i18n-traditional-chinese.md
 # 轉換腳本：scripts/convert-to-traditional-chinese.sh
+# 腳本配置：scripts/convert-config.sh
 
 # OpenCC 自動同步：當簡體中文更新時，自動重新產生繁體中文
 opencc_sync:

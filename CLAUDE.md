@@ -50,8 +50,8 @@ git add -A && git commit -m "chore(i18n): update Traditional Chinese translation
 ```
 
 **必讀文件：**
-- [.fork-sync.yaml](.fork-sync.yaml) - **Fork 同步配置**（OpenCC 規則、本地客製化 commits）
-- [i18n-traditional-chinese.md](docs/i18n-traditional-chinese.md) - **手動校正詞彙對照表**、完整中文化流程
+- [scripts/convert-config.sh](scripts/convert-config.sh) - **腳本配置檔**（OpenCC 同步、手動校正、排除規則）
+- [i18n-traditional-chinese.md](docs/i18n-traditional-chinese.md) - 完整中文化流程
 - [fork-sync-workflow.md](docs/fork-sync-workflow.md) - Fork 同步策略與衝突處理
 
 ## Common Commands
