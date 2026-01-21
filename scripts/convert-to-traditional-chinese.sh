@@ -1,6 +1,6 @@
 #!/bin/bash
 # 繁體中文化腳本
-# 使用 OpenCC s2twp + 手動校正，批次轉換 .md, .yaml 檔案
+# 使用 OpenCC s2twp + 手動校正，批次轉換 i18n 翻譯檔、.md、.yaml 檔案
 #
 # 用法：
 #   ./scripts/convert-to-traditional-chinese.sh [選項] [目錄]
@@ -78,6 +78,10 @@ show_help() {
     $(basename "$0") docs/              # 只處理 docs 目錄
     $(basename "$0") -n                 # Dry run 模式
     $(basename "$0") -v frontend/       # 詳細模式處理 frontend 目錄
+
+處理範圍：
+    1. i18n 翻譯檔：zh-Hans.ts → zh-Hant.ts
+    2. 文件檔案：.md, .yaml, .yml
 
 注意：
     - 需要安裝 opencc（brew install opencc）
@@ -246,6 +250,27 @@ main() {
     log_info "開始繁體中文化..."
     log_info "目標目錄：$TARGET_DIR"
     [[ "$DRY_RUN" == true ]] && log_warning "Dry run 模式 - 不會實際修改檔案"
+
+    # === 特殊處理：i18n 翻譯檔 ===
+    local i18n_source="frontend/src/i18n/locales/zh-Hans.ts"
+    local i18n_target="frontend/src/i18n/locales/zh-Hant.ts"
+
+    if [[ -f "$i18n_source" ]]; then
+        log_info "=== i18n 翻譯檔 ==="
+        if [[ "$DRY_RUN" == true ]]; then
+            log_info "會轉換：$i18n_source → $i18n_target"
+        else
+            if opencc -i "$i18n_source" -o "$i18n_target" -c s2twp.json 2>/dev/null; then
+                apply_manual_corrections "$i18n_target"
+                log_success "已轉換：$i18n_source → $i18n_target"
+            else
+                log_error "轉換失敗：$i18n_source"
+            fi
+        fi
+    fi
+
+    # === 處理 .md 和 .yaml 檔案 ===
+    log_info "=== 文件檔案 ==="
 
     # 建立排除參數
     local exclude_args
