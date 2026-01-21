@@ -1,7 +1,11 @@
 // Package dto provides data transfer objects for HTTP handlers.
 package dto
 
-import "github.com/Wei-Shaw/sub2api/internal/service"
+import (
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/service"
+)
 
 func UserFromServiceShallow(u *service.User) *User {
 	if u == nil {
@@ -11,7 +15,6 @@ func UserFromServiceShallow(u *service.User) *User {
 		ID:            u.ID,
 		Email:         u.Email,
 		Username:      u.Username,
-		Notes:         u.Notes,
 		Role:          u.Role,
 		Balance:       u.Balance,
 		Concurrency:   u.Concurrency,
@@ -44,21 +47,39 @@ func UserFromService(u *service.User) *User {
 	return out
 }
 
+// UserFromServiceAdmin converts a service User to DTO for admin users.
+// It includes notes - user-facing endpoints must not use this.
+func UserFromServiceAdmin(u *service.User) *AdminUser {
+	if u == nil {
+		return nil
+	}
+	base := UserFromService(u)
+	if base == nil {
+		return nil
+	}
+	return &AdminUser{
+		User:  *base,
+		Notes: u.Notes,
+	}
+}
+
 func APIKeyFromService(k *service.APIKey) *APIKey {
 	if k == nil {
 		return nil
 	}
 	return &APIKey{
-		ID:        k.ID,
-		UserID:    k.UserID,
-		Key:       k.Key,
-		Name:      k.Name,
-		GroupID:   k.GroupID,
-		Status:    k.Status,
-		CreatedAt: k.CreatedAt,
-		UpdatedAt: k.UpdatedAt,
-		User:      UserFromServiceShallow(k.User),
-		Group:     GroupFromServiceShallow(k.Group),
+		ID:          k.ID,
+		UserID:      k.UserID,
+		Key:         k.Key,
+		Name:        k.Name,
+		GroupID:     k.GroupID,
+		Status:      k.Status,
+		IPWhitelist: k.IPWhitelist,
+		IPBlacklist: k.IPBlacklist,
+		CreatedAt:   k.CreatedAt,
+		UpdatedAt:   k.UpdatedAt,
+		User:        UserFromServiceShallow(k.User),
+		Group:       GroupFromServiceShallow(k.Group),
 	}
 }
 
@@ -66,7 +87,41 @@ func GroupFromServiceShallow(g *service.Group) *Group {
 	if g == nil {
 		return nil
 	}
-	return &Group{
+	out := groupFromServiceBase(g)
+	return &out
+}
+
+func GroupFromService(g *service.Group) *Group {
+	if g == nil {
+		return nil
+	}
+	return GroupFromServiceShallow(g)
+}
+
+// GroupFromServiceAdmin converts a service Group to DTO for admin users.
+// It includes internal fields like model_routing and account_count.
+func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
+	if g == nil {
+		return nil
+	}
+	out := &AdminGroup{
+		Group:               groupFromServiceBase(g),
+		ModelRouting:        g.ModelRouting,
+		ModelRoutingEnabled: g.ModelRoutingEnabled,
+		AccountCount:        g.AccountCount,
+	}
+	if len(g.AccountGroups) > 0 {
+		out.AccountGroups = make([]AccountGroup, 0, len(g.AccountGroups))
+		for i := range g.AccountGroups {
+			ag := g.AccountGroups[i]
+			out.AccountGroups = append(out.AccountGroups, *AccountGroupFromService(&ag))
+		}
+	}
+	return out
+}
+
+func groupFromServiceBase(g *service.Group) Group {
+	return Group{
 		ID:               g.ID,
 		Name:             g.Name,
 		Description:      g.Description,
@@ -81,32 +136,18 @@ func GroupFromServiceShallow(g *service.Group) *Group {
 		ImagePrice1K:     g.ImagePrice1K,
 		ImagePrice2K:     g.ImagePrice2K,
 		ImagePrice4K:     g.ImagePrice4K,
+		ClaudeCodeOnly:   g.ClaudeCodeOnly,
+		FallbackGroupID:  g.FallbackGroupID,
 		CreatedAt:        g.CreatedAt,
 		UpdatedAt:        g.UpdatedAt,
-		AccountCount:     g.AccountCount,
 	}
-}
-
-func GroupFromService(g *service.Group) *Group {
-	if g == nil {
-		return nil
-	}
-	out := GroupFromServiceShallow(g)
-	if len(g.AccountGroups) > 0 {
-		out.AccountGroups = make([]AccountGroup, 0, len(g.AccountGroups))
-		for i := range g.AccountGroups {
-			ag := g.AccountGroups[i]
-			out.AccountGroups = append(out.AccountGroups, *AccountGroupFromService(&ag))
-		}
-	}
-	return out
 }
 
 func AccountFromServiceShallow(a *service.Account) *Account {
 	if a == nil {
 		return nil
 	}
-	return &Account{
+	out := &Account{
 		ID:                      a.ID,
 		Name:                    a.Name,
 		Notes:                   a.Notes,
@@ -117,9 +158,12 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ProxyID:                 a.ProxyID,
 		Concurrency:             a.Concurrency,
 		Priority:                a.Priority,
+		RateMultiplier:          a.BillingRateMultiplier(),
 		Status:                  a.Status,
 		ErrorMessage:            a.ErrorMessage,
 		LastUsedAt:              a.LastUsedAt,
+		ExpiresAt:               timeToUnixSeconds(a.ExpiresAt),
+		AutoPauseOnExpired:      a.AutoPauseOnExpired,
 		CreatedAt:               a.CreatedAt,
 		UpdatedAt:               a.UpdatedAt,
 		Schedulable:             a.Schedulable,
@@ -133,6 +177,34 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		SessionWindowStatus:     a.SessionWindowStatus,
 		GroupIDs:                a.GroupIDs,
 	}
+
+	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）
+	if a.IsAnthropicOAuthOrSetupToken() {
+		if limit := a.GetWindowCostLimit(); limit > 0 {
+			out.WindowCostLimit = &limit
+		}
+		if reserve := a.GetWindowCostStickyReserve(); reserve > 0 {
+			out.WindowCostStickyReserve = &reserve
+		}
+		if maxSessions := a.GetMaxSessions(); maxSessions > 0 {
+			out.MaxSessions = &maxSessions
+		}
+		if idleTimeout := a.GetSessionIdleTimeoutMinutes(); idleTimeout > 0 {
+			out.SessionIdleTimeoutMin = &idleTimeout
+		}
+		// TLS指纹伪装开关
+		if a.IsTLSFingerprintEnabled() {
+			enabled := true
+			out.EnableTLSFingerprint = &enabled
+		}
+		// 会话ID伪装开关
+		if a.IsSessionIDMaskingEnabled() {
+			enabled := true
+			out.EnableSessionIDMasking = &enabled
+		}
+	}
+
+	return out
 }
 
 func AccountFromService(a *service.Account) *Account {
@@ -155,6 +227,14 @@ func AccountFromService(a *service.Account) *Account {
 		}
 	}
 	return out
+}
+
+func timeToUnixSeconds(value *time.Time) *int64 {
+	if value == nil {
+		return nil
+	}
+	ts := value.Unix()
+	return &ts
 }
 
 func AccountGroupFromService(ag *service.AccountGroup) *AccountGroup {
@@ -194,8 +274,29 @@ func ProxyWithAccountCountFromService(p *service.ProxyWithAccountCount) *ProxyWi
 		return nil
 	}
 	return &ProxyWithAccountCount{
-		Proxy:        *ProxyFromService(&p.Proxy),
-		AccountCount: p.AccountCount,
+		Proxy:          *ProxyFromService(&p.Proxy),
+		AccountCount:   p.AccountCount,
+		LatencyMs:      p.LatencyMs,
+		LatencyStatus:  p.LatencyStatus,
+		LatencyMessage: p.LatencyMessage,
+		IPAddress:      p.IPAddress,
+		Country:        p.Country,
+		CountryCode:    p.CountryCode,
+		Region:         p.Region,
+		City:           p.City,
+	}
+}
+
+func ProxyAccountSummaryFromService(a *service.ProxyAccountSummary) *ProxyAccountSummary {
+	if a == nil {
+		return nil
+	}
+	return &ProxyAccountSummary{
+		ID:       a.ID,
+		Name:     a.Name,
+		Platform: a.Platform,
+		Type:     a.Type,
+		Notes:    a.Notes,
 	}
 }
 
@@ -203,7 +304,24 @@ func RedeemCodeFromService(rc *service.RedeemCode) *RedeemCode {
 	if rc == nil {
 		return nil
 	}
-	return &RedeemCode{
+	out := redeemCodeFromServiceBase(rc)
+	return &out
+}
+
+// RedeemCodeFromServiceAdmin converts a service RedeemCode to DTO for admin users.
+// It includes notes - user-facing endpoints must not use this.
+func RedeemCodeFromServiceAdmin(rc *service.RedeemCode) *AdminRedeemCode {
+	if rc == nil {
+		return nil
+	}
+	return &AdminRedeemCode{
+		RedeemCode: redeemCodeFromServiceBase(rc),
+		Notes:      rc.Notes,
+	}
+}
+
+func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
+	return RedeemCode{
 		ID:           rc.ID,
 		Code:         rc.Code,
 		Type:         rc.Type,
@@ -211,7 +329,6 @@ func RedeemCodeFromService(rc *service.RedeemCode) *RedeemCode {
 		Status:       rc.Status,
 		UsedBy:       rc.UsedBy,
 		UsedAt:       rc.UsedAt,
-		Notes:        rc.Notes,
 		CreatedAt:    rc.CreatedAt,
 		GroupID:      rc.GroupID,
 		ValidityDays: rc.ValidityDays,
@@ -220,11 +337,21 @@ func RedeemCodeFromService(rc *service.RedeemCode) *RedeemCode {
 	}
 }
 
-func UsageLogFromService(l *service.UsageLog) *UsageLog {
-	if l == nil {
+// AccountSummaryFromService returns a minimal AccountSummary for usage log display.
+// Only includes ID and Name - no sensitive fields like Credentials, Proxy, etc.
+func AccountSummaryFromService(a *service.Account) *AccountSummary {
+	if a == nil {
 		return nil
 	}
-	return &UsageLog{
+	return &AccountSummary{
+		ID:   a.ID,
+		Name: a.Name,
+	}
+}
+
+func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
+	// 普通用户 DTO：严禁包含管理员字段（例如 account_rate_multiplier、ip_address、account）。
+	return UsageLog{
 		ID:                    l.ID,
 		UserID:                l.UserID,
 		APIKeyID:              l.APIKeyID,
@@ -252,12 +379,66 @@ func UsageLogFromService(l *service.UsageLog) *UsageLog {
 		FirstTokenMs:          l.FirstTokenMs,
 		ImageCount:            l.ImageCount,
 		ImageSize:             l.ImageSize,
+		UserAgent:             l.UserAgent,
 		CreatedAt:             l.CreatedAt,
 		User:                  UserFromServiceShallow(l.User),
 		APIKey:                APIKeyFromService(l.APIKey),
-		Account:               AccountFromService(l.Account),
 		Group:                 GroupFromServiceShallow(l.Group),
 		Subscription:          UserSubscriptionFromService(l.Subscription),
+	}
+}
+
+// UsageLogFromService converts a service UsageLog to DTO for regular users.
+// It excludes Account details and IP address - users should not see these.
+func UsageLogFromService(l *service.UsageLog) *UsageLog {
+	if l == nil {
+		return nil
+	}
+	u := usageLogFromServiceUser(l)
+	return &u
+}
+
+// UsageLogFromServiceAdmin converts a service UsageLog to DTO for admin users.
+// It includes minimal Account info (ID, Name only) and IP address.
+func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
+	if l == nil {
+		return nil
+	}
+	return &AdminUsageLog{
+		UsageLog:              usageLogFromServiceUser(l),
+		AccountRateMultiplier: l.AccountRateMultiplier,
+		IPAddress:             l.IPAddress,
+		Account:               AccountSummaryFromService(l.Account),
+	}
+}
+
+func UsageCleanupTaskFromService(task *service.UsageCleanupTask) *UsageCleanupTask {
+	if task == nil {
+		return nil
+	}
+	return &UsageCleanupTask{
+		ID:     task.ID,
+		Status: task.Status,
+		Filters: UsageCleanupFilters{
+			StartTime:   task.Filters.StartTime,
+			EndTime:     task.Filters.EndTime,
+			UserID:      task.Filters.UserID,
+			APIKeyID:    task.Filters.APIKeyID,
+			AccountID:   task.Filters.AccountID,
+			GroupID:     task.Filters.GroupID,
+			Model:       task.Filters.Model,
+			Stream:      task.Filters.Stream,
+			BillingType: task.Filters.BillingType,
+		},
+		CreatedBy:    task.CreatedBy,
+		DeletedRows:  task.DeletedRows,
+		ErrorMessage: task.ErrorMsg,
+		CanceledBy:   task.CanceledBy,
+		CanceledAt:   task.CanceledAt,
+		StartedAt:    task.StartedAt,
+		FinishedAt:   task.FinishedAt,
+		CreatedAt:    task.CreatedAt,
+		UpdatedAt:    task.UpdatedAt,
 	}
 }
 
@@ -277,7 +458,27 @@ func UserSubscriptionFromService(sub *service.UserSubscription) *UserSubscriptio
 	if sub == nil {
 		return nil
 	}
-	return &UserSubscription{
+	out := userSubscriptionFromServiceBase(sub)
+	return &out
+}
+
+// UserSubscriptionFromServiceAdmin converts a service UserSubscription to DTO for admin users.
+// It includes assignment metadata and notes.
+func UserSubscriptionFromServiceAdmin(sub *service.UserSubscription) *AdminUserSubscription {
+	if sub == nil {
+		return nil
+	}
+	return &AdminUserSubscription{
+		UserSubscription: userSubscriptionFromServiceBase(sub),
+		AssignedBy:       sub.AssignedBy,
+		AssignedAt:       sub.AssignedAt,
+		Notes:            sub.Notes,
+		AssignedByUser:   UserFromServiceShallow(sub.AssignedByUser),
+	}
+}
+
+func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscription {
+	return UserSubscription{
 		ID:                 sub.ID,
 		UserID:             sub.UserID,
 		GroupID:            sub.GroupID,
@@ -290,14 +491,10 @@ func UserSubscriptionFromService(sub *service.UserSubscription) *UserSubscriptio
 		DailyUsageUSD:      sub.DailyUsageUSD,
 		WeeklyUsageUSD:     sub.WeeklyUsageUSD,
 		MonthlyUsageUSD:    sub.MonthlyUsageUSD,
-		AssignedBy:         sub.AssignedBy,
-		AssignedAt:         sub.AssignedAt,
-		Notes:              sub.Notes,
 		CreatedAt:          sub.CreatedAt,
 		UpdatedAt:          sub.UpdatedAt,
 		User:               UserFromServiceShallow(sub.User),
 		Group:              GroupFromServiceShallow(sub.Group),
-		AssignedByUser:     UserFromServiceShallow(sub.AssignedByUser),
 	}
 }
 
@@ -305,14 +502,46 @@ func BulkAssignResultFromService(r *service.BulkAssignResult) *BulkAssignResult 
 	if r == nil {
 		return nil
 	}
-	subs := make([]UserSubscription, 0, len(r.Subscriptions))
+	subs := make([]AdminUserSubscription, 0, len(r.Subscriptions))
 	for i := range r.Subscriptions {
-		subs = append(subs, *UserSubscriptionFromService(&r.Subscriptions[i]))
+		subs = append(subs, *UserSubscriptionFromServiceAdmin(&r.Subscriptions[i]))
 	}
 	return &BulkAssignResult{
 		SuccessCount:  r.SuccessCount,
 		FailedCount:   r.FailedCount,
 		Subscriptions: subs,
 		Errors:        r.Errors,
+	}
+}
+
+func PromoCodeFromService(pc *service.PromoCode) *PromoCode {
+	if pc == nil {
+		return nil
+	}
+	return &PromoCode{
+		ID:          pc.ID,
+		Code:        pc.Code,
+		BonusAmount: pc.BonusAmount,
+		MaxUses:     pc.MaxUses,
+		UsedCount:   pc.UsedCount,
+		Status:      pc.Status,
+		ExpiresAt:   pc.ExpiresAt,
+		Notes:       pc.Notes,
+		CreatedAt:   pc.CreatedAt,
+		UpdatedAt:   pc.UpdatedAt,
+	}
+}
+
+func PromoCodeUsageFromService(u *service.PromoCodeUsage) *PromoCodeUsage {
+	if u == nil {
+		return nil
+	}
+	return &PromoCodeUsage{
+		ID:          u.ID,
+		PromoCodeID: u.PromoCodeID,
+		UserID:      u.UserID,
+		BonusAmount: u.BonusAmount,
+		UsedAt:      u.UsedAt,
+		User:        UserFromServiceShallow(u.User),
 	}
 }

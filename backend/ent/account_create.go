@@ -153,6 +153,20 @@ func (_c *AccountCreate) SetNillablePriority(v *int) *AccountCreate {
 	return _c
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_c *AccountCreate) SetRateMultiplier(v float64) *AccountCreate {
+	_c.mutation.SetRateMultiplier(v)
+	return _c
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableRateMultiplier(v *float64) *AccountCreate {
+	if v != nil {
+		_c.SetRateMultiplier(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *AccountCreate) SetStatus(v string) *AccountCreate {
 	_c.mutation.SetStatus(v)
@@ -191,6 +205,34 @@ func (_c *AccountCreate) SetLastUsedAt(v time.Time) *AccountCreate {
 func (_c *AccountCreate) SetNillableLastUsedAt(v *time.Time) *AccountCreate {
 	if v != nil {
 		_c.SetLastUsedAt(*v)
+	}
+	return _c
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (_c *AccountCreate) SetExpiresAt(v time.Time) *AccountCreate {
+	_c.mutation.SetExpiresAt(v)
+	return _c
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableExpiresAt(v *time.Time) *AccountCreate {
+	if v != nil {
+		_c.SetExpiresAt(*v)
+	}
+	return _c
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (_c *AccountCreate) SetAutoPauseOnExpired(v bool) *AccountCreate {
+	_c.mutation.SetAutoPauseOnExpired(v)
+	return _c
+}
+
+// SetNillableAutoPauseOnExpired sets the "auto_pause_on_expired" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableAutoPauseOnExpired(v *bool) *AccountCreate {
+	if v != nil {
+		_c.SetAutoPauseOnExpired(*v)
 	}
 	return _c
 }
@@ -401,9 +443,17 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultPriority
 		_c.mutation.SetPriority(v)
 	}
+	if _, ok := _c.mutation.RateMultiplier(); !ok {
+		v := account.DefaultRateMultiplier
+		_c.mutation.SetRateMultiplier(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := account.DefaultStatus
 		_c.mutation.SetStatus(v)
+	}
+	if _, ok := _c.mutation.AutoPauseOnExpired(); !ok {
+		v := account.DefaultAutoPauseOnExpired
+		_c.mutation.SetAutoPauseOnExpired(v)
 	}
 	if _, ok := _c.mutation.Schedulable(); !ok {
 		v := account.DefaultSchedulable
@@ -456,6 +506,9 @@ func (_c *AccountCreate) check() error {
 	if _, ok := _c.mutation.Priority(); !ok {
 		return &ValidationError{Name: "priority", err: errors.New(`ent: missing required field "Account.priority"`)}
 	}
+	if _, ok := _c.mutation.RateMultiplier(); !ok {
+		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Account.rate_multiplier"`)}
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Account.status"`)}
 	}
@@ -463,6 +516,9 @@ func (_c *AccountCreate) check() error {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.AutoPauseOnExpired(); !ok {
+		return &ValidationError{Name: "auto_pause_on_expired", err: errors.New(`ent: missing required field "Account.auto_pause_on_expired"`)}
 	}
 	if _, ok := _c.mutation.Schedulable(); !ok {
 		return &ValidationError{Name: "schedulable", err: errors.New(`ent: missing required field "Account.schedulable"`)}
@@ -543,6 +599,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		_spec.SetField(account.FieldPriority, field.TypeInt, value)
 		_node.Priority = value
 	}
+	if value, ok := _c.mutation.RateMultiplier(); ok {
+		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
+		_node.RateMultiplier = value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)
 		_node.Status = value
@@ -554,6 +614,14 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LastUsedAt(); ok {
 		_spec.SetField(account.FieldLastUsedAt, field.TypeTime, value)
 		_node.LastUsedAt = &value
+	}
+	if value, ok := _c.mutation.ExpiresAt(); ok {
+		_spec.SetField(account.FieldExpiresAt, field.TypeTime, value)
+		_node.ExpiresAt = &value
+	}
+	if value, ok := _c.mutation.AutoPauseOnExpired(); ok {
+		_spec.SetField(account.FieldAutoPauseOnExpired, field.TypeBool, value)
+		_node.AutoPauseOnExpired = value
 	}
 	if value, ok := _c.mutation.Schedulable(); ok {
 		_spec.SetField(account.FieldSchedulable, field.TypeBool, value)
@@ -850,6 +918,24 @@ func (u *AccountUpsert) AddPriority(v int) *AccountUpsert {
 	return u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *AccountUpsert) SetRateMultiplier(v float64) *AccountUpsert {
+	u.Set(account.FieldRateMultiplier, v)
+	return u
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateRateMultiplier() *AccountUpsert {
+	u.SetExcluded(account.FieldRateMultiplier)
+	return u
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *AccountUpsert) AddRateMultiplier(v float64) *AccountUpsert {
+	u.Add(account.FieldRateMultiplier, v)
+	return u
+}
+
 // SetStatus sets the "status" field.
 func (u *AccountUpsert) SetStatus(v string) *AccountUpsert {
 	u.Set(account.FieldStatus, v)
@@ -895,6 +981,36 @@ func (u *AccountUpsert) UpdateLastUsedAt() *AccountUpsert {
 // ClearLastUsedAt clears the value of the "last_used_at" field.
 func (u *AccountUpsert) ClearLastUsedAt() *AccountUpsert {
 	u.SetNull(account.FieldLastUsedAt)
+	return u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AccountUpsert) SetExpiresAt(v time.Time) *AccountUpsert {
+	u.Set(account.FieldExpiresAt, v)
+	return u
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateExpiresAt() *AccountUpsert {
+	u.SetExcluded(account.FieldExpiresAt)
+	return u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *AccountUpsert) ClearExpiresAt() *AccountUpsert {
+	u.SetNull(account.FieldExpiresAt)
+	return u
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (u *AccountUpsert) SetAutoPauseOnExpired(v bool) *AccountUpsert {
+	u.Set(account.FieldAutoPauseOnExpired, v)
+	return u
+}
+
+// UpdateAutoPauseOnExpired sets the "auto_pause_on_expired" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateAutoPauseOnExpired() *AccountUpsert {
+	u.SetExcluded(account.FieldAutoPauseOnExpired)
 	return u
 }
 
@@ -1252,6 +1368,27 @@ func (u *AccountUpsertOne) UpdatePriority() *AccountUpsertOne {
 	})
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *AccountUpsertOne) SetRateMultiplier(v float64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRateMultiplier(v)
+	})
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *AccountUpsertOne) AddRateMultiplier(v float64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddRateMultiplier(v)
+	})
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateRateMultiplier() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRateMultiplier()
+	})
+}
+
 // SetStatus sets the "status" field.
 func (u *AccountUpsertOne) SetStatus(v string) *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
@@ -1305,6 +1442,41 @@ func (u *AccountUpsertOne) UpdateLastUsedAt() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearLastUsedAt() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearLastUsedAt()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AccountUpsertOne) SetExpiresAt(v time.Time) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateExpiresAt() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *AccountUpsertOne) ClearExpiresAt() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearExpiresAt()
+	})
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (u *AccountUpsertOne) SetAutoPauseOnExpired(v bool) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetAutoPauseOnExpired(v)
+	})
+}
+
+// UpdateAutoPauseOnExpired sets the "auto_pause_on_expired" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateAutoPauseOnExpired() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateAutoPauseOnExpired()
 	})
 }
 
@@ -1848,6 +2020,27 @@ func (u *AccountUpsertBulk) UpdatePriority() *AccountUpsertBulk {
 	})
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *AccountUpsertBulk) SetRateMultiplier(v float64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetRateMultiplier(v)
+	})
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *AccountUpsertBulk) AddRateMultiplier(v float64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddRateMultiplier(v)
+	})
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateRateMultiplier() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateRateMultiplier()
+	})
+}
+
 // SetStatus sets the "status" field.
 func (u *AccountUpsertBulk) SetStatus(v string) *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
@@ -1901,6 +2094,41 @@ func (u *AccountUpsertBulk) UpdateLastUsedAt() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearLastUsedAt() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearLastUsedAt()
+	})
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (u *AccountUpsertBulk) SetExpiresAt(v time.Time) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetExpiresAt(v)
+	})
+}
+
+// UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateExpiresAt() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateExpiresAt()
+	})
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (u *AccountUpsertBulk) ClearExpiresAt() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearExpiresAt()
+	})
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (u *AccountUpsertBulk) SetAutoPauseOnExpired(v bool) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetAutoPauseOnExpired(v)
+	})
+}
+
+// UpdateAutoPauseOnExpired sets the "auto_pause_on_expired" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateAutoPauseOnExpired() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateAutoPauseOnExpired()
 	})
 }
 

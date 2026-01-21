@@ -57,6 +57,30 @@ func (f GroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupMutation", m)
 }
 
+// The PromoCodeFunc type is an adapter to allow the use of ordinary
+// function as PromoCode mutator.
+type PromoCodeFunc func(context.Context, *ent.PromoCodeMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PromoCodeFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PromoCodeMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PromoCodeMutation", m)
+}
+
+// The PromoCodeUsageFunc type is an adapter to allow the use of ordinary
+// function as PromoCodeUsage mutator.
+type PromoCodeUsageFunc func(context.Context, *ent.PromoCodeUsageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PromoCodeUsageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PromoCodeUsageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PromoCodeUsageMutation", m)
+}
+
 // The ProxyFunc type is an adapter to allow the use of ordinary
 // function as Proxy mutator.
 type ProxyFunc func(context.Context, *ent.ProxyMutation) (ent.Value, error)
@@ -91,6 +115,18 @@ func (f SettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SettingMutation", m)
+}
+
+// The UsageCleanupTaskFunc type is an adapter to allow the use of ordinary
+// function as UsageCleanupTask mutator.
+type UsageCleanupTaskFunc func(context.Context, *ent.UsageCleanupTaskMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UsageCleanupTaskFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UsageCleanupTaskMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UsageCleanupTaskMutation", m)
 }
 
 // The UsageLogFunc type is an adapter to allow the use of ordinary

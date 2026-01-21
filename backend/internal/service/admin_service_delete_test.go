@@ -107,6 +107,10 @@ func (s *groupRepoStub) GetByID(ctx context.Context, id int64) (*Group, error) {
 	panic("unexpected GetByID call")
 }
 
+func (s *groupRepoStub) GetByIDLite(ctx context.Context, id int64) (*Group, error) {
+	panic("unexpected GetByIDLite call")
+}
+
 func (s *groupRepoStub) Update(ctx context.Context, group *Group) error {
 	panic("unexpected Update call")
 }
@@ -124,7 +128,7 @@ func (s *groupRepoStub) List(ctx context.Context, params pagination.PaginationPa
 	panic("unexpected List call")
 }
 
-func (s *groupRepoStub) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error) {
+func (s *groupRepoStub) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error) {
 	panic("unexpected ListWithFilters call")
 }
 
@@ -149,8 +153,10 @@ func (s *groupRepoStub) DeleteAccountGroupsByGroupID(ctx context.Context, groupI
 }
 
 type proxyRepoStub struct {
-	deleteErr  error
-	deletedIDs []int64
+	deleteErr    error
+	countErr     error
+	accountCount int64
+	deletedIDs   []int64
 }
 
 func (s *proxyRepoStub) Create(ctx context.Context, proxy *Proxy) error {
@@ -186,12 +192,23 @@ func (s *proxyRepoStub) ListActiveWithAccountCount(ctx context.Context) ([]Proxy
 	panic("unexpected ListActiveWithAccountCount call")
 }
 
+func (s *proxyRepoStub) ListWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error) {
+	panic("unexpected ListWithFiltersAndAccountCount call")
+}
+
 func (s *proxyRepoStub) ExistsByHostPortAuth(ctx context.Context, host string, port int, username, password string) (bool, error) {
 	panic("unexpected ExistsByHostPortAuth call")
 }
 
 func (s *proxyRepoStub) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
-	panic("unexpected CountAccountsByProxyID call")
+	if s.countErr != nil {
+		return 0, s.countErr
+	}
+	return s.accountCount, nil
+}
+
+func (s *proxyRepoStub) ListAccountSummariesByProxyID(ctx context.Context, proxyID int64) ([]ProxyAccountSummary, error) {
+	panic("unexpected ListAccountSummariesByProxyID call")
 }
 
 type redeemRepoStub struct {
@@ -399,6 +416,15 @@ func TestAdminService_DeleteProxy_Idempotent(t *testing.T) {
 	err := svc.DeleteProxy(context.Background(), 404)
 	require.NoError(t, err)
 	require.Equal(t, []int64{404}, repo.deletedIDs)
+}
+
+func TestAdminService_DeleteProxy_InUse(t *testing.T) {
+	repo := &proxyRepoStub{accountCount: 2}
+	svc := &adminServiceImpl{proxyRepo: repo}
+
+	err := svc.DeleteProxy(context.Background(), 77)
+	require.ErrorIs(t, err, ErrProxyInUse)
+	require.Empty(t, repo.deletedIDs)
 }
 
 func TestAdminService_DeleteProxy_Error(t *testing.T) {

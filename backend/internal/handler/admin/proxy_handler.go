@@ -51,16 +51,21 @@ func (h *ProxyHandler) List(c *gin.Context) {
 	protocol := c.Query("protocol")
 	status := c.Query("status")
 	search := c.Query("search")
+	// 标准化和验证 search 参数
+	search = strings.TrimSpace(search)
+	if len(search) > 100 {
+		search = search[:100]
+	}
 
-	proxies, total, err := h.adminService.ListProxies(c.Request.Context(), page, pageSize, protocol, status, search)
+	proxies, total, err := h.adminService.ListProxiesWithAccountCount(c.Request.Context(), page, pageSize, protocol, status, search)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	out := make([]dto.Proxy, 0, len(proxies))
+	out := make([]dto.ProxyWithAccountCount, 0, len(proxies))
 	for i := range proxies {
-		out = append(out, *dto.ProxyFromService(&proxies[i]))
+		out = append(out, *dto.ProxyWithAccountCountFromService(&proxies[i]))
 	}
 	response.Paginated(c, out, total, page, pageSize)
 }
@@ -191,6 +196,28 @@ func (h *ProxyHandler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{"message": "Proxy deleted successfully"})
 }
 
+// BatchDelete handles batch deleting proxies
+// POST /api/v1/admin/proxies/batch-delete
+func (h *ProxyHandler) BatchDelete(c *gin.Context) {
+	type BatchDeleteRequest struct {
+		IDs []int64 `json:"ids" binding:"required,min=1"`
+	}
+
+	var req BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	result, err := h.adminService.BatchDeleteProxies(c.Request.Context(), req.IDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, result)
+}
+
 // Test handles testing proxy connectivity
 // POST /api/v1/admin/proxies/:id/test
 func (h *ProxyHandler) Test(c *gin.Context) {
@@ -238,19 +265,17 @@ func (h *ProxyHandler) GetProxyAccounts(c *gin.Context) {
 		return
 	}
 
-	page, pageSize := response.ParsePagination(c)
-
-	accounts, total, err := h.adminService.GetProxyAccounts(c.Request.Context(), proxyID, page, pageSize)
+	accounts, err := h.adminService.GetProxyAccounts(c.Request.Context(), proxyID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	out := make([]dto.Account, 0, len(accounts))
+	out := make([]dto.ProxyAccountSummary, 0, len(accounts))
 	for i := range accounts {
-		out = append(out, *dto.AccountFromService(&accounts[i]))
+		out = append(out, *dto.ProxyAccountSummaryFromService(&accounts[i]))
 	}
-	response.Paginated(c, out, total, page, pageSize)
+	response.Success(c, out)
 }
 
 // BatchCreateProxyItem represents a single proxy in batch create request

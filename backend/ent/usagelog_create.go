@@ -267,6 +267,20 @@ func (_c *UsageLogCreate) SetNillableRateMultiplier(v *float64) *UsageLogCreate 
 	return _c
 }
 
+// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
+func (_c *UsageLogCreate) SetAccountRateMultiplier(v float64) *UsageLogCreate {
+	_c.mutation.SetAccountRateMultiplier(v)
+	return _c
+}
+
+// SetNillableAccountRateMultiplier sets the "account_rate_multiplier" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableAccountRateMultiplier(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetAccountRateMultiplier(*v)
+	}
+	return _c
+}
+
 // SetBillingType sets the "billing_type" field.
 func (_c *UsageLogCreate) SetBillingType(v int8) *UsageLogCreate {
 	_c.mutation.SetBillingType(v)
@@ -319,6 +333,34 @@ func (_c *UsageLogCreate) SetFirstTokenMs(v int) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableFirstTokenMs(v *int) *UsageLogCreate {
 	if v != nil {
 		_c.SetFirstTokenMs(*v)
+	}
+	return _c
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (_c *UsageLogCreate) SetUserAgent(v string) *UsageLogCreate {
+	_c.mutation.SetUserAgent(v)
+	return _c
+}
+
+// SetNillableUserAgent sets the "user_agent" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableUserAgent(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetUserAgent(*v)
+	}
+	return _c
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (_c *UsageLogCreate) SetIPAddress(v string) *UsageLogCreate {
+	_c.mutation.SetIPAddress(v)
+	return _c
+}
+
+// SetNillableIPAddress sets the "ip_address" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableIPAddress(v *string) *UsageLogCreate {
+	if v != nil {
+		_c.SetIPAddress(*v)
 	}
 	return _c
 }
@@ -567,6 +609,16 @@ func (_c *UsageLogCreate) check() error {
 	if _, ok := _c.mutation.Stream(); !ok {
 		return &ValidationError{Name: "stream", err: errors.New(`ent: missing required field "UsageLog.stream"`)}
 	}
+	if v, ok := _c.mutation.UserAgent(); ok {
+		if err := usagelog.UserAgentValidator(v); err != nil {
+			return &ValidationError{Name: "user_agent", err: fmt.Errorf(`ent: validator failed for field "UsageLog.user_agent": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.IPAddress(); ok {
+		if err := usagelog.IPAddressValidator(v); err != nil {
+			return &ValidationError{Name: "ip_address", err: fmt.Errorf(`ent: validator failed for field "UsageLog.ip_address": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.ImageCount(); !ok {
 		return &ValidationError{Name: "image_count", err: errors.New(`ent: missing required field "UsageLog.image_count"`)}
 	}
@@ -674,6 +726,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_spec.SetField(usagelog.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
 	}
+	if value, ok := _c.mutation.AccountRateMultiplier(); ok {
+		_spec.SetField(usagelog.FieldAccountRateMultiplier, field.TypeFloat64, value)
+		_node.AccountRateMultiplier = &value
+	}
 	if value, ok := _c.mutation.BillingType(); ok {
 		_spec.SetField(usagelog.FieldBillingType, field.TypeInt8, value)
 		_node.BillingType = value
@@ -689,6 +745,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.FirstTokenMs(); ok {
 		_spec.SetField(usagelog.FieldFirstTokenMs, field.TypeInt, value)
 		_node.FirstTokenMs = &value
+	}
+	if value, ok := _c.mutation.UserAgent(); ok {
+		_spec.SetField(usagelog.FieldUserAgent, field.TypeString, value)
+		_node.UserAgent = &value
+	}
+	if value, ok := _c.mutation.IPAddress(); ok {
+		_spec.SetField(usagelog.FieldIPAddress, field.TypeString, value)
+		_node.IPAddress = &value
 	}
 	if value, ok := _c.mutation.ImageCount(); ok {
 		_spec.SetField(usagelog.FieldImageCount, field.TypeInt, value)
@@ -1169,6 +1233,30 @@ func (u *UsageLogUpsert) AddRateMultiplier(v float64) *UsageLogUpsert {
 	return u
 }
 
+// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
+func (u *UsageLogUpsert) SetAccountRateMultiplier(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldAccountRateMultiplier, v)
+	return u
+}
+
+// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateAccountRateMultiplier() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldAccountRateMultiplier)
+	return u
+}
+
+// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
+func (u *UsageLogUpsert) AddAccountRateMultiplier(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldAccountRateMultiplier, v)
+	return u
+}
+
+// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
+func (u *UsageLogUpsert) ClearAccountRateMultiplier() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldAccountRateMultiplier)
+	return u
+}
+
 // SetBillingType sets the "billing_type" field.
 func (u *UsageLogUpsert) SetBillingType(v int8) *UsageLogUpsert {
 	u.Set(usagelog.FieldBillingType, v)
@@ -1244,6 +1332,42 @@ func (u *UsageLogUpsert) AddFirstTokenMs(v int) *UsageLogUpsert {
 // ClearFirstTokenMs clears the value of the "first_token_ms" field.
 func (u *UsageLogUpsert) ClearFirstTokenMs() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldFirstTokenMs)
+	return u
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *UsageLogUpsert) SetUserAgent(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldUserAgent, v)
+	return u
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateUserAgent() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldUserAgent)
+	return u
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *UsageLogUpsert) ClearUserAgent() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldUserAgent)
+	return u
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *UsageLogUpsert) SetIPAddress(v string) *UsageLogUpsert {
+	u.Set(usagelog.FieldIPAddress, v)
+	return u
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateIPAddress() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldIPAddress)
+	return u
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *UsageLogUpsert) ClearIPAddress() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldIPAddress)
 	return u
 }
 
@@ -1713,6 +1837,34 @@ func (u *UsageLogUpsertOne) UpdateRateMultiplier() *UsageLogUpsertOne {
 	})
 }
 
+// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
+func (u *UsageLogUpsertOne) SetAccountRateMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAccountRateMultiplier(v)
+	})
+}
+
+// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
+func (u *UsageLogUpsertOne) AddAccountRateMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddAccountRateMultiplier(v)
+	})
+}
+
+// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateAccountRateMultiplier() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAccountRateMultiplier()
+	})
+}
+
+// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
+func (u *UsageLogUpsertOne) ClearAccountRateMultiplier() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAccountRateMultiplier()
+	})
+}
+
 // SetBillingType sets the "billing_type" field.
 func (u *UsageLogUpsertOne) SetBillingType(v int8) *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -1801,6 +1953,48 @@ func (u *UsageLogUpsertOne) UpdateFirstTokenMs() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearFirstTokenMs() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *UsageLogUpsertOne) SetUserAgent(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateUserAgent() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *UsageLogUpsertOne) ClearUserAgent() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *UsageLogUpsertOne) SetIPAddress(v string) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateIPAddress() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *UsageLogUpsertOne) ClearIPAddress() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearIPAddress()
 	})
 }
 
@@ -2442,6 +2636,34 @@ func (u *UsageLogUpsertBulk) UpdateRateMultiplier() *UsageLogUpsertBulk {
 	})
 }
 
+// SetAccountRateMultiplier sets the "account_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) SetAccountRateMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetAccountRateMultiplier(v)
+	})
+}
+
+// AddAccountRateMultiplier adds v to the "account_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) AddAccountRateMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddAccountRateMultiplier(v)
+	})
+}
+
+// UpdateAccountRateMultiplier sets the "account_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateAccountRateMultiplier() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateAccountRateMultiplier()
+	})
+}
+
+// ClearAccountRateMultiplier clears the value of the "account_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) ClearAccountRateMultiplier() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearAccountRateMultiplier()
+	})
+}
+
 // SetBillingType sets the "billing_type" field.
 func (u *UsageLogUpsertBulk) SetBillingType(v int8) *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -2530,6 +2752,48 @@ func (u *UsageLogUpsertBulk) UpdateFirstTokenMs() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearFirstTokenMs() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearFirstTokenMs()
+	})
+}
+
+// SetUserAgent sets the "user_agent" field.
+func (u *UsageLogUpsertBulk) SetUserAgent(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetUserAgent(v)
+	})
+}
+
+// UpdateUserAgent sets the "user_agent" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateUserAgent() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateUserAgent()
+	})
+}
+
+// ClearUserAgent clears the value of the "user_agent" field.
+func (u *UsageLogUpsertBulk) ClearUserAgent() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearUserAgent()
+	})
+}
+
+// SetIPAddress sets the "ip_address" field.
+func (u *UsageLogUpsertBulk) SetIPAddress(v string) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetIPAddress(v)
+	})
+}
+
+// UpdateIPAddress sets the "ip_address" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateIPAddress() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateIPAddress()
+	})
+}
+
+// ClearIPAddress clears the value of the "ip_address" field.
+func (u *UsageLogUpsertBulk) ClearIPAddress() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearIPAddress()
 	})
 }
 

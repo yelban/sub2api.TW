@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
@@ -46,18 +47,40 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetNillableImagePrice1k(groupIn.ImagePrice1K).
 		SetNillableImagePrice2k(groupIn.ImagePrice2K).
 		SetNillableImagePrice4k(groupIn.ImagePrice4K).
-		SetDefaultValidityDays(groupIn.DefaultValidityDays)
+		SetDefaultValidityDays(groupIn.DefaultValidityDays).
+		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
+		SetNillableFallbackGroupID(groupIn.FallbackGroupID).
+		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled)
+
+	// 设置模型路由配置
+	if groupIn.ModelRouting != nil {
+		builder = builder.SetModelRouting(groupIn.ModelRouting)
+	}
 
 	created, err := builder.Save(ctx)
 	if err == nil {
 		groupIn.ID = created.ID
 		groupIn.CreatedAt = created.CreatedAt
 		groupIn.UpdatedAt = created.UpdatedAt
+		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
+			log.Printf("[SchedulerOutbox] enqueue group create failed: group=%d err=%v", groupIn.ID, err)
+		}
 	}
 	return translatePersistenceError(err, nil, service.ErrGroupExists)
 }
 
 func (r *groupRepository) GetByID(ctx context.Context, id int64) (*service.Group, error) {
+	out, err := r.GetByIDLite(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	count, _ := r.GetAccountCount(ctx, out.ID)
+	out.AccountCount = count
+	return out, nil
+}
+
+func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.Group, error) {
+	// AccountCount is intentionally not loaded here; use GetByID when needed.
 	m, err := r.client.Group.Query().
 		Where(group.IDEQ(id)).
 		Only(ctx)
@@ -65,14 +88,11 @@ func (r *groupRepository) GetByID(ctx context.Context, id int64) (*service.Group
 		return nil, translatePersistenceError(err, service.ErrGroupNotFound, nil)
 	}
 
-	out := groupEntityToService(m)
-	count, _ := r.GetAccountCount(ctx, out.ID)
-	out.AccountCount = count
-	return out, nil
+	return groupEntityToService(m), nil
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
-	updated, err := r.client.Group.UpdateOneID(groupIn.ID).
+	builder := r.client.Group.UpdateOneID(groupIn.ID).
 		SetName(groupIn.Name).
 		SetDescription(groupIn.Description).
 		SetPlatform(groupIn.Platform).
@@ -87,24 +107,50 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetNillableImagePrice2k(groupIn.ImagePrice2K).
 		SetNillableImagePrice4k(groupIn.ImagePrice4K).
 		SetDefaultValidityDays(groupIn.DefaultValidityDays).
-		Save(ctx)
+		SetClaudeCodeOnly(groupIn.ClaudeCodeOnly).
+		SetModelRoutingEnabled(groupIn.ModelRoutingEnabled)
+
+	// 处理 FallbackGroupID：nil 时清除，否则设置
+	if groupIn.FallbackGroupID != nil {
+		builder = builder.SetFallbackGroupID(*groupIn.FallbackGroupID)
+	} else {
+		builder = builder.ClearFallbackGroupID()
+	}
+
+	// 处理 ModelRouting：nil 时清除，否则设置
+	if groupIn.ModelRouting != nil {
+		builder = builder.SetModelRouting(groupIn.ModelRouting)
+	} else {
+		builder = builder.ClearModelRouting()
+	}
+
+	updated, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrGroupNotFound, service.ErrGroupExists)
 	}
 	groupIn.UpdatedAt = updated.UpdatedAt
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue group update failed: group=%d err=%v", groupIn.ID, err)
+	}
 	return nil
 }
 
 func (r *groupRepository) Delete(ctx context.Context, id int64) error {
 	_, err := r.client.Group.Delete().Where(group.IDEQ(id)).Exec(ctx)
-	return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrGroupNotFound, nil)
+	}
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &id, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue group delete failed: group=%d err=%v", id, err)
+	}
+	return nil
 }
 
 func (r *groupRepository) List(ctx context.Context, params pagination.PaginationParams) ([]service.Group, *pagination.PaginationResult, error) {
-	return r.ListWithFilters(ctx, params, "", "", nil)
+	return r.ListWithFilters(ctx, params, "", "", "", nil)
 }
 
-func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status string, isExclusive *bool) ([]service.Group, *pagination.PaginationResult, error) {
+func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]service.Group, *pagination.PaginationResult, error) {
 	q := r.client.Group.Query()
 
 	if platform != "" {
@@ -112,6 +158,12 @@ func (r *groupRepository) ListWithFilters(ctx context.Context, params pagination
 	}
 	if status != "" {
 		q = q.Where(group.StatusEQ(status))
+	}
+	if search != "" {
+		q = q.Where(group.Or(
+			group.NameContainsFold(search),
+			group.DescriptionContainsFold(search),
+		))
 	}
 	if isExclusive != nil {
 		q = q.Where(group.IsExclusiveEQ(*isExclusive))
@@ -221,6 +273,9 @@ func (r *groupRepository) DeleteAccountGroupsByGroupID(ctx context.Context, grou
 		return 0, err
 	}
 	affected, _ := res.RowsAffected()
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupID, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue group account clear failed: group=%d err=%v", groupID, err)
+	}
 	return affected, nil
 }
 
@@ -327,6 +382,9 @@ func (r *groupRepository) DeleteCascade(ctx context.Context, id int64) ([]int64,
 		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
+	}
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &id, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue group cascade delete failed: group=%d err=%v", id, err)
 	}
 
 	return affectedUserIDs, nil

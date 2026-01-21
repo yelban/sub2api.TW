@@ -193,6 +193,27 @@ func (_u *AccountUpdate) AddPriority(v int) *AccountUpdate {
 	return _u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_u *AccountUpdate) SetRateMultiplier(v float64) *AccountUpdate {
+	_u.mutation.ResetRateMultiplier()
+	_u.mutation.SetRateMultiplier(v)
+	return _u
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRateMultiplier(v *float64) *AccountUpdate {
+	if v != nil {
+		_u.SetRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddRateMultiplier adds value to the "rate_multiplier" field.
+func (_u *AccountUpdate) AddRateMultiplier(v float64) *AccountUpdate {
+	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *AccountUpdate) SetStatus(v string) *AccountUpdate {
 	_u.mutation.SetStatus(v)
@@ -244,6 +265,40 @@ func (_u *AccountUpdate) SetNillableLastUsedAt(v *time.Time) *AccountUpdate {
 // ClearLastUsedAt clears the value of the "last_used_at" field.
 func (_u *AccountUpdate) ClearLastUsedAt() *AccountUpdate {
 	_u.mutation.ClearLastUsedAt()
+	return _u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (_u *AccountUpdate) SetExpiresAt(v time.Time) *AccountUpdate {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableExpiresAt(v *time.Time) *AccountUpdate {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *AccountUpdate) ClearExpiresAt() *AccountUpdate {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (_u *AccountUpdate) SetAutoPauseOnExpired(v bool) *AccountUpdate {
+	_u.mutation.SetAutoPauseOnExpired(v)
+	return _u
+}
+
+// SetNillableAutoPauseOnExpired sets the "auto_pause_on_expired" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableAutoPauseOnExpired(v *bool) *AccountUpdate {
+	if v != nil {
+		_u.SetAutoPauseOnExpired(*v)
+	}
 	return _u
 }
 
@@ -595,6 +650,12 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedPriority(); ok {
 		_spec.AddField(account.FieldPriority, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.RateMultiplier(); ok {
+		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
+		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)
 	}
@@ -609,6 +670,15 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.LastUsedAtCleared() {
 		_spec.ClearField(account.FieldLastUsedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(account.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(account.FieldExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AutoPauseOnExpired(); ok {
+		_spec.SetField(account.FieldAutoPauseOnExpired, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Schedulable(); ok {
 		_spec.SetField(account.FieldSchedulable, field.TypeBool, value)
@@ -962,6 +1032,27 @@ func (_u *AccountUpdateOne) AddPriority(v int) *AccountUpdateOne {
 	return _u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_u *AccountUpdateOne) SetRateMultiplier(v float64) *AccountUpdateOne {
+	_u.mutation.ResetRateMultiplier()
+	_u.mutation.SetRateMultiplier(v)
+	return _u
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRateMultiplier(v *float64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddRateMultiplier adds value to the "rate_multiplier" field.
+func (_u *AccountUpdateOne) AddRateMultiplier(v float64) *AccountUpdateOne {
+	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *AccountUpdateOne) SetStatus(v string) *AccountUpdateOne {
 	_u.mutation.SetStatus(v)
@@ -1013,6 +1104,40 @@ func (_u *AccountUpdateOne) SetNillableLastUsedAt(v *time.Time) *AccountUpdateOn
 // ClearLastUsedAt clears the value of the "last_used_at" field.
 func (_u *AccountUpdateOne) ClearLastUsedAt() *AccountUpdateOne {
 	_u.mutation.ClearLastUsedAt()
+	return _u
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (_u *AccountUpdateOne) SetExpiresAt(v time.Time) *AccountUpdateOne {
+	_u.mutation.SetExpiresAt(v)
+	return _u
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableExpiresAt(v *time.Time) *AccountUpdateOne {
+	if v != nil {
+		_u.SetExpiresAt(*v)
+	}
+	return _u
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (_u *AccountUpdateOne) ClearExpiresAt() *AccountUpdateOne {
+	_u.mutation.ClearExpiresAt()
+	return _u
+}
+
+// SetAutoPauseOnExpired sets the "auto_pause_on_expired" field.
+func (_u *AccountUpdateOne) SetAutoPauseOnExpired(v bool) *AccountUpdateOne {
+	_u.mutation.SetAutoPauseOnExpired(v)
+	return _u
+}
+
+// SetNillableAutoPauseOnExpired sets the "auto_pause_on_expired" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableAutoPauseOnExpired(v *bool) *AccountUpdateOne {
+	if v != nil {
+		_u.SetAutoPauseOnExpired(*v)
+	}
 	return _u
 }
 
@@ -1394,6 +1519,12 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	if value, ok := _u.mutation.AddedPriority(); ok {
 		_spec.AddField(account.FieldPriority, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.RateMultiplier(); ok {
+		_spec.SetField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
+		_spec.AddField(account.FieldRateMultiplier, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(account.FieldStatus, field.TypeString, value)
 	}
@@ -1408,6 +1539,15 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if _u.mutation.LastUsedAtCleared() {
 		_spec.ClearField(account.FieldLastUsedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ExpiresAt(); ok {
+		_spec.SetField(account.FieldExpiresAt, field.TypeTime, value)
+	}
+	if _u.mutation.ExpiresAtCleared() {
+		_spec.ClearField(account.FieldExpiresAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AutoPauseOnExpired(); ok {
+		_spec.SetField(account.FieldAutoPauseOnExpired, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Schedulable(); ok {
 		_spec.SetField(account.FieldSchedulable, field.TypeBool, value)

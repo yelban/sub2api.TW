@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -31,6 +33,8 @@ type SettingRepository interface {
 type SettingService struct {
 	settingRepo SettingRepository
 	cfg         *config.Config
+	onUpdate    func() // Callback when settings are updated (for cache invalidation)
+	version     string // Application version
 }
 
 // NewSettingService 创建系统设置服务实例
@@ -56,6 +60,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	keys := []string{
 		SettingKeyRegistrationEnabled,
 		SettingKeyEmailVerifyEnabled,
+		SettingKeyPromoCodeEnabled,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
 		SettingKeySiteName,
@@ -64,6 +69,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAPIBaseURL,
 		SettingKeyContactInfo,
 		SettingKeyDocURL,
+		SettingKeyHomeContent,
+		SettingKeyHideCcsImportButton,
+		SettingKeyLinuxDoConnectEnabled,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -71,9 +79,17 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		return nil, fmt.Errorf("get public settings: %w", err)
 	}
 
+	linuxDoEnabled := false
+	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
+		linuxDoEnabled = raw == "true"
+	} else {
+		linuxDoEnabled = s.cfg != nil && s.cfg.LinuxDo.Enabled
+	}
+
 	return &PublicSettings{
 		RegistrationEnabled: settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:  settings[SettingKeyEmailVerifyEnabled] == "true",
+		PromoCodeEnabled:    settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		TurnstileEnabled:    settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:    settings[SettingKeyTurnstileSiteKey],
 		SiteName:            s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
@@ -82,6 +98,64 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		APIBaseURL:          settings[SettingKeyAPIBaseURL],
 		ContactInfo:         settings[SettingKeyContactInfo],
 		DocURL:              settings[SettingKeyDocURL],
+		HomeContent:         settings[SettingKeyHomeContent],
+		HideCcsImportButton: settings[SettingKeyHideCcsImportButton] == "true",
+		LinuxDoOAuthEnabled: linuxDoEnabled,
+	}, nil
+}
+
+// SetOnUpdateCallback sets a callback function to be called when settings are updated
+// This is used for cache invalidation (e.g., HTML cache in frontend server)
+func (s *SettingService) SetOnUpdateCallback(callback func()) {
+	s.onUpdate = callback
+}
+
+// SetVersion sets the application version for injection into public settings
+func (s *SettingService) SetVersion(version string) {
+	s.version = version
+}
+
+// GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection
+// This implements the web.PublicSettingsProvider interface
+func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any, error) {
+	settings, err := s.GetPublicSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return a struct that matches the frontend's expected format
+	return &struct {
+		RegistrationEnabled bool   `json:"registration_enabled"`
+		EmailVerifyEnabled  bool   `json:"email_verify_enabled"`
+		PromoCodeEnabled    bool   `json:"promo_code_enabled"`
+		TurnstileEnabled    bool   `json:"turnstile_enabled"`
+		TurnstileSiteKey    string `json:"turnstile_site_key,omitempty"`
+		SiteName            string `json:"site_name"`
+		SiteLogo            string `json:"site_logo,omitempty"`
+		SiteSubtitle        string `json:"site_subtitle,omitempty"`
+		APIBaseURL          string `json:"api_base_url,omitempty"`
+		ContactInfo         string `json:"contact_info,omitempty"`
+		DocURL              string `json:"doc_url,omitempty"`
+		HomeContent         string `json:"home_content,omitempty"`
+		HideCcsImportButton bool   `json:"hide_ccs_import_button"`
+		LinuxDoOAuthEnabled bool   `json:"linuxdo_oauth_enabled"`
+		Version             string `json:"version,omitempty"`
+	}{
+		RegistrationEnabled: settings.RegistrationEnabled,
+		EmailVerifyEnabled:  settings.EmailVerifyEnabled,
+		PromoCodeEnabled:    settings.PromoCodeEnabled,
+		TurnstileEnabled:    settings.TurnstileEnabled,
+		TurnstileSiteKey:    settings.TurnstileSiteKey,
+		SiteName:            settings.SiteName,
+		SiteLogo:            settings.SiteLogo,
+		SiteSubtitle:        settings.SiteSubtitle,
+		APIBaseURL:          settings.APIBaseURL,
+		ContactInfo:         settings.ContactInfo,
+		DocURL:              settings.DocURL,
+		HomeContent:         settings.HomeContent,
+		HideCcsImportButton: settings.HideCcsImportButton,
+		LinuxDoOAuthEnabled: settings.LinuxDoOAuthEnabled,
+		Version:             s.version,
 	}, nil
 }
 
@@ -92,6 +166,7 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	// 注册设置
 	updates[SettingKeyRegistrationEnabled] = strconv.FormatBool(settings.RegistrationEnabled)
 	updates[SettingKeyEmailVerifyEnabled] = strconv.FormatBool(settings.EmailVerifyEnabled)
+	updates[SettingKeyPromoCodeEnabled] = strconv.FormatBool(settings.PromoCodeEnabled)
 
 	// 邮件服务设置（只有非空才更新密码）
 	updates[SettingKeySMTPHost] = settings.SMTPHost
@@ -111,6 +186,14 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey
 	}
 
+	// LinuxDo Connect OAuth 登录
+	updates[SettingKeyLinuxDoConnectEnabled] = strconv.FormatBool(settings.LinuxDoConnectEnabled)
+	updates[SettingKeyLinuxDoConnectClientID] = settings.LinuxDoConnectClientID
+	updates[SettingKeyLinuxDoConnectRedirectURL] = settings.LinuxDoConnectRedirectURL
+	if settings.LinuxDoConnectClientSecret != "" {
+		updates[SettingKeyLinuxDoConnectClientSecret] = settings.LinuxDoConnectClientSecret
+	}
+
 	// OEM设置
 	updates[SettingKeySiteName] = settings.SiteName
 	updates[SettingKeySiteLogo] = settings.SiteLogo
@@ -118,6 +201,8 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
 	updates[SettingKeyContactInfo] = settings.ContactInfo
 	updates[SettingKeyDocURL] = settings.DocURL
+	updates[SettingKeyHomeContent] = settings.HomeContent
+	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
 
 	// 默认配置
 	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
@@ -134,15 +219,27 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)
 	updates[SettingKeyIdentityPatchPrompt] = settings.IdentityPatchPrompt
 
-	return s.settingRepo.SetMultiple(ctx, updates)
+	// Ops monitoring (vNext)
+	updates[SettingKeyOpsMonitoringEnabled] = strconv.FormatBool(settings.OpsMonitoringEnabled)
+	updates[SettingKeyOpsRealtimeMonitoringEnabled] = strconv.FormatBool(settings.OpsRealtimeMonitoringEnabled)
+	updates[SettingKeyOpsQueryModeDefault] = string(ParseOpsQueryMode(settings.OpsQueryModeDefault))
+	if settings.OpsMetricsIntervalSeconds > 0 {
+		updates[SettingKeyOpsMetricsIntervalSeconds] = strconv.Itoa(settings.OpsMetricsIntervalSeconds)
+	}
+
+	err := s.settingRepo.SetMultiple(ctx, updates)
+	if err == nil && s.onUpdate != nil {
+		s.onUpdate() // Invalidate cache after settings update
+	}
+	return err
 }
 
 // IsRegistrationEnabled 检查是否开放注册
 func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEnabled)
 	if err != nil {
-		// 默认开放注册
-		return true
+		// 安全默认：如果设置不存在或查询出错，默认关闭注册
+		return false
 	}
 	return value == "true"
 }
@@ -154,6 +251,15 @@ func (s *SettingService) IsEmailVerifyEnabled(ctx context.Context) bool {
 		return false
 	}
 	return value == "true"
+}
+
+// IsPromoCodeEnabled 检查是否启用优惠码功能
+func (s *SettingService) IsPromoCodeEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyPromoCodeEnabled)
+	if err != nil {
+		return true // 默认启用
+	}
+	return value != "false"
 }
 
 // GetSiteName 获取网站名称
@@ -205,6 +311,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	defaults := map[string]string{
 		SettingKeyRegistrationEnabled: "true",
 		SettingKeyEmailVerifyEnabled:  "false",
+		SettingKeyPromoCodeEnabled:    "true", // 默认启用优惠码功能
 		SettingKeySiteName:            "Sub2API",
 		SettingKeySiteLogo:            "",
 		SettingKeyDefaultConcurrency:  strconv.Itoa(s.cfg.Default.UserConcurrency),
@@ -220,6 +327,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Identity patch defaults
 		SettingKeyEnableIdentityPatch: "true",
 		SettingKeyIdentityPatchPrompt: "",
+
+		// Ops monitoring defaults (vNext)
+		SettingKeyOpsMonitoringEnabled:         "true",
+		SettingKeyOpsRealtimeMonitoringEnabled: "true",
+		SettingKeyOpsQueryModeDefault:          "auto",
+		SettingKeyOpsMetricsIntervalSeconds:    "60",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -230,6 +343,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result := &SystemSettings{
 		RegistrationEnabled:          settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:           settings[SettingKeyEmailVerifyEnabled] == "true",
+		PromoCodeEnabled:             settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		SMTPHost:                     settings[SettingKeySMTPHost],
 		SMTPUsername:                 settings[SettingKeySMTPUsername],
 		SMTPFrom:                     settings[SettingKeySMTPFrom],
@@ -245,6 +359,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		APIBaseURL:                   settings[SettingKeyAPIBaseURL],
 		ContactInfo:                  settings[SettingKeyContactInfo],
 		DocURL:                       settings[SettingKeyDocURL],
+		HomeContent:                  settings[SettingKeyHomeContent],
+		HideCcsImportButton:          settings[SettingKeyHideCcsImportButton] == "true",
 	}
 
 	// 解析整数类型
@@ -271,6 +387,38 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.SMTPPassword = settings[SettingKeySMTPPassword]
 	result.TurnstileSecretKey = settings[SettingKeyTurnstileSecretKey]
 
+	// LinuxDo Connect 设置：
+	// - 兼容 config.yaml/env（避免老部署因为未迁移到数据库设置而被意外关闭）
+	// - 支持在后台“系统设置”中覆盖并持久化（存储于 DB）
+	linuxDoBase := config.LinuxDoConnectConfig{}
+	if s.cfg != nil {
+		linuxDoBase = s.cfg.LinuxDo
+	}
+
+	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
+		result.LinuxDoConnectEnabled = raw == "true"
+	} else {
+		result.LinuxDoConnectEnabled = linuxDoBase.Enabled
+	}
+
+	if v, ok := settings[SettingKeyLinuxDoConnectClientID]; ok && strings.TrimSpace(v) != "" {
+		result.LinuxDoConnectClientID = strings.TrimSpace(v)
+	} else {
+		result.LinuxDoConnectClientID = linuxDoBase.ClientID
+	}
+
+	if v, ok := settings[SettingKeyLinuxDoConnectRedirectURL]; ok && strings.TrimSpace(v) != "" {
+		result.LinuxDoConnectRedirectURL = strings.TrimSpace(v)
+	} else {
+		result.LinuxDoConnectRedirectURL = linuxDoBase.RedirectURL
+	}
+
+	result.LinuxDoConnectClientSecret = strings.TrimSpace(settings[SettingKeyLinuxDoConnectClientSecret])
+	if result.LinuxDoConnectClientSecret == "" {
+		result.LinuxDoConnectClientSecret = strings.TrimSpace(linuxDoBase.ClientSecret)
+	}
+	result.LinuxDoConnectClientSecretConfigured = result.LinuxDoConnectClientSecret != ""
+
 	// Model fallback settings
 	result.EnableModelFallback = settings[SettingKeyEnableModelFallback] == "true"
 	result.FallbackModelAnthropic = s.getStringOrDefault(settings, SettingKeyFallbackModelAnthropic, "claude-3-5-sonnet-20241022")
@@ -286,7 +434,33 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	result.IdentityPatchPrompt = settings[SettingKeyIdentityPatchPrompt]
 
+	// Ops monitoring settings (default: enabled, fail-open)
+	result.OpsMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsMonitoringEnabled])
+	result.OpsRealtimeMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsRealtimeMonitoringEnabled])
+	result.OpsQueryModeDefault = string(ParseOpsQueryMode(settings[SettingKeyOpsQueryModeDefault]))
+	result.OpsMetricsIntervalSeconds = 60
+	if raw := strings.TrimSpace(settings[SettingKeyOpsMetricsIntervalSeconds]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			if v < 60 {
+				v = 60
+			}
+			if v > 3600 {
+				v = 3600
+			}
+			result.OpsMetricsIntervalSeconds = v
+		}
+	}
+
 	return result
+}
+
+func isFalseSettingValue(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "false", "0", "off", "disabled":
+		return true
+	default:
+		return false
+	}
 }
 
 // getStringOrDefault 获取字符串值或默认值
@@ -430,4 +604,178 @@ func (s *SettingService) GetFallbackModel(ctx context.Context, platform string) 
 		return defaultModel
 	}
 	return value
+}
+
+// GetLinuxDoConnectOAuthConfig 返回用于登录的"最终生效" LinuxDo Connect 配置。
+//
+// 优先级：
+// - 若对应系统设置键存在，则覆盖 config.yaml/env 的值
+// - 否则回退到 config.yaml/env 的值
+func (s *SettingService) GetLinuxDoConnectOAuthConfig(ctx context.Context) (config.LinuxDoConnectConfig, error) {
+	if s == nil || s.cfg == nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.ServiceUnavailable("CONFIG_NOT_READY", "config not loaded")
+	}
+
+	effective := s.cfg.LinuxDo
+
+	keys := []string{
+		SettingKeyLinuxDoConnectEnabled,
+		SettingKeyLinuxDoConnectClientID,
+		SettingKeyLinuxDoConnectClientSecret,
+		SettingKeyLinuxDoConnectRedirectURL,
+	}
+	settings, err := s.settingRepo.GetMultiple(ctx, keys)
+	if err != nil {
+		return config.LinuxDoConnectConfig{}, fmt.Errorf("get linuxdo connect settings: %w", err)
+	}
+
+	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok {
+		effective.Enabled = raw == "true"
+	}
+	if v, ok := settings[SettingKeyLinuxDoConnectClientID]; ok && strings.TrimSpace(v) != "" {
+		effective.ClientID = strings.TrimSpace(v)
+	}
+	if v, ok := settings[SettingKeyLinuxDoConnectClientSecret]; ok && strings.TrimSpace(v) != "" {
+		effective.ClientSecret = strings.TrimSpace(v)
+	}
+	if v, ok := settings[SettingKeyLinuxDoConnectRedirectURL]; ok && strings.TrimSpace(v) != "" {
+		effective.RedirectURL = strings.TrimSpace(v)
+	}
+
+	if !effective.Enabled {
+		return config.LinuxDoConnectConfig{}, infraerrors.NotFound("OAUTH_DISABLED", "oauth login is disabled")
+	}
+
+	// 基础健壮性校验（避免把用户重定向到一个必然失败或不安全的 OAuth 流程里）。
+	if strings.TrimSpace(effective.ClientID) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth client id not configured")
+	}
+	if strings.TrimSpace(effective.AuthorizeURL) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth authorize url not configured")
+	}
+	if strings.TrimSpace(effective.TokenURL) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth token url not configured")
+	}
+	if strings.TrimSpace(effective.UserInfoURL) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth userinfo url not configured")
+	}
+	if strings.TrimSpace(effective.RedirectURL) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth redirect url not configured")
+	}
+	if strings.TrimSpace(effective.FrontendRedirectURL) == "" {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth frontend redirect url not configured")
+	}
+
+	if err := config.ValidateAbsoluteHTTPURL(effective.AuthorizeURL); err != nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth authorize url invalid")
+	}
+	if err := config.ValidateAbsoluteHTTPURL(effective.TokenURL); err != nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth token url invalid")
+	}
+	if err := config.ValidateAbsoluteHTTPURL(effective.UserInfoURL); err != nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth userinfo url invalid")
+	}
+	if err := config.ValidateAbsoluteHTTPURL(effective.RedirectURL); err != nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth redirect url invalid")
+	}
+	if err := config.ValidateFrontendRedirectURL(effective.FrontendRedirectURL); err != nil {
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth frontend redirect url invalid")
+	}
+
+	method := strings.ToLower(strings.TrimSpace(effective.TokenAuthMethod))
+	switch method {
+	case "", "client_secret_post", "client_secret_basic":
+		if strings.TrimSpace(effective.ClientSecret) == "" {
+			return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth client secret not configured")
+		}
+	case "none":
+		if !effective.UsePKCE {
+			return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth pkce must be enabled when token_auth_method=none")
+		}
+	default:
+		return config.LinuxDoConnectConfig{}, infraerrors.InternalServer("OAUTH_CONFIG_INVALID", "oauth token_auth_method invalid")
+	}
+
+	return effective, nil
+}
+
+// GetStreamTimeoutSettings 获取流超时处理配置
+func (s *SettingService) GetStreamTimeoutSettings(ctx context.Context) (*StreamTimeoutSettings, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyStreamTimeoutSettings)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return DefaultStreamTimeoutSettings(), nil
+		}
+		return nil, fmt.Errorf("get stream timeout settings: %w", err)
+	}
+	if value == "" {
+		return DefaultStreamTimeoutSettings(), nil
+	}
+
+	var settings StreamTimeoutSettings
+	if err := json.Unmarshal([]byte(value), &settings); err != nil {
+		return DefaultStreamTimeoutSettings(), nil
+	}
+
+	// 验证并修正配置值
+	if settings.TempUnschedMinutes < 1 {
+		settings.TempUnschedMinutes = 1
+	}
+	if settings.TempUnschedMinutes > 60 {
+		settings.TempUnschedMinutes = 60
+	}
+	if settings.ThresholdCount < 1 {
+		settings.ThresholdCount = 1
+	}
+	if settings.ThresholdCount > 10 {
+		settings.ThresholdCount = 10
+	}
+	if settings.ThresholdWindowMinutes < 1 {
+		settings.ThresholdWindowMinutes = 1
+	}
+	if settings.ThresholdWindowMinutes > 60 {
+		settings.ThresholdWindowMinutes = 60
+	}
+
+	// 验证 action
+	switch settings.Action {
+	case StreamTimeoutActionTempUnsched, StreamTimeoutActionError, StreamTimeoutActionNone:
+		// valid
+	default:
+		settings.Action = StreamTimeoutActionTempUnsched
+	}
+
+	return &settings, nil
+}
+
+// SetStreamTimeoutSettings 设置流超时处理配置
+func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings *StreamTimeoutSettings) error {
+	if settings == nil {
+		return fmt.Errorf("settings cannot be nil")
+	}
+
+	// 验证配置值
+	if settings.TempUnschedMinutes < 1 || settings.TempUnschedMinutes > 60 {
+		return fmt.Errorf("temp_unsched_minutes must be between 1-60")
+	}
+	if settings.ThresholdCount < 1 || settings.ThresholdCount > 10 {
+		return fmt.Errorf("threshold_count must be between 1-10")
+	}
+	if settings.ThresholdWindowMinutes < 1 || settings.ThresholdWindowMinutes > 60 {
+		return fmt.Errorf("threshold_window_minutes must be between 1-60")
+	}
+
+	switch settings.Action {
+	case StreamTimeoutActionTempUnsched, StreamTimeoutActionError, StreamTimeoutActionNone:
+		// valid
+	default:
+		return fmt.Errorf("invalid action: %s", settings.Action)
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal stream timeout settings: %w", err)
+	}
+
+	return s.settingRepo.Set(ctx, SettingKeyStreamTimeoutSettings, string(data))
 }

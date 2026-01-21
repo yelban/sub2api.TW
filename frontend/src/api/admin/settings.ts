@@ -12,6 +12,7 @@ export interface SystemSettings {
   // Registration settings
   registration_enabled: boolean
   email_verify_enabled: boolean
+  promo_code_enabled: boolean
   // Default settings
   default_balance: number
   default_concurrency: number
@@ -22,6 +23,8 @@ export interface SystemSettings {
   api_base_url: string
   contact_info: string
   doc_url: string
+  home_content: string
+  hide_ccs_import_button: boolean
   // SMTP settings
   smtp_host: string
   smtp_port: number
@@ -34,14 +37,35 @@ export interface SystemSettings {
   turnstile_enabled: boolean
   turnstile_site_key: string
   turnstile_secret_key_configured: boolean
+
+  // LinuxDo Connect OAuth settings
+  linuxdo_connect_enabled: boolean
+  linuxdo_connect_client_id: string
+  linuxdo_connect_client_secret_configured: boolean
+  linuxdo_connect_redirect_url: string
+
+  // Model fallback configuration
+  enable_model_fallback: boolean
+  fallback_model_anthropic: string
+  fallback_model_openai: string
+  fallback_model_gemini: string
+  fallback_model_antigravity: string
+
   // Identity patch configuration (Claude -> Gemini)
   enable_identity_patch: boolean
   identity_patch_prompt: string
+
+  // Ops Monitoring (vNext)
+  ops_monitoring_enabled: boolean
+  ops_realtime_monitoring_enabled: boolean
+  ops_query_mode_default: 'auto' | 'raw' | 'preagg' | string
+  ops_metrics_interval_seconds: number
 }
 
 export interface UpdateSettingsRequest {
   registration_enabled?: boolean
   email_verify_enabled?: boolean
+  promo_code_enabled?: boolean
   default_balance?: number
   default_concurrency?: number
   site_name?: string
@@ -50,6 +74,8 @@ export interface UpdateSettingsRequest {
   api_base_url?: string
   contact_info?: string
   doc_url?: string
+  home_content?: string
+  hide_ccs_import_button?: boolean
   smtp_host?: string
   smtp_port?: number
   smtp_username?: string
@@ -60,8 +86,21 @@ export interface UpdateSettingsRequest {
   turnstile_enabled?: boolean
   turnstile_site_key?: string
   turnstile_secret_key?: string
+  linuxdo_connect_enabled?: boolean
+  linuxdo_connect_client_id?: string
+  linuxdo_connect_client_secret?: string
+  linuxdo_connect_redirect_url?: string
+  enable_model_fallback?: boolean
+  fallback_model_anthropic?: string
+  fallback_model_openai?: string
+  fallback_model_gemini?: string
+  fallback_model_antigravity?: string
   enable_identity_patch?: boolean
   identity_patch_prompt?: string
+  ops_monitoring_enabled?: boolean
+  ops_realtime_monitoring_enabled?: boolean
+  ops_query_mode_default?: 'auto' | 'raw' | 'preagg' | string
+  ops_metrics_interval_seconds?: number
 }
 
 /**
@@ -166,6 +205,41 @@ export async function deleteAdminApiKey(): Promise<{ message: string }> {
   return data
 }
 
+/**
+ * Stream timeout settings interface
+ */
+export interface StreamTimeoutSettings {
+  enabled: boolean
+  action: 'temp_unsched' | 'error' | 'none'
+  temp_unsched_minutes: number
+  threshold_count: number
+  threshold_window_minutes: number
+}
+
+/**
+ * Get stream timeout settings
+ * @returns Stream timeout settings
+ */
+export async function getStreamTimeoutSettings(): Promise<StreamTimeoutSettings> {
+  const { data } = await apiClient.get<StreamTimeoutSettings>('/admin/settings/stream-timeout')
+  return data
+}
+
+/**
+ * Update stream timeout settings
+ * @param settings - Stream timeout settings to update
+ * @returns Updated settings
+ */
+export async function updateStreamTimeoutSettings(
+  settings: StreamTimeoutSettings
+): Promise<StreamTimeoutSettings> {
+  const { data } = await apiClient.put<StreamTimeoutSettings>(
+    '/admin/settings/stream-timeout',
+    settings
+  )
+  return data
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -173,7 +247,9 @@ export const settingsAPI = {
   sendTestEmail,
   getAdminApiKey,
   regenerateAdminApiKey,
-  deleteAdminApiKey
+  deleteAdminApiKey,
+  getStreamTimeoutSettings,
+  updateStreamTimeoutSettings
 }
 
 export default settingsAPI

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -34,9 +35,14 @@ type CreateGroupRequest struct {
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
-	ImagePrice1K *float64 `json:"image_price_1k"`
-	ImagePrice2K *float64 `json:"image_price_2k"`
-	ImagePrice4K *float64 `json:"image_price_4k"`
+	ImagePrice1K    *float64 `json:"image_price_1k"`
+	ImagePrice2K    *float64 `json:"image_price_2k"`
+	ImagePrice4K    *float64 `json:"image_price_4k"`
+	ClaudeCodeOnly  bool     `json:"claude_code_only"`
+	FallbackGroupID *int64   `json:"fallback_group_id"`
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64 `json:"model_routing"`
+	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
 }
 
 // UpdateGroupRequest represents update group request
@@ -52,9 +58,14 @@ type UpdateGroupRequest struct {
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
-	ImagePrice1K *float64 `json:"image_price_1k"`
-	ImagePrice2K *float64 `json:"image_price_2k"`
-	ImagePrice4K *float64 `json:"image_price_4k"`
+	ImagePrice1K    *float64 `json:"image_price_1k"`
+	ImagePrice2K    *float64 `json:"image_price_2k"`
+	ImagePrice4K    *float64 `json:"image_price_4k"`
+	ClaudeCodeOnly  *bool    `json:"claude_code_only"`
+	FallbackGroupID *int64   `json:"fallback_group_id"`
+	// 模型路由配置（仅 anthropic 平台使用）
+	ModelRouting        map[string][]int64 `json:"model_routing"`
+	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
 }
 
 // List handles listing all groups with pagination
@@ -63,6 +74,12 @@ func (h *GroupHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 	platform := c.Query("platform")
 	status := c.Query("status")
+	search := c.Query("search")
+	// 标准化和验证 search 参数
+	search = strings.TrimSpace(search)
+	if len(search) > 100 {
+		search = search[:100]
+	}
 	isExclusiveStr := c.Query("is_exclusive")
 
 	var isExclusive *bool
@@ -71,15 +88,15 @@ func (h *GroupHandler) List(c *gin.Context) {
 		isExclusive = &val
 	}
 
-	groups, total, err := h.adminService.ListGroups(c.Request.Context(), page, pageSize, platform, status, isExclusive)
+	groups, total, err := h.adminService.ListGroups(c.Request.Context(), page, pageSize, platform, status, search, isExclusive)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	outGroups := make([]dto.Group, 0, len(groups))
+	outGroups := make([]dto.AdminGroup, 0, len(groups))
 	for i := range groups {
-		outGroups = append(outGroups, *dto.GroupFromService(&groups[i]))
+		outGroups = append(outGroups, *dto.GroupFromServiceAdmin(&groups[i]))
 	}
 	response.Paginated(c, outGroups, total, page, pageSize)
 }
@@ -103,9 +120,9 @@ func (h *GroupHandler) GetAll(c *gin.Context) {
 		return
 	}
 
-	outGroups := make([]dto.Group, 0, len(groups))
+	outGroups := make([]dto.AdminGroup, 0, len(groups))
 	for i := range groups {
-		outGroups = append(outGroups, *dto.GroupFromService(&groups[i]))
+		outGroups = append(outGroups, *dto.GroupFromServiceAdmin(&groups[i]))
 	}
 	response.Success(c, outGroups)
 }
@@ -125,7 +142,7 @@ func (h *GroupHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Create handles creating a new group
@@ -138,25 +155,29 @@ func (h *GroupHandler) Create(c *gin.Context) {
 	}
 
 	group, err := h.adminService.CreateGroup(c.Request.Context(), &service.CreateGroupInput{
-		Name:             req.Name,
-		Description:      req.Description,
-		Platform:         req.Platform,
-		RateMultiplier:   req.RateMultiplier,
-		IsExclusive:      req.IsExclusive,
-		SubscriptionType: req.SubscriptionType,
-		DailyLimitUSD:    req.DailyLimitUSD,
-		WeeklyLimitUSD:   req.WeeklyLimitUSD,
-		MonthlyLimitUSD:  req.MonthlyLimitUSD,
-		ImagePrice1K:     req.ImagePrice1K,
-		ImagePrice2K:     req.ImagePrice2K,
-		ImagePrice4K:     req.ImagePrice4K,
+		Name:                req.Name,
+		Description:         req.Description,
+		Platform:            req.Platform,
+		RateMultiplier:      req.RateMultiplier,
+		IsExclusive:         req.IsExclusive,
+		SubscriptionType:    req.SubscriptionType,
+		DailyLimitUSD:       req.DailyLimitUSD,
+		WeeklyLimitUSD:      req.WeeklyLimitUSD,
+		MonthlyLimitUSD:     req.MonthlyLimitUSD,
+		ImagePrice1K:        req.ImagePrice1K,
+		ImagePrice2K:        req.ImagePrice2K,
+		ImagePrice4K:        req.ImagePrice4K,
+		ClaudeCodeOnly:      req.ClaudeCodeOnly,
+		FallbackGroupID:     req.FallbackGroupID,
+		ModelRouting:        req.ModelRouting,
+		ModelRoutingEnabled: req.ModelRoutingEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Update handles updating a group
@@ -175,26 +196,30 @@ func (h *GroupHandler) Update(c *gin.Context) {
 	}
 
 	group, err := h.adminService.UpdateGroup(c.Request.Context(), groupID, &service.UpdateGroupInput{
-		Name:             req.Name,
-		Description:      req.Description,
-		Platform:         req.Platform,
-		RateMultiplier:   req.RateMultiplier,
-		IsExclusive:      req.IsExclusive,
-		Status:           req.Status,
-		SubscriptionType: req.SubscriptionType,
-		DailyLimitUSD:    req.DailyLimitUSD,
-		WeeklyLimitUSD:   req.WeeklyLimitUSD,
-		MonthlyLimitUSD:  req.MonthlyLimitUSD,
-		ImagePrice1K:     req.ImagePrice1K,
-		ImagePrice2K:     req.ImagePrice2K,
-		ImagePrice4K:     req.ImagePrice4K,
+		Name:                req.Name,
+		Description:         req.Description,
+		Platform:            req.Platform,
+		RateMultiplier:      req.RateMultiplier,
+		IsExclusive:         req.IsExclusive,
+		Status:              req.Status,
+		SubscriptionType:    req.SubscriptionType,
+		DailyLimitUSD:       req.DailyLimitUSD,
+		WeeklyLimitUSD:      req.WeeklyLimitUSD,
+		MonthlyLimitUSD:     req.MonthlyLimitUSD,
+		ImagePrice1K:        req.ImagePrice1K,
+		ImagePrice2K:        req.ImagePrice2K,
+		ImagePrice4K:        req.ImagePrice4K,
+		ClaudeCodeOnly:      req.ClaudeCodeOnly,
+		FallbackGroupID:     req.FallbackGroupID,
+		ModelRouting:        req.ModelRouting,
+		ModelRoutingEnabled: req.ModelRoutingEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	response.Success(c, dto.GroupFromService(group))
+	response.Success(c, dto.GroupFromServiceAdmin(group))
 }
 
 // Delete handles deleting a group

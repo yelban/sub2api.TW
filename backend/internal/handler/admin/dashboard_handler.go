@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -13,15 +14,17 @@ import (
 
 // DashboardHandler handles admin dashboard statistics
 type DashboardHandler struct {
-	dashboardService *service.DashboardService
-	startTime        time.Time // Server start time for uptime calculation
+	dashboardService   *service.DashboardService
+	aggregationService *service.DashboardAggregationService
+	startTime          time.Time // Server start time for uptime calculation
 }
 
 // NewDashboardHandler creates a new admin dashboard handler
-func NewDashboardHandler(dashboardService *service.DashboardService) *DashboardHandler {
+func NewDashboardHandler(dashboardService *service.DashboardService, aggregationService *service.DashboardAggregationService) *DashboardHandler {
 	return &DashboardHandler{
-		dashboardService: dashboardService,
-		startTime:        time.Now(),
+		dashboardService:   dashboardService,
+		aggregationService: aggregationService,
+		startTime:          time.Now(),
 	}
 }
 
@@ -114,6 +117,58 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 		// 性能指标
 		"rpm": stats.Rpm,
 		"tpm": stats.Tpm,
+
+		// 预聚合新鲜度
+		"hourly_active_users": stats.HourlyActiveUsers,
+		"stats_updated_at":    stats.StatsUpdatedAt,
+		"stats_stale":         stats.StatsStale,
+	})
+}
+
+type DashboardAggregationBackfillRequest struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// BackfillAggregation handles triggering aggregation backfill
+// POST /api/v1/admin/dashboard/aggregation/backfill
+func (h *DashboardHandler) BackfillAggregation(c *gin.Context) {
+	if h.aggregationService == nil {
+		response.InternalError(c, "Aggregation service not available")
+		return
+	}
+
+	var req DashboardAggregationBackfillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request body")
+		return
+	}
+	start, err := time.Parse(time.RFC3339, req.Start)
+	if err != nil {
+		response.BadRequest(c, "Invalid start time")
+		return
+	}
+	end, err := time.Parse(time.RFC3339, req.End)
+	if err != nil {
+		response.BadRequest(c, "Invalid end time")
+		return
+	}
+
+	if err := h.aggregationService.TriggerBackfill(start, end); err != nil {
+		if errors.Is(err, service.ErrDashboardBackfillDisabled) {
+			response.Forbidden(c, "Backfill is disabled")
+			return
+		}
+		if errors.Is(err, service.ErrDashboardBackfillTooLarge) {
+			response.BadRequest(c, "Backfill range too large")
+			return
+		}
+		response.InternalError(c, "Failed to trigger backfill")
+		return
+	}
+
+	response.Success(c, gin.H{
+		"status": "accepted",
 	})
 }
 
@@ -131,13 +186,17 @@ func (h *DashboardHandler) GetRealtimeMetrics(c *gin.Context) {
 
 // GetUsageTrend handles getting usage trend data
 // GET /api/v1/admin/dashboard/trend
-// Query params: start_date, end_date (YYYY-MM-DD), granularity (day/hour), user_id, api_key_id
+// Query params: start_date, end_date (YYYY-MM-DD), granularity (day/hour), user_id, api_key_id, model, account_id, group_id, stream, billing_type
 func (h *DashboardHandler) GetUsageTrend(c *gin.Context) {
 	startTime, endTime := parseTimeRange(c)
 	granularity := c.DefaultQuery("granularity", "day")
 
 	// Parse optional filter params
-	var userID, apiKeyID int64
+	var userID, apiKeyID, accountID, groupID int64
+	var model string
+	var stream *bool
+	var billingType *int8
+
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
 		if id, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
 			userID = id
@@ -148,8 +207,35 @@ func (h *DashboardHandler) GetUsageTrend(c *gin.Context) {
 			apiKeyID = id
 		}
 	}
+	if accountIDStr := c.Query("account_id"); accountIDStr != "" {
+		if id, err := strconv.ParseInt(accountIDStr, 10, 64); err == nil {
+			accountID = id
+		}
+	}
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		if id, err := strconv.ParseInt(groupIDStr, 10, 64); err == nil {
+			groupID = id
+		}
+	}
+	if modelStr := c.Query("model"); modelStr != "" {
+		model = modelStr
+	}
+	if streamStr := c.Query("stream"); streamStr != "" {
+		if streamVal, err := strconv.ParseBool(streamStr); err == nil {
+			stream = &streamVal
+		}
+	}
+	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
+		if v, err := strconv.ParseInt(billingTypeStr, 10, 8); err == nil {
+			bt := int8(v)
+			billingType = &bt
+		} else {
+			response.BadRequest(c, "Invalid billing_type")
+			return
+		}
+	}
 
-	trend, err := h.dashboardService.GetUsageTrendWithFilters(c.Request.Context(), startTime, endTime, granularity, userID, apiKeyID)
+	trend, err := h.dashboardService.GetUsageTrendWithFilters(c.Request.Context(), startTime, endTime, granularity, userID, apiKeyID, accountID, groupID, model, stream, billingType)
 	if err != nil {
 		response.Error(c, 500, "Failed to get usage trend")
 		return
@@ -165,12 +251,15 @@ func (h *DashboardHandler) GetUsageTrend(c *gin.Context) {
 
 // GetModelStats handles getting model usage statistics
 // GET /api/v1/admin/dashboard/models
-// Query params: start_date, end_date (YYYY-MM-DD), user_id, api_key_id
+// Query params: start_date, end_date (YYYY-MM-DD), user_id, api_key_id, account_id, group_id, stream, billing_type
 func (h *DashboardHandler) GetModelStats(c *gin.Context) {
 	startTime, endTime := parseTimeRange(c)
 
 	// Parse optional filter params
-	var userID, apiKeyID int64
+	var userID, apiKeyID, accountID, groupID int64
+	var stream *bool
+	var billingType *int8
+
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
 		if id, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
 			userID = id
@@ -181,8 +270,32 @@ func (h *DashboardHandler) GetModelStats(c *gin.Context) {
 			apiKeyID = id
 		}
 	}
+	if accountIDStr := c.Query("account_id"); accountIDStr != "" {
+		if id, err := strconv.ParseInt(accountIDStr, 10, 64); err == nil {
+			accountID = id
+		}
+	}
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		if id, err := strconv.ParseInt(groupIDStr, 10, 64); err == nil {
+			groupID = id
+		}
+	}
+	if streamStr := c.Query("stream"); streamStr != "" {
+		if streamVal, err := strconv.ParseBool(streamStr); err == nil {
+			stream = &streamVal
+		}
+	}
+	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
+		if v, err := strconv.ParseInt(billingTypeStr, 10, 8); err == nil {
+			bt := int8(v)
+			billingType = &bt
+		} else {
+			response.BadRequest(c, "Invalid billing_type")
+			return
+		}
+	}
 
-	stats, err := h.dashboardService.GetModelStatsWithFilters(c.Request.Context(), startTime, endTime, userID, apiKeyID)
+	stats, err := h.dashboardService.GetModelStatsWithFilters(c.Request.Context(), startTime, endTime, userID, apiKeyID, accountID, groupID, stream, billingType)
 	if err != nil {
 		response.Error(c, 500, "Failed to get model statistics")
 		return

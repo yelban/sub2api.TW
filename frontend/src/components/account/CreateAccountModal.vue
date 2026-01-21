@@ -166,7 +166,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'oauth-based'
                   ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -196,7 +196,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -232,7 +232,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'oauth-based'
                   ? 'bg-green-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -258,7 +258,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -302,7 +302,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'oauth-based'
                   ? 'bg-blue-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -332,7 +332,7 @@
           >
             <div
               :class="[
-                'flex h-8 w-8 items-center justify-center rounded-lg',
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -397,7 +397,7 @@
             >
               <div
                 :class="[
-                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                   geminiOAuthType === 'google_one'
                     ? 'bg-purple-500 text-white'
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -440,7 +440,7 @@
             >
               <div
                 :class="[
-                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                   geminiOAuthType === 'code_assist'
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -518,7 +518,7 @@
             >
               <div
                 :class="[
-                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                   geminiOAuthType === 'ai_studio'
                     ? 'bg-amber-500 text-white'
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
@@ -621,7 +621,7 @@
           <div
             class="flex items-center gap-3 rounded-lg border-2 border-purple-500 bg-purple-50 p-3 dark:bg-purple-900/20"
           >
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500 text-white">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500 text-white">
               <Icon name="key" size="sm" />
             </div>
             <div>
@@ -1012,7 +1012,7 @@
       </div>
 
       <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
@@ -1191,12 +1191,196 @@
         </div>
       </div>
 
+      <!-- Quota Control Section (Anthropic OAuth/SetupToken only) -->
+      <div
+        v-if="form.platform === 'anthropic' && accountCategory === 'oauth-based'"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+      >
+        <div class="mb-3">
+          <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.quotaControl.hint') }}
+          </p>
+        </div>
+
+        <!-- Window Cost Limit -->
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.quotaControl.windowCost.hint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="windowCostEnabled = !windowCostEnabled"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                windowCostEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  windowCostEnabled ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+
+          <div v-if="windowCostEnabled" class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.limit') }}</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <input
+                  v-model.number="windowCostLimit"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input pl-7"
+                  :placeholder="t('admin.accounts.quotaControl.windowCost.limitPlaceholder')"
+                />
+              </div>
+              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.limitHint') }}</p>
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.stickyReserve') }}</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <input
+                  v-model.number="windowCostStickyReserve"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="input pl-7"
+                  :placeholder="t('admin.accounts.quotaControl.windowCost.stickyReservePlaceholder')"
+                />
+              </div>
+              <p class="input-hint">{{ t('admin.accounts.quotaControl.windowCost.stickyReserveHint') }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session Limit -->
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+          <div class="mb-3 flex items-center justify-between">
+            <div>
+              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="sessionLimitEnabled = !sessionLimitEnabled"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                sessionLimitEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  sessionLimitEnabled ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+
+          <div v-if="sessionLimitEnabled" class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessions') }}</label>
+              <input
+                v-model.number="maxSessions"
+                type="number"
+                min="1"
+                step="1"
+                class="input"
+                :placeholder="t('admin.accounts.quotaControl.sessionLimit.maxSessionsPlaceholder')"
+              />
+              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.maxSessionsHint') }}</p>
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeout') }}</label>
+              <div class="relative">
+                <input
+                  v-model.number="sessionIdleTimeout"
+                  type="number"
+                  min="1"
+                  step="1"
+                  class="input pr-12"
+                  :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{{ t('common.minutes') }}</span>
+              </div>
+              <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint') }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TLS Fingerprint -->
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.quotaControl.tlsFingerprint.hint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="tlsFingerprintEnabled = !tlsFingerprintEnabled"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                tlsFingerprintEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  tlsFingerprintEnabled ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+        </div>
+
+        <!-- Session ID Masking -->
+        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.quotaControl.sessionIdMasking.hint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="sessionIdMaskingEnabled = !sessionIdMaskingEnabled"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                sessionIdMaskingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  sessionIdMaskingEnabled ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label class="input-label">{{ t('admin.accounts.proxy') }}</label>
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
           <input v-model.number="form.concurrency" type="number" min="1" class="input" />
@@ -1212,47 +1396,87 @@
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
+        <div>
+          <label class="input-label">{{ t('admin.accounts.billingRateMultiplier') }}</label>
+          <input v-model.number="form.rate_multiplier" type="number" min="0" step="0.001" class="input" />
+          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
+        </div>
+      </div>
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
+        <input v-model="expiresAtInput" type="datetime-local" class="input" />
+        <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
       </div>
 
-      <!-- Mixed Scheduling (only for antigravity accounts) -->
-      <div v-if="form.platform === 'antigravity'" class="flex items-center gap-2">
-        <label class="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            v-model="mixedScheduling"
-            class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
-          />
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {{ t('admin.accounts.mixedScheduling') }}
-          </span>
-        </label>
-        <div class="group relative">
-          <span
-            class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
-          >
-            ?
-          </span>
-          <!-- Tooltip（向下显示避免被弹窗裁剪） -->
-          <div
-            class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
-          >
-            {{ t('admin.accounts.mixedSchedulingTooltip') }}
-            <div
-              class="absolute bottom-full left-3 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"
-            ></div>
+      <div>
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{
+              t('admin.accounts.autoPauseOnExpired')
+            }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.autoPauseOnExpiredDesc') }}
+            </p>
           </div>
+          <button
+            type="button"
+            @click="autoPauseOnExpired = !autoPauseOnExpired"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              autoPauseOnExpired ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                autoPauseOnExpired ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
         </div>
       </div>
 
-      <!-- Group Selection - 仅标准模式显示 -->
-      <GroupSelector
-        v-if="!authStore.isSimpleMode"
-        v-model="form.group_ids"
-        :groups="groups"
-        :platform="form.platform"
-        :mixed-scheduling="mixedScheduling"
-        data-tour="account-form-groups"
-      />
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <!-- Mixed Scheduling (only for antigravity accounts) -->
+        <div v-if="form.platform === 'antigravity'" class="flex items-center gap-2">
+          <label class="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              v-model="mixedScheduling"
+              class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
+            />
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.accounts.mixedScheduling') }}
+            </span>
+          </label>
+          <div class="group relative">
+            <span
+              class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
+            >
+              ?
+            </span>
+            <!-- Tooltip（向下显示避免被弹窗裁剪） -->
+            <div
+              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+            >
+              {{ t('admin.accounts.mixedSchedulingTooltip') }}
+              <div
+                class="absolute bottom-full left-3 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group Selection - 仅标准模式显示 -->
+        <GroupSelector
+          v-if="!authStore.isSimpleMode"
+          v-model="form.group_ids"
+          :groups="groups"
+          :platform="form.platform"
+          :mixed-scheduling="mixedScheduling"
+          data-tour="account-form-groups"
+        />
+      </div>
 
     </form>
 
@@ -1592,12 +1816,13 @@ import {
 import { useOpenAIOAuth } from '@/composables/useOpenAIOAuth'
 import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
-import type { Proxy, Group, AccountPlatform, AccountType } from '@/types'
+import type { Proxy, AdminGroup, AccountPlatform, AccountType } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import OAuthAuthorizationFlow from './OAuthAuthorizationFlow.vue'
 
 // Type for exposed OAuthAuthorizationFlow component
@@ -1637,7 +1862,7 @@ const apiKeyHint = computed(() => {
 interface Props {
   show: boolean
   proxies: Proxy[]
-  groups: Group[]
+  groups: AdminGroup[]
 }
 
 const props = defineProps<Props>()
@@ -1713,6 +1938,7 @@ const customErrorCodesEnabled = ref(false)
 const selectedErrorCodes = ref<number[]>([])
 const customErrorCodeInput = ref<number | null>(null)
 const interceptWarmupRequests = ref(false)
+const autoPauseOnExpired = ref(true)
 const mixedScheduling = ref(false) // For antigravity accounts: enable mixed scheduling
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
@@ -1720,6 +1946,16 @@ const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('google_
 const geminiAIStudioOAuthEnabled = ref(false)
 const showAdvancedOAuth = ref(false)
 const showGeminiHelpDialog = ref(false)
+
+// Quota control state (Anthropic OAuth/SetupToken only)
+const windowCostEnabled = ref(false)
+const windowCostLimit = ref<number | null>(null)
+const windowCostStickyReserve = ref<number | null>(null)
+const sessionLimitEnabled = ref(false)
+const maxSessions = ref<number | null>(null)
+const sessionIdleTimeout = ref<number | null>(null)
+const tlsFingerprintEnabled = ref(false)
+const sessionIdMaskingEnabled = ref(false)
 
 // Gemini tier selection (used as fallback when auto-detection is unavailable/fails)
 const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
@@ -1795,7 +2031,9 @@ const form = reactive({
   proxy_id: null as number | null,
   concurrency: 10,
   priority: 1,
-  group_ids: [] as number[]
+  rate_multiplier: 1,
+  group_ids: [] as number[],
+  expires_at: null as number | null
 })
 
 // Helper to check if current type needs OAuth flow
@@ -1803,6 +2041,13 @@ const isOAuthFlow = computed(() => accountCategory.value === 'oauth-based')
 
 const isManualInputMethod = computed(() => {
   return oauthFlowRef.value?.inputMethod === 'manual'
+})
+
+const expiresAtInput = computed({
+  get: () => formatDateTimeLocal(form.expires_at),
+  set: (value: string) => {
+    form.expires_at = parseDateTimeLocal(value)
+  }
 })
 
 const canExchangeCode = computed(() => {
@@ -1931,6 +2176,16 @@ const addPresetMapping = (from: string, to: string) => {
 const toggleErrorCode = (code: number) => {
   const index = selectedErrorCodes.value.indexOf(code)
   if (index === -1) {
+    // Adding code - check for 429/529 warning
+    if (code === 429) {
+      if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
+        return
+      }
+    } else if (code === 529) {
+      if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
+        return
+      }
+    }
     selectedErrorCodes.value.push(code)
   } else {
     selectedErrorCodes.value.splice(index, 1)
@@ -1947,6 +2202,16 @@ const addCustomErrorCode = () => {
   if (selectedErrorCodes.value.includes(code)) {
     appStore.showInfo(t('admin.accounts.errorCodeExists'))
     return
+  }
+  // Check for 429/529 warning
+  if (code === 429) {
+    if (!confirm(t('admin.accounts.customErrorCodes429Warning'))) {
+      return
+    }
+  } else if (code === 529) {
+    if (!confirm(t('admin.accounts.customErrorCodes529Warning'))) {
+      return
+    }
   }
   selectedErrorCodes.value.push(code)
   customErrorCodeInput.value = null
@@ -2054,7 +2319,9 @@ const resetForm = () => {
   form.proxy_id = null
   form.concurrency = 10
   form.priority = 1
+  form.rate_multiplier = 1
   form.group_ids = []
+  form.expires_at = null
   accountCategory.value = 'oauth-based'
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
@@ -2066,6 +2333,16 @@ const resetForm = () => {
   selectedErrorCodes.value = []
   customErrorCodeInput.value = null
   interceptWarmupRequests.value = false
+  autoPauseOnExpired.value = true
+  // Reset quota control state
+  windowCostEnabled.value = false
+  windowCostLimit.value = null
+  windowCostStickyReserve.value = null
+  sessionLimitEnabled.value = false
+  maxSessions.value = null
+  sessionIdleTimeout.value = null
+  tlsFingerprintEnabled.value = false
+  sessionIdMaskingEnabled.value = false
   tempUnschedEnabled.value = false
   tempUnschedRules.value = []
   geminiOAuthType.value = 'code_assist'
@@ -2133,7 +2410,6 @@ const handleSubmit = async () => {
   if (interceptWarmupRequests.value) {
     credentials.intercept_warmup_requests = true
   }
-
   if (!applyTempUnschedConfig(credentials)) {
     return
   }
@@ -2144,7 +2420,8 @@ const handleSubmit = async () => {
   try {
     await adminAPI.accounts.create({
       ...form,
-      group_ids: form.group_ids
+      group_ids: form.group_ids,
+      auto_pause_on_expired: autoPauseOnExpired.value
     })
     appStore.showSuccess(t('admin.accounts.accountCreated'))
     emit('created')
@@ -2182,6 +2459,9 @@ const handleGenerateUrl = async () => {
   }
 }
 
+const formatDateTimeLocal = formatDateTimeLocalInput
+const parseDateTimeLocal = parseDateTimeLocalInput
+
 // Create account and handle success/failure
 const createAccountAndFinish = async (
   platform: AccountPlatform,
@@ -2202,7 +2482,10 @@ const createAccountAndFinish = async (
     proxy_id: form.proxy_id,
     concurrency: form.concurrency,
     priority: form.priority,
-    group_ids: form.group_ids
+    rate_multiplier: form.rate_multiplier,
+    group_ids: form.group_ids,
+    expires_at: form.expires_at,
+    auto_pause_on_expired: autoPauseOnExpired.value
   })
   appStore.showSuccess(t('admin.accounts.accountCreated'))
   emit('created')
@@ -2327,7 +2610,32 @@ const handleAnthropicExchange = async (authCode: string) => {
       ...proxyConfig
     })
 
-    const extra = oauth.buildExtraInfo(tokenInfo)
+    // Build extra with quota control settings
+    const baseExtra = oauth.buildExtraInfo(tokenInfo) || {}
+    const extra: Record<string, unknown> = { ...baseExtra }
+
+    // Add window cost limit settings
+    if (windowCostEnabled.value && windowCostLimit.value != null && windowCostLimit.value > 0) {
+      extra.window_cost_limit = windowCostLimit.value
+      extra.window_cost_sticky_reserve = windowCostStickyReserve.value ?? 10
+    }
+
+    // Add session limit settings
+    if (sessionLimitEnabled.value && maxSessions.value != null && maxSessions.value > 0) {
+      extra.max_sessions = maxSessions.value
+      extra.session_idle_timeout_minutes = sessionIdleTimeout.value ?? 5
+    }
+
+    // Add TLS fingerprint settings
+    if (tlsFingerprintEnabled.value) {
+      extra.enable_tls_fingerprint = true
+    }
+
+    // Add session ID masking settings
+    if (sessionIdMaskingEnabled.value) {
+      extra.session_id_masking_enabled = true
+    }
+
     const credentials = {
       ...tokenInfo,
       ...(interceptWarmupRequests.value ? { intercept_warmup_requests: true } : {})
@@ -2395,7 +2703,32 @@ const handleCookieAuth = async (sessionKey: string) => {
           ...proxyConfig
         })
 
-        const extra = oauth.buildExtraInfo(tokenInfo)
+        // Build extra with quota control settings
+        const baseExtra = oauth.buildExtraInfo(tokenInfo) || {}
+        const extra: Record<string, unknown> = { ...baseExtra }
+
+        // Add window cost limit settings
+        if (windowCostEnabled.value && windowCostLimit.value != null && windowCostLimit.value > 0) {
+          extra.window_cost_limit = windowCostLimit.value
+          extra.window_cost_sticky_reserve = windowCostStickyReserve.value ?? 10
+        }
+
+        // Add session limit settings
+        if (sessionLimitEnabled.value && maxSessions.value != null && maxSessions.value > 0) {
+          extra.max_sessions = maxSessions.value
+          extra.session_idle_timeout_minutes = sessionIdleTimeout.value ?? 5
+        }
+
+        // Add TLS fingerprint settings
+        if (tlsFingerprintEnabled.value) {
+          extra.enable_tls_fingerprint = true
+        }
+
+        // Add session ID masking settings
+        if (sessionIdMaskingEnabled.value) {
+          extra.session_id_masking_enabled = true
+        }
+
         const accountName = keys.length > 1 ? `${form.name} #${i + 1}` : form.name
 
         // Merge interceptWarmupRequests into credentials
@@ -2410,13 +2743,18 @@ const handleCookieAuth = async (sessionKey: string) => {
 
         await adminAPI.accounts.create({
           name: accountName,
+          notes: form.notes,
           platform: form.platform,
           type: addMethod.value, // Use addMethod as type: 'oauth' or 'setup-token'
           credentials,
           extra,
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
-          priority: form.priority
+          priority: form.priority,
+          rate_multiplier: form.rate_multiplier,
+          group_ids: form.group_ids,
+          expires_at: form.expires_at,
+          auto_pause_on_expired: autoPauseOnExpired.value
         })
 
         successCount++

@@ -147,6 +147,144 @@
           </div>
         </div>
 
+        <!-- Stream Timeout Settings -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.streamTimeout.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.streamTimeout.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <!-- Loading State -->
+            <div v-if="streamTimeoutLoading" class="flex items-center gap-2 text-gray-500">
+              <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+              {{ t('common.loading') }}
+            </div>
+
+            <template v-else>
+              <!-- Enable Stream Timeout -->
+              <div class="flex items-center justify-between">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">{{
+                    t('admin.settings.streamTimeout.enabled')
+                  }}</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.streamTimeout.enabledHint') }}
+                  </p>
+                </div>
+                <Toggle v-model="streamTimeoutForm.enabled" />
+              </div>
+
+              <!-- Settings - Only show when enabled -->
+              <div
+                v-if="streamTimeoutForm.enabled"
+                class="space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
+              >
+                <!-- Action -->
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.streamTimeout.action') }}
+                  </label>
+                  <select v-model="streamTimeoutForm.action" class="input w-64">
+                    <option value="temp_unsched">{{ t('admin.settings.streamTimeout.actionTempUnsched') }}</option>
+                    <option value="error">{{ t('admin.settings.streamTimeout.actionError') }}</option>
+                    <option value="none">{{ t('admin.settings.streamTimeout.actionNone') }}</option>
+                  </select>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.streamTimeout.actionHint') }}
+                  </p>
+                </div>
+
+                <!-- Temp Unsched Minutes (only show when action is temp_unsched) -->
+                <div v-if="streamTimeoutForm.action === 'temp_unsched'">
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.streamTimeout.tempUnschedMinutes') }}
+                  </label>
+                  <input
+                    v-model.number="streamTimeoutForm.temp_unsched_minutes"
+                    type="number"
+                    min="1"
+                    max="60"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.streamTimeout.tempUnschedMinutesHint') }}
+                  </p>
+                </div>
+
+                <!-- Threshold Count -->
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.streamTimeout.thresholdCount') }}
+                  </label>
+                  <input
+                    v-model.number="streamTimeoutForm.threshold_count"
+                    type="number"
+                    min="1"
+                    max="10"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.streamTimeout.thresholdCountHint') }}
+                  </p>
+                </div>
+
+                <!-- Threshold Window Minutes -->
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.streamTimeout.thresholdWindowMinutes') }}
+                  </label>
+                  <input
+                    v-model.number="streamTimeoutForm.threshold_window_minutes"
+                    type="number"
+                    min="1"
+                    max="60"
+                    class="input w-32"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.streamTimeout.thresholdWindowMinutesHint') }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Save Button -->
+              <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
+                <button
+                  type="button"
+                  @click="saveStreamTimeoutSettings"
+                  :disabled="streamTimeoutSaving"
+                  class="btn btn-primary btn-sm"
+                >
+                  <svg
+                    v-if="streamTimeoutSaving"
+                    class="mr-1 h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  {{ streamTimeoutSaving ? t('common.saving') : t('common.save') }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- Registration Settings -->
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -184,6 +322,21 @@
                 </p>
               </div>
               <Toggle v-model="form.email_verify_enabled" />
+            </div>
+
+            <!-- Promo Code -->
+            <div
+              class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.registration.promoCode')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.registration.promoCodeHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.promo_code_enabled" />
             </div>
           </div>
         </div>
@@ -254,6 +407,106 @@
                         ? t('admin.settings.turnstile.secretKeyConfiguredHint')
                         : t('admin.settings.turnstile.secretKeyHint')
                     }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LinuxDo Connect OAuth 登录 -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.linuxdo.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.linuxdo.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.linuxdo.enable')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.linuxdo.enableHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.linuxdo_connect_enabled" />
+            </div>
+
+            <div
+              v-if="form.linuxdo_connect_enabled"
+              class="border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div class="grid grid-cols-1 gap-6">
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.linuxdo.clientId') }}
+                  </label>
+                  <input
+                    v-model="form.linuxdo_connect_client_id"
+                    type="text"
+                    class="input font-mono text-sm"
+                    :placeholder="t('admin.settings.linuxdo.clientIdPlaceholder')"
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.linuxdo.clientIdHint') }}
+                  </p>
+                </div>
+
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.linuxdo.clientSecret') }}
+                  </label>
+                  <input
+                    v-model="form.linuxdo_connect_client_secret"
+                    type="password"
+                    class="input font-mono text-sm"
+                    :placeholder="
+                      form.linuxdo_connect_client_secret_configured
+                        ? t('admin.settings.linuxdo.clientSecretConfiguredPlaceholder')
+                        : t('admin.settings.linuxdo.clientSecretPlaceholder')
+                    "
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{
+                      form.linuxdo_connect_client_secret_configured
+                        ? t('admin.settings.linuxdo.clientSecretConfiguredHint')
+                        : t('admin.settings.linuxdo.clientSecretHint')
+                    }}
+                  </p>
+                </div>
+
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('admin.settings.linuxdo.redirectUrl') }}
+                  </label>
+                  <input
+                    v-model="form.linuxdo_connect_redirect_url"
+                    type="url"
+                    class="input font-mono text-sm"
+                    :placeholder="t('admin.settings.linuxdo.redirectUrlPlaceholder')"
+                  />
+                  <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm w-fit"
+                      @click="setAndCopyLinuxdoRedirectUrl"
+                    >
+                      {{ t('admin.settings.linuxdo.quickSetCopy') }}
+                    </button>
+                    <code
+                      v-if="linuxdoRedirectUrlSuggestion"
+                      class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
+                    >
+                      {{ linuxdoRedirectUrlSuggestion }}
+                    </code>
+                  </div>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.linuxdo.redirectUrlHint') }}
                   </p>
                 </div>
               </div>
@@ -461,6 +714,41 @@
                   <p v-if="logoError" class="text-xs text-red-500">{{ logoError }}</p>
                 </div>
               </div>
+            </div>
+
+            <!-- Home Content -->
+            <div>
+              <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {{ t('admin.settings.site.homeContent') }}
+              </label>
+              <textarea
+                v-model="form.home_content"
+                rows="6"
+                class="input font-mono text-sm"
+                :placeholder="t('admin.settings.site.homeContentPlaceholder')"
+              ></textarea>
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.site.homeContentHint') }}
+              </p>
+              <!-- iframe CSP Warning -->
+              <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                {{ t('admin.settings.site.homeContentIframeWarning') }}
+              </p>
+            </div>
+
+            <!-- Hide CCS Import Button -->
+            <div
+              class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
+            >
+              <div>
+                <label class="font-medium text-gray-900 dark:text-white">{{
+                  t('admin.settings.site.hideCcsImportButton')
+                }}</label>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.site.hideCcsImportButtonHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.hide_ccs_import_button" />
             </div>
           </div>
         </div>
@@ -692,17 +980,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api'
 import type { SystemSettings, UpdateSettingsRequest } from '@/api/admin/settings'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -718,14 +1008,27 @@ const adminApiKeyMasked = ref('')
 const adminApiKeyOperating = ref(false)
 const newAdminApiKey = ref('')
 
+// Stream Timeout 状态
+const streamTimeoutLoading = ref(true)
+const streamTimeoutSaving = ref(false)
+const streamTimeoutForm = reactive({
+  enabled: true,
+  action: 'temp_unsched' as 'temp_unsched' | 'error' | 'none',
+  temp_unsched_minutes: 5,
+  threshold_count: 3,
+  threshold_window_minutes: 10
+})
+
 type SettingsForm = SystemSettings & {
   smtp_password: string
   turnstile_secret_key: string
+  linuxdo_connect_client_secret: string
 }
 
 const form = reactive<SettingsForm>({
   registration_enabled: true,
   email_verify_enabled: false,
+  promo_code_enabled: true,
   default_balance: 0,
   default_concurrency: 1,
   site_name: 'Sub2API',
@@ -734,6 +1037,8 @@ const form = reactive<SettingsForm>({
   api_base_url: '',
   contact_info: '',
   doc_url: '',
+  home_content: '',
+  hide_ccs_import_button: false,
   smtp_host: '',
   smtp_port: 587,
   smtp_username: '',
@@ -747,10 +1052,43 @@ const form = reactive<SettingsForm>({
   turnstile_site_key: '',
   turnstile_secret_key: '',
   turnstile_secret_key_configured: false,
+  // LinuxDo Connect OAuth 登录
+  linuxdo_connect_enabled: false,
+  linuxdo_connect_client_id: '',
+  linuxdo_connect_client_secret: '',
+  linuxdo_connect_client_secret_configured: false,
+  linuxdo_connect_redirect_url: '',
+  // Model fallback
+  enable_model_fallback: false,
+  fallback_model_anthropic: 'claude-3-5-sonnet-20241022',
+  fallback_model_openai: 'gpt-4o',
+  fallback_model_gemini: 'gemini-2.5-pro',
+  fallback_model_antigravity: 'gemini-2.5-pro',
   // Identity patch (Claude -> Gemini)
   enable_identity_patch: true,
-  identity_patch_prompt: ''
+  identity_patch_prompt: '',
+  // Ops monitoring (vNext)
+  ops_monitoring_enabled: true,
+  ops_realtime_monitoring_enabled: true,
+  ops_query_mode_default: 'auto',
+  ops_metrics_interval_seconds: 60
 })
+
+// LinuxDo OAuth redirect URL suggestion
+const linuxdoRedirectUrlSuggestion = computed(() => {
+  if (typeof window === 'undefined') return ''
+  const origin =
+    window.location.origin || `${window.location.protocol}//${window.location.host}`
+  return `${origin}/api/v1/auth/oauth/linuxdo/callback`
+})
+
+async function setAndCopyLinuxdoRedirectUrl() {
+  const url = linuxdoRedirectUrlSuggestion.value
+  if (!url) return
+
+  form.linuxdo_connect_redirect_url = url
+  await copyToClipboard(url, t('admin.settings.linuxdo.redirectUrlSetAndCopied'))
+}
 
 function handleLogoUpload(event: Event) {
   const input = event.target as HTMLInputElement
@@ -797,6 +1135,7 @@ async function loadSettings() {
     Object.assign(form, settings)
     form.smtp_password = ''
     form.turnstile_secret_key = ''
+    form.linuxdo_connect_client_secret = ''
   } catch (error: any) {
     appStore.showError(
       t('admin.settings.failedToLoad') + ': ' + (error.message || t('common.unknownError'))
@@ -812,6 +1151,7 @@ async function saveSettings() {
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
       email_verify_enabled: form.email_verify_enabled,
+      promo_code_enabled: form.promo_code_enabled,
       default_balance: form.default_balance,
       default_concurrency: form.default_concurrency,
       site_name: form.site_name,
@@ -820,6 +1160,8 @@ async function saveSettings() {
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
       doc_url: form.doc_url,
+      home_content: form.home_content,
+      hide_ccs_import_button: form.hide_ccs_import_button,
       smtp_host: form.smtp_host,
       smtp_port: form.smtp_port,
       smtp_username: form.smtp_username,
@@ -829,12 +1171,24 @@ async function saveSettings() {
       smtp_use_tls: form.smtp_use_tls,
       turnstile_enabled: form.turnstile_enabled,
       turnstile_site_key: form.turnstile_site_key,
-      turnstile_secret_key: form.turnstile_secret_key || undefined
+      turnstile_secret_key: form.turnstile_secret_key || undefined,
+      linuxdo_connect_enabled: form.linuxdo_connect_enabled,
+      linuxdo_connect_client_id: form.linuxdo_connect_client_id,
+      linuxdo_connect_client_secret: form.linuxdo_connect_client_secret || undefined,
+      linuxdo_connect_redirect_url: form.linuxdo_connect_redirect_url,
+      enable_model_fallback: form.enable_model_fallback,
+      fallback_model_anthropic: form.fallback_model_anthropic,
+      fallback_model_openai: form.fallback_model_openai,
+      fallback_model_gemini: form.fallback_model_gemini,
+      fallback_model_antigravity: form.fallback_model_antigravity,
+      enable_identity_patch: form.enable_identity_patch,
+      identity_patch_prompt: form.identity_patch_prompt
     }
     const updated = await adminAPI.settings.updateSettings(payload)
     Object.assign(form, updated)
     form.smtp_password = ''
     form.turnstile_secret_key = ''
+    form.linuxdo_connect_client_secret = ''
     // Refresh cached public settings so sidebar/header update immediately
     await appStore.fetchPublicSettings(true)
     appStore.showSuccess(t('admin.settings.settingsSaved'))
@@ -958,8 +1312,43 @@ function copyNewKey() {
     })
 }
 
+// Stream Timeout 方法
+async function loadStreamTimeoutSettings() {
+  streamTimeoutLoading.value = true
+  try {
+    const settings = await adminAPI.settings.getStreamTimeoutSettings()
+    Object.assign(streamTimeoutForm, settings)
+  } catch (error: any) {
+    console.error('Failed to load stream timeout settings:', error)
+  } finally {
+    streamTimeoutLoading.value = false
+  }
+}
+
+async function saveStreamTimeoutSettings() {
+  streamTimeoutSaving.value = true
+  try {
+    const updated = await adminAPI.settings.updateStreamTimeoutSettings({
+      enabled: streamTimeoutForm.enabled,
+      action: streamTimeoutForm.action,
+      temp_unsched_minutes: streamTimeoutForm.temp_unsched_minutes,
+      threshold_count: streamTimeoutForm.threshold_count,
+      threshold_window_minutes: streamTimeoutForm.threshold_window_minutes
+    })
+    Object.assign(streamTimeoutForm, updated)
+    appStore.showSuccess(t('admin.settings.streamTimeout.saved'))
+  } catch (error: any) {
+    appStore.showError(
+      t('admin.settings.streamTimeout.saveFailed') + ': ' + (error.message || t('common.unknownError'))
+    )
+  } finally {
+    streamTimeoutSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadSettings()
   loadAdminApiKey()
+  loadStreamTimeoutSettings()
 })
 </script>

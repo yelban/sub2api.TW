@@ -22,12 +22,18 @@ type Tx struct {
 	AccountGroup *AccountGroupClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// PromoCode is the client for interacting with the PromoCode builders.
+	PromoCode *PromoCodeClient
+	// PromoCodeUsage is the client for interacting with the PromoCodeUsage builders.
+	PromoCodeUsage *PromoCodeUsageClient
 	// Proxy is the client for interacting with the Proxy builders.
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
 	// Setting is the client for interacting with the Setting builders.
 	Setting *SettingClient
+	// UsageCleanupTask is the client for interacting with the UsageCleanupTask builders.
+	UsageCleanupTask *UsageCleanupTaskClient
 	// UsageLog is the client for interacting with the UsageLog builders.
 	UsageLog *UsageLogClient
 	// User is the client for interacting with the User builders.
@@ -175,9 +181,12 @@ func (tx *Tx) init() {
 	tx.Account = NewAccountClient(tx.config)
 	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
+	tx.PromoCode = NewPromoCodeClient(tx.config)
+	tx.PromoCodeUsage = NewPromoCodeUsageClient(tx.config)
 	tx.Proxy = NewProxyClient(tx.config)
 	tx.RedeemCode = NewRedeemCodeClient(tx.config)
 	tx.Setting = NewSettingClient(tx.config)
+	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)
 	tx.User = NewUserClient(tx.config)
 	tx.UserAllowedGroup = NewUserAllowedGroupClient(tx.config)

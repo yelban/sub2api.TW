@@ -7,7 +7,7 @@
             v-model:searchQuery="params.search"
             :filters="params"
             @update:filters="(newFilters) => Object.assign(params, newFilters)"
-            @change="reload"
+            @change="debouncedReload"
             @update:searchQuery="debouncedReload"
           />
           <AccountTableActions
@@ -15,12 +15,45 @@
             @refresh="load"
             @sync="showSync = true"
             @create="showCreate = true"
-          />
+          >
+            <template #after>
+              <!-- Column Settings Dropdown -->
+              <div class="relative" ref="columnDropdownRef">
+                <button
+                  @click="showColumnDropdown = !showColumnDropdown"
+                  class="btn btn-secondary px-2 md:px-3"
+                  :title="t('admin.users.columnSettings')"
+                >
+                  <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
+                  </svg>
+                  <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
+                </button>
+                <!-- Dropdown menu -->
+                <div
+                  v-if="showColumnDropdown"
+                  class="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <div class="max-h-80 overflow-y-auto p-2">
+                    <button
+                      v-for="col in toggleableColumns"
+                      :key="col.key"
+                      @click="toggleColumn(col.key)"
+                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    >
+                      <span>{{ col.label }}</span>
+                      <Icon v-if="isColumnVisible(col.key)" name="check" size="sm" class="text-primary-500" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </AccountTableActions>
         </div>
       </template>
       <template #table>
-        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" />
-        <DataTable :columns="cols" :data="accounts" :loading="loading">
+        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" />
+        <DataTable :columns="cols" :data="accounts" :loading="loading" row-key="id">
           <template #cell-select="{ row }">
             <input type="checkbox" :checked="selIds.includes(row.id)" @change="toggleSel(row.id)" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
           </template>
@@ -34,15 +67,8 @@
           <template #cell-platform_type="{ row }">
             <PlatformTypeBadge :platform="row.platform" :type="row.type" />
           </template>
-          <template #cell-concurrency="{ row }">
-            <div class="flex items-center gap-1.5">
-              <span :class="['inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium', (row.current_concurrency || 0) >= row.concurrency ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : (row.current_concurrency || 0) > 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400']">
-                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
-                <span class="font-mono">{{ row.current_concurrency || 0 }}</span>
-                <span class="text-gray-400 dark:text-gray-500">/</span>
-                <span class="font-mono">{{ row.concurrency }}</span>
-              </span>
-            </div>
+          <template #cell-capacity="{ row }">
+            <AccountCapacityCell :account="row" />
           </template>
           <template #cell-status="{ row }">
             <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
@@ -56,19 +82,49 @@
             <AccountTodayStatsCell :account="row" />
           </template>
           <template #cell-groups="{ row }">
-            <div v-if="row.groups && row.groups.length > 0" class="flex flex-wrap gap-1.5">
-              <GroupBadge v-for="group in row.groups" :key="group.id" :name="group.name" :platform="group.platform" :subscription-type="group.subscription_type" :rate-multiplier="group.rate_multiplier" :show-rate="false" />
-            </div>
-            <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
+            <AccountGroupsCell :groups="row.groups" :max-display="4" />
           </template>
           <template #cell-usage="{ row }">
             <AccountUsageCell :account="row" />
+          </template>
+          <template #cell-proxy="{ row }">
+            <div v-if="row.proxy" class="flex items-center gap-2">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{{ row.proxy.name }}</span>
+              <span v-if="row.proxy.country_code" class="text-xs text-gray-500 dark:text-gray-400">
+                ({{ row.proxy.country_code }})
+              </span>
+            </div>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
+          </template>
+          <template #cell-rate_multiplier="{ row }">
+            <span class="text-sm font-mono text-gray-700 dark:text-gray-300">
+              {{ (row.rate_multiplier ?? 1).toFixed(2) }}x
+            </span>
           </template>
           <template #cell-priority="{ value }">
             <span class="text-sm text-gray-700 dark:text-gray-300">{{ value }}</span>
           </template>
           <template #cell-last_used_at="{ value }">
             <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatRelativeTime(value) }}</span>
+          </template>
+          <template #cell-expires_at="{ row, value }">
+            <div class="flex flex-col items-start gap-1">
+              <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatExpiresAt(value) }}</span>
+              <div v-if="isExpired(value) || (row.auto_pause_on_expired && value)" class="flex items-center gap-1">
+                <span
+                  v-if="isExpired(value)"
+                  class="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                >
+                  {{ t('admin.accounts.expired') }}
+                </span>
+                <span
+                  v-if="row.auto_pause_on_expired && value"
+                  class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                >
+                  {{ t('admin.accounts.autoPauseOnExpired') }}
+                </span>
+              </div>
+            </div>
           </template>
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
@@ -88,7 +144,7 @@
           </template>
         </DataTable>
       </template>
-      <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" /></template>
+      <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="load" />
@@ -104,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -126,17 +182,19 @@ import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
+import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
+import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
-import { formatRelativeTime } from '@/utils/format'
-import type { Account, Proxy, Group } from '@/types'
+import Icon from '@/components/icons/Icon.vue'
+import { formatDateTime, formatRelativeTime } from '@/utils/format'
+import type { Account, Proxy, AdminGroup } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const proxies = ref<Proxy[]>([])
-const groups = ref<Group[]>([])
+const groups = ref<AdminGroup[]>([])
 const selIds = ref<number[]>([])
 const showCreate = ref(false)
 const showEdit = ref(false)
@@ -156,17 +214,59 @@ const statsAcc = ref<Account | null>(null)
 const togglingSchedulable = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 
-const { items: accounts, loading, params, pagination, load, reload, debouncedReload, handlePageChange } = useTableLoader<Account, any>({
+// Column settings
+const showColumnDropdown = ref(false)
+const columnDropdownRef = ref<HTMLElement | null>(null)
+const hiddenColumns = reactive<Set<string>>(new Set())
+const DEFAULT_HIDDEN_COLUMNS = ['proxy', 'notes', 'priority', 'rate_multiplier']
+const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
+
+const loadSavedColumns = () => {
+  try {
+    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved) as string[]
+      parsed.forEach(key => hiddenColumns.add(key))
+    } else {
+      DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
+    }
+  } catch (e) {
+    console.error('Failed to load saved columns:', e)
+    DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
+  }
+}
+
+const saveColumnsToStorage = () => {
+  try {
+    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
+  } catch (e) {
+    console.error('Failed to save columns:', e)
+  }
+}
+
+const toggleColumn = (key: string) => {
+  if (hiddenColumns.has(key)) {
+    hiddenColumns.delete(key)
+  } else {
+    hiddenColumns.add(key)
+  }
+  saveColumnsToStorage()
+}
+
+const isColumnVisible = (key: string) => !hiddenColumns.has(key)
+
+const { items: accounts, loading, params, pagination, load, reload, debouncedReload, handlePageChange, handlePageSizeChange } = useTableLoader<Account, any>({
   fetchFn: adminAPI.accounts.list,
   initialParams: { platform: '', type: '', status: '', search: '' }
 })
 
-const cols = computed(() => {
+// All available columns
+const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
-    { key: 'concurrency', label: t('admin.accounts.columns.concurrencyStatus'), sortable: false },
+    { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
@@ -176,19 +276,184 @@ const cols = computed(() => {
   }
   c.push(
     { key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false },
+    { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
     { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },
+    { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: true },
     { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
+    { key: 'expires_at', label: t('admin.accounts.columns.expiresAt'), sortable: true },
     { key: 'notes', label: t('admin.accounts.columns.notes'), sortable: false },
     { key: 'actions', label: t('admin.accounts.columns.actions'), sortable: false }
   )
   return c
 })
 
+// Columns that can be toggled (exclude select, name, and actions)
+const toggleableColumns = computed(() =>
+  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
+)
+
+// Filtered columns based on visibility
+const cols = computed(() =>
+  allColumns.value.filter(col =>
+    col.key === 'select' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
+  )
+)
+
 const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
-const openMenu = (a: Account, e: MouseEvent) => { menu.acc = a; menu.pos = { top: e.clientY, left: e.clientX - 200 }; menu.show = true }
+const openMenu = (a: Account, e: MouseEvent) => {
+  menu.acc = a
+
+  const target = e.currentTarget as HTMLElement
+  if (target) {
+    const rect = target.getBoundingClientRect()
+    const menuWidth = 200
+    const menuHeight = 240
+    const padding = 8
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let left, top
+
+    if (viewportWidth < 768) {
+      // 居中显示,水平位置
+      left = Math.max(padding, Math.min(
+        rect.left + rect.width / 2 - menuWidth / 2,
+        viewportWidth - menuWidth - padding
+      ))
+
+      // 优先显示在按钮下方
+      top = rect.bottom + 4
+
+      // 如果下方空间不够,显示在上方
+      if (top + menuHeight > viewportHeight - padding) {
+        top = rect.top - menuHeight - 4
+        // 如果上方也不够,就贴在视口顶部
+        if (top < padding) {
+          top = padding
+        }
+      }
+    } else {
+      left = Math.max(padding, Math.min(
+        e.clientX - menuWidth,
+        viewportWidth - menuWidth - padding
+      ))
+      top = e.clientY
+      if (top + menuHeight > viewportHeight - padding) {
+        top = viewportHeight - menuHeight - padding
+      }
+    }
+
+    menu.pos = { top, left }
+  } else {
+    menu.pos = { top: e.clientY, left: e.clientX - 200 }
+  }
+
+  menu.show = true
+}
 const toggleSel = (id: number) => { const i = selIds.value.indexOf(id); if(i === -1) selIds.value.push(id); else selIds.value.splice(i, 1) }
 const selectPage = () => { selIds.value = [...new Set([...selIds.value, ...accounts.value.map(a => a.id)])] }
 const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); selIds.value = []; reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
+const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => {
+  if (accountIds.length === 0) return
+  const idSet = new Set(accountIds)
+  accounts.value = accounts.value.map((account) => (idSet.has(account.id) ? { ...account, schedulable } : account))
+}
+const normalizeBulkSchedulableResult = (
+  result: {
+    success?: number
+    failed?: number
+    success_ids?: number[]
+    failed_ids?: number[]
+    results?: Array<{ account_id: number; success: boolean }>
+  },
+  accountIds: number[]
+) => {
+  const responseSuccessIds = Array.isArray(result.success_ids) ? result.success_ids : []
+  const responseFailedIds = Array.isArray(result.failed_ids) ? result.failed_ids : []
+  if (responseSuccessIds.length > 0 || responseFailedIds.length > 0) {
+    return {
+      successIds: responseSuccessIds,
+      failedIds: responseFailedIds,
+      successCount: typeof result.success === 'number' ? result.success : responseSuccessIds.length,
+      failedCount: typeof result.failed === 'number' ? result.failed : responseFailedIds.length,
+      hasIds: true,
+      hasCounts: true
+    }
+  }
+
+  const results = Array.isArray(result.results) ? result.results : []
+  if (results.length > 0) {
+    const successIds = results.filter(item => item.success).map(item => item.account_id)
+    const failedIds = results.filter(item => !item.success).map(item => item.account_id)
+    return {
+      successIds,
+      failedIds,
+      successCount: typeof result.success === 'number' ? result.success : successIds.length,
+      failedCount: typeof result.failed === 'number' ? result.failed : failedIds.length,
+      hasIds: true,
+      hasCounts: true
+    }
+  }
+
+  const hasExplicitCounts = typeof result.success === 'number' || typeof result.failed === 'number'
+  const successCount = typeof result.success === 'number' ? result.success : 0
+  const failedCount = typeof result.failed === 'number' ? result.failed : 0
+  if (hasExplicitCounts && failedCount === 0 && successCount === accountIds.length && accountIds.length > 0) {
+    return {
+      successIds: accountIds,
+      failedIds: [],
+      successCount,
+      failedCount,
+      hasIds: true,
+      hasCounts: true
+    }
+  }
+
+  return {
+    successIds: [],
+    failedIds: [],
+    successCount,
+    failedCount,
+    hasIds: false,
+    hasCounts: hasExplicitCounts
+  }
+}
+const handleBulkToggleSchedulable = async (schedulable: boolean) => {
+  const accountIds = [...selIds.value]
+  try {
+    const result = await adminAPI.accounts.bulkUpdate(accountIds, { schedulable })
+    const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
+    if (!hasIds && !hasCounts) {
+      appStore.showError(t('admin.accounts.bulkSchedulableResultUnknown'))
+      selIds.value = accountIds
+      load().catch((error) => {
+        console.error('Failed to refresh accounts:', error)
+      })
+      return
+    }
+    if (successIds.length > 0) {
+      updateSchedulableInList(successIds, schedulable)
+    }
+    if (successCount > 0 && failedCount === 0) {
+      const message = schedulable
+        ? t('admin.accounts.bulkSchedulableEnabled', { count: successCount })
+        : t('admin.accounts.bulkSchedulableDisabled', { count: successCount })
+      appStore.showSuccess(message)
+    }
+    if (failedCount > 0) {
+      const message = hasCounts || hasIds
+        ? t('admin.accounts.bulkSchedulablePartial', { success: successCount, failed: failedCount })
+        : t('admin.accounts.bulkSchedulableResultUnknown')
+      appStore.showError(message)
+      selIds.value = failedIds.length > 0 ? failedIds : accountIds
+    } else {
+      selIds.value = hasIds ? [] : accountIds
+    }
+  } catch (error) {
+    console.error('Failed to bulk toggle schedulable:', error)
+    appStore.showError(t('common.error'))
+  }
+}
 const handleBulkUpdated = () => { showBulkEdit.value = false; selIds.value = []; reload() }
 const closeTestModal = () => { showTest.value = false; testingAcc.value = null }
 const closeStatsModal = () => { showStats.value = false; statsAcc.value = null }
@@ -201,9 +466,70 @@ const handleResetStatus = async (a: Account) => { try { await adminAPI.accounts.
 const handleClearRateLimit = async (a: Account) => { try { await adminAPI.accounts.clearRateLimit(a.id); appStore.showSuccess(t('common.success')); load() } catch (error) { console.error('Failed to clear rate limit:', error) } }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
 const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
-const handleToggleSchedulable = async (a: Account) => { togglingSchedulable.value = a.id; try { await adminAPI.accounts.setSchedulable(a.id, !a.schedulable); load() } finally { togglingSchedulable.value = null } }
+const handleToggleSchedulable = async (a: Account) => {
+  const nextSchedulable = !a.schedulable
+  togglingSchedulable.value = a.id
+  try {
+    const updated = await adminAPI.accounts.setSchedulable(a.id, nextSchedulable)
+    updateSchedulableInList([a.id], updated?.schedulable ?? nextSchedulable)
+  } catch (error) {
+    console.error('Failed to toggle schedulable:', error)
+    appStore.showError(t('admin.accounts.failedToToggleSchedulable'))
+  } finally {
+    togglingSchedulable.value = null
+  }
+}
 const handleShowTempUnsched = (a: Account) => { tempUnschedAcc.value = a; showTempUnsched.value = true }
 const handleTempUnschedReset = async () => { if(!tempUnschedAcc.value) return; try { await adminAPI.accounts.clearError(tempUnschedAcc.value.id); showTempUnsched.value = false; tempUnschedAcc.value = null; load() } catch (error) { console.error('Failed to reset temp unscheduled:', error) } }
+const formatExpiresAt = (value: number | null) => {
+  if (!value) return '-'
+  return formatDateTime(
+    new Date(value * 1000),
+    {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    },
+    'sv-SE'
+  )
+}
+const isExpired = (value: number | null) => {
+  if (!value) return false
+  return value * 1000 <= Date.now()
+}
 
-onMounted(async () => { load(); try { const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()]); proxies.value = p; groups.value = g } catch (error) { console.error('Failed to load proxies/groups:', error) } })
+// 滚动时关闭操作菜单（不关闭列设置下拉菜单）
+const handleScroll = () => {
+  menu.show = false
+}
+
+// 点击外部关闭列设置下拉菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
+    showColumnDropdown.value = false
+  }
+}
+
+onMounted(async () => {
+  loadSavedColumns()
+  load()
+  try {
+    const [p, g] = await Promise.all([adminAPI.proxies.getAll(), adminAPI.groups.getAll()])
+    proxies.value = p
+    groups.value = g
+  } catch (error) {
+    console.error('Failed to load proxies/groups:', error)
+  }
+  window.addEventListener('scroll', handleScroll, true)
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll, true)
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>

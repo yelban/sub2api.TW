@@ -2,8 +2,10 @@ package admin
 
 import (
 	"log"
+	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -17,14 +19,16 @@ type SettingHandler struct {
 	settingService   *service.SettingService
 	emailService     *service.EmailService
 	turnstileService *service.TurnstileService
+	opsService       *service.OpsService
 }
 
 // NewSettingHandler 创建系统设置处理器
-func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService) *SettingHandler {
+func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService) *SettingHandler {
 	return &SettingHandler{
 		settingService:   settingService,
 		emailService:     emailService,
 		turnstileService: turnstileService,
+		opsService:       opsService,
 	}
 }
 
@@ -37,34 +41,48 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		return
 	}
 
+	// Check if ops monitoring is enabled (respects config.ops.enabled)
+	opsEnabled := h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context())
+
 	response.Success(c, dto.SystemSettings{
-		RegistrationEnabled:          settings.RegistrationEnabled,
-		EmailVerifyEnabled:           settings.EmailVerifyEnabled,
-		SMTPHost:                     settings.SMTPHost,
-		SMTPPort:                     settings.SMTPPort,
-		SMTPUsername:                 settings.SMTPUsername,
-		SMTPPasswordConfigured:       settings.SMTPPasswordConfigured,
-		SMTPFrom:                     settings.SMTPFrom,
-		SMTPFromName:                 settings.SMTPFromName,
-		SMTPUseTLS:                   settings.SMTPUseTLS,
-		TurnstileEnabled:             settings.TurnstileEnabled,
-		TurnstileSiteKey:             settings.TurnstileSiteKey,
-		TurnstileSecretKeyConfigured: settings.TurnstileSecretKeyConfigured,
-		SiteName:                     settings.SiteName,
-		SiteLogo:                     settings.SiteLogo,
-		SiteSubtitle:                 settings.SiteSubtitle,
-		APIBaseURL:                   settings.APIBaseURL,
-		ContactInfo:                  settings.ContactInfo,
-		DocURL:                       settings.DocURL,
-		DefaultConcurrency:           settings.DefaultConcurrency,
-		DefaultBalance:               settings.DefaultBalance,
-		EnableModelFallback:          settings.EnableModelFallback,
-		FallbackModelAnthropic:       settings.FallbackModelAnthropic,
-		FallbackModelOpenAI:          settings.FallbackModelOpenAI,
-		FallbackModelGemini:          settings.FallbackModelGemini,
-		FallbackModelAntigravity:     settings.FallbackModelAntigravity,
-		EnableIdentityPatch:          settings.EnableIdentityPatch,
-		IdentityPatchPrompt:          settings.IdentityPatchPrompt,
+		RegistrationEnabled:                  settings.RegistrationEnabled,
+		EmailVerifyEnabled:                   settings.EmailVerifyEnabled,
+		PromoCodeEnabled:                     settings.PromoCodeEnabled,
+		SMTPHost:                             settings.SMTPHost,
+		SMTPPort:                             settings.SMTPPort,
+		SMTPUsername:                         settings.SMTPUsername,
+		SMTPPasswordConfigured:               settings.SMTPPasswordConfigured,
+		SMTPFrom:                             settings.SMTPFrom,
+		SMTPFromName:                         settings.SMTPFromName,
+		SMTPUseTLS:                           settings.SMTPUseTLS,
+		TurnstileEnabled:                     settings.TurnstileEnabled,
+		TurnstileSiteKey:                     settings.TurnstileSiteKey,
+		TurnstileSecretKeyConfigured:         settings.TurnstileSecretKeyConfigured,
+		LinuxDoConnectEnabled:                settings.LinuxDoConnectEnabled,
+		LinuxDoConnectClientID:               settings.LinuxDoConnectClientID,
+		LinuxDoConnectClientSecretConfigured: settings.LinuxDoConnectClientSecretConfigured,
+		LinuxDoConnectRedirectURL:            settings.LinuxDoConnectRedirectURL,
+		SiteName:                             settings.SiteName,
+		SiteLogo:                             settings.SiteLogo,
+		SiteSubtitle:                         settings.SiteSubtitle,
+		APIBaseURL:                           settings.APIBaseURL,
+		ContactInfo:                          settings.ContactInfo,
+		DocURL:                               settings.DocURL,
+		HomeContent:                          settings.HomeContent,
+		HideCcsImportButton:                  settings.HideCcsImportButton,
+		DefaultConcurrency:                   settings.DefaultConcurrency,
+		DefaultBalance:                       settings.DefaultBalance,
+		EnableModelFallback:                  settings.EnableModelFallback,
+		FallbackModelAnthropic:               settings.FallbackModelAnthropic,
+		FallbackModelOpenAI:                  settings.FallbackModelOpenAI,
+		FallbackModelGemini:                  settings.FallbackModelGemini,
+		FallbackModelAntigravity:             settings.FallbackModelAntigravity,
+		EnableIdentityPatch:                  settings.EnableIdentityPatch,
+		IdentityPatchPrompt:                  settings.IdentityPatchPrompt,
+		OpsMonitoringEnabled:                 opsEnabled && settings.OpsMonitoringEnabled,
+		OpsRealtimeMonitoringEnabled:         settings.OpsRealtimeMonitoringEnabled,
+		OpsQueryModeDefault:                  settings.OpsQueryModeDefault,
+		OpsMetricsIntervalSeconds:            settings.OpsMetricsIntervalSeconds,
 	})
 }
 
@@ -73,6 +91,7 @@ type UpdateSettingsRequest struct {
 	// 注册设置
 	RegistrationEnabled bool `json:"registration_enabled"`
 	EmailVerifyEnabled  bool `json:"email_verify_enabled"`
+	PromoCodeEnabled    bool `json:"promo_code_enabled"`
 
 	// 邮件服务设置
 	SMTPHost     string `json:"smtp_host"`
@@ -88,13 +107,21 @@ type UpdateSettingsRequest struct {
 	TurnstileSiteKey   string `json:"turnstile_site_key"`
 	TurnstileSecretKey string `json:"turnstile_secret_key"`
 
+	// LinuxDo Connect OAuth 登录
+	LinuxDoConnectEnabled      bool   `json:"linuxdo_connect_enabled"`
+	LinuxDoConnectClientID     string `json:"linuxdo_connect_client_id"`
+	LinuxDoConnectClientSecret string `json:"linuxdo_connect_client_secret"`
+	LinuxDoConnectRedirectURL  string `json:"linuxdo_connect_redirect_url"`
+
 	// OEM设置
-	SiteName     string `json:"site_name"`
-	SiteLogo     string `json:"site_logo"`
-	SiteSubtitle string `json:"site_subtitle"`
-	APIBaseURL   string `json:"api_base_url"`
-	ContactInfo  string `json:"contact_info"`
-	DocURL       string `json:"doc_url"`
+	SiteName            string `json:"site_name"`
+	SiteLogo            string `json:"site_logo"`
+	SiteSubtitle        string `json:"site_subtitle"`
+	APIBaseURL          string `json:"api_base_url"`
+	ContactInfo         string `json:"contact_info"`
+	DocURL              string `json:"doc_url"`
+	HomeContent         string `json:"home_content"`
+	HideCcsImportButton bool   `json:"hide_ccs_import_button"`
 
 	// 默认配置
 	DefaultConcurrency int     `json:"default_concurrency"`
@@ -110,6 +137,12 @@ type UpdateSettingsRequest struct {
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
 	IdentityPatchPrompt string `json:"identity_patch_prompt"`
+
+	// Ops monitoring (vNext)
+	OpsMonitoringEnabled         *bool   `json:"ops_monitoring_enabled"`
+	OpsRealtimeMonitoringEnabled *bool   `json:"ops_realtime_monitoring_enabled"`
+	OpsQueryModeDefault          *string `json:"ops_query_mode_default"`
+	OpsMetricsIntervalSeconds    *int    `json:"ops_metrics_interval_seconds"`
 }
 
 // UpdateSettings 更新系统设置
@@ -165,34 +198,106 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
+	// LinuxDo Connect 参数验证
+	if req.LinuxDoConnectEnabled {
+		req.LinuxDoConnectClientID = strings.TrimSpace(req.LinuxDoConnectClientID)
+		req.LinuxDoConnectClientSecret = strings.TrimSpace(req.LinuxDoConnectClientSecret)
+		req.LinuxDoConnectRedirectURL = strings.TrimSpace(req.LinuxDoConnectRedirectURL)
+
+		if req.LinuxDoConnectClientID == "" {
+			response.BadRequest(c, "LinuxDo Client ID is required when enabled")
+			return
+		}
+		if req.LinuxDoConnectRedirectURL == "" {
+			response.BadRequest(c, "LinuxDo Redirect URL is required when enabled")
+			return
+		}
+		if err := config.ValidateAbsoluteHTTPURL(req.LinuxDoConnectRedirectURL); err != nil {
+			response.BadRequest(c, "LinuxDo Redirect URL must be an absolute http(s) URL")
+			return
+		}
+
+		// 如果未提供 client_secret，则保留现有值（如有）。
+		if req.LinuxDoConnectClientSecret == "" {
+			if previousSettings.LinuxDoConnectClientSecret == "" {
+				response.BadRequest(c, "LinuxDo Client Secret is required when enabled")
+				return
+			}
+			req.LinuxDoConnectClientSecret = previousSettings.LinuxDoConnectClientSecret
+		}
+	}
+
+	// Ops metrics collector interval validation (seconds).
+	if req.OpsMetricsIntervalSeconds != nil {
+		v := *req.OpsMetricsIntervalSeconds
+		if v < 60 {
+			v = 60
+		}
+		if v > 3600 {
+			v = 3600
+		}
+		req.OpsMetricsIntervalSeconds = &v
+	}
+
 	settings := &service.SystemSettings{
-		RegistrationEnabled:      req.RegistrationEnabled,
-		EmailVerifyEnabled:       req.EmailVerifyEnabled,
-		SMTPHost:                 req.SMTPHost,
-		SMTPPort:                 req.SMTPPort,
-		SMTPUsername:             req.SMTPUsername,
-		SMTPPassword:             req.SMTPPassword,
-		SMTPFrom:                 req.SMTPFrom,
-		SMTPFromName:             req.SMTPFromName,
-		SMTPUseTLS:               req.SMTPUseTLS,
-		TurnstileEnabled:         req.TurnstileEnabled,
-		TurnstileSiteKey:         req.TurnstileSiteKey,
-		TurnstileSecretKey:       req.TurnstileSecretKey,
-		SiteName:                 req.SiteName,
-		SiteLogo:                 req.SiteLogo,
-		SiteSubtitle:             req.SiteSubtitle,
-		APIBaseURL:               req.APIBaseURL,
-		ContactInfo:              req.ContactInfo,
-		DocURL:                   req.DocURL,
-		DefaultConcurrency:       req.DefaultConcurrency,
-		DefaultBalance:           req.DefaultBalance,
-		EnableModelFallback:      req.EnableModelFallback,
-		FallbackModelAnthropic:   req.FallbackModelAnthropic,
-		FallbackModelOpenAI:      req.FallbackModelOpenAI,
-		FallbackModelGemini:      req.FallbackModelGemini,
-		FallbackModelAntigravity: req.FallbackModelAntigravity,
-		EnableIdentityPatch:      req.EnableIdentityPatch,
-		IdentityPatchPrompt:      req.IdentityPatchPrompt,
+		RegistrationEnabled:        req.RegistrationEnabled,
+		EmailVerifyEnabled:         req.EmailVerifyEnabled,
+		PromoCodeEnabled:           req.PromoCodeEnabled,
+		SMTPHost:                   req.SMTPHost,
+		SMTPPort:                   req.SMTPPort,
+		SMTPUsername:               req.SMTPUsername,
+		SMTPPassword:               req.SMTPPassword,
+		SMTPFrom:                   req.SMTPFrom,
+		SMTPFromName:               req.SMTPFromName,
+		SMTPUseTLS:                 req.SMTPUseTLS,
+		TurnstileEnabled:           req.TurnstileEnabled,
+		TurnstileSiteKey:           req.TurnstileSiteKey,
+		TurnstileSecretKey:         req.TurnstileSecretKey,
+		LinuxDoConnectEnabled:      req.LinuxDoConnectEnabled,
+		LinuxDoConnectClientID:     req.LinuxDoConnectClientID,
+		LinuxDoConnectClientSecret: req.LinuxDoConnectClientSecret,
+		LinuxDoConnectRedirectURL:  req.LinuxDoConnectRedirectURL,
+		SiteName:                   req.SiteName,
+		SiteLogo:                   req.SiteLogo,
+		SiteSubtitle:               req.SiteSubtitle,
+		APIBaseURL:                 req.APIBaseURL,
+		ContactInfo:                req.ContactInfo,
+		DocURL:                     req.DocURL,
+		HomeContent:                req.HomeContent,
+		HideCcsImportButton:        req.HideCcsImportButton,
+		DefaultConcurrency:         req.DefaultConcurrency,
+		DefaultBalance:             req.DefaultBalance,
+		EnableModelFallback:        req.EnableModelFallback,
+		FallbackModelAnthropic:     req.FallbackModelAnthropic,
+		FallbackModelOpenAI:        req.FallbackModelOpenAI,
+		FallbackModelGemini:        req.FallbackModelGemini,
+		FallbackModelAntigravity:   req.FallbackModelAntigravity,
+		EnableIdentityPatch:        req.EnableIdentityPatch,
+		IdentityPatchPrompt:        req.IdentityPatchPrompt,
+		OpsMonitoringEnabled: func() bool {
+			if req.OpsMonitoringEnabled != nil {
+				return *req.OpsMonitoringEnabled
+			}
+			return previousSettings.OpsMonitoringEnabled
+		}(),
+		OpsRealtimeMonitoringEnabled: func() bool {
+			if req.OpsRealtimeMonitoringEnabled != nil {
+				return *req.OpsRealtimeMonitoringEnabled
+			}
+			return previousSettings.OpsRealtimeMonitoringEnabled
+		}(),
+		OpsQueryModeDefault: func() string {
+			if req.OpsQueryModeDefault != nil {
+				return *req.OpsQueryModeDefault
+			}
+			return previousSettings.OpsQueryModeDefault
+		}(),
+		OpsMetricsIntervalSeconds: func() int {
+			if req.OpsMetricsIntervalSeconds != nil {
+				return *req.OpsMetricsIntervalSeconds
+			}
+			return previousSettings.OpsMetricsIntervalSeconds
+		}(),
 	}
 
 	if err := h.settingService.UpdateSettings(c.Request.Context(), settings); err != nil {
@@ -210,33 +315,44 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	response.Success(c, dto.SystemSettings{
-		RegistrationEnabled:          updatedSettings.RegistrationEnabled,
-		EmailVerifyEnabled:           updatedSettings.EmailVerifyEnabled,
-		SMTPHost:                     updatedSettings.SMTPHost,
-		SMTPPort:                     updatedSettings.SMTPPort,
-		SMTPUsername:                 updatedSettings.SMTPUsername,
-		SMTPPasswordConfigured:       updatedSettings.SMTPPasswordConfigured,
-		SMTPFrom:                     updatedSettings.SMTPFrom,
-		SMTPFromName:                 updatedSettings.SMTPFromName,
-		SMTPUseTLS:                   updatedSettings.SMTPUseTLS,
-		TurnstileEnabled:             updatedSettings.TurnstileEnabled,
-		TurnstileSiteKey:             updatedSettings.TurnstileSiteKey,
-		TurnstileSecretKeyConfigured: updatedSettings.TurnstileSecretKeyConfigured,
-		SiteName:                     updatedSettings.SiteName,
-		SiteLogo:                     updatedSettings.SiteLogo,
-		SiteSubtitle:                 updatedSettings.SiteSubtitle,
-		APIBaseURL:                   updatedSettings.APIBaseURL,
-		ContactInfo:                  updatedSettings.ContactInfo,
-		DocURL:                       updatedSettings.DocURL,
-		DefaultConcurrency:           updatedSettings.DefaultConcurrency,
-		DefaultBalance:               updatedSettings.DefaultBalance,
-		EnableModelFallback:          updatedSettings.EnableModelFallback,
-		FallbackModelAnthropic:       updatedSettings.FallbackModelAnthropic,
-		FallbackModelOpenAI:          updatedSettings.FallbackModelOpenAI,
-		FallbackModelGemini:          updatedSettings.FallbackModelGemini,
-		FallbackModelAntigravity:     updatedSettings.FallbackModelAntigravity,
-		EnableIdentityPatch:          updatedSettings.EnableIdentityPatch,
-		IdentityPatchPrompt:          updatedSettings.IdentityPatchPrompt,
+		RegistrationEnabled:                  updatedSettings.RegistrationEnabled,
+		EmailVerifyEnabled:                   updatedSettings.EmailVerifyEnabled,
+		PromoCodeEnabled:                     updatedSettings.PromoCodeEnabled,
+		SMTPHost:                             updatedSettings.SMTPHost,
+		SMTPPort:                             updatedSettings.SMTPPort,
+		SMTPUsername:                         updatedSettings.SMTPUsername,
+		SMTPPasswordConfigured:               updatedSettings.SMTPPasswordConfigured,
+		SMTPFrom:                             updatedSettings.SMTPFrom,
+		SMTPFromName:                         updatedSettings.SMTPFromName,
+		SMTPUseTLS:                           updatedSettings.SMTPUseTLS,
+		TurnstileEnabled:                     updatedSettings.TurnstileEnabled,
+		TurnstileSiteKey:                     updatedSettings.TurnstileSiteKey,
+		TurnstileSecretKeyConfigured:         updatedSettings.TurnstileSecretKeyConfigured,
+		LinuxDoConnectEnabled:                updatedSettings.LinuxDoConnectEnabled,
+		LinuxDoConnectClientID:               updatedSettings.LinuxDoConnectClientID,
+		LinuxDoConnectClientSecretConfigured: updatedSettings.LinuxDoConnectClientSecretConfigured,
+		LinuxDoConnectRedirectURL:            updatedSettings.LinuxDoConnectRedirectURL,
+		SiteName:                             updatedSettings.SiteName,
+		SiteLogo:                             updatedSettings.SiteLogo,
+		SiteSubtitle:                         updatedSettings.SiteSubtitle,
+		APIBaseURL:                           updatedSettings.APIBaseURL,
+		ContactInfo:                          updatedSettings.ContactInfo,
+		DocURL:                               updatedSettings.DocURL,
+		HomeContent:                          updatedSettings.HomeContent,
+		HideCcsImportButton:                  updatedSettings.HideCcsImportButton,
+		DefaultConcurrency:                   updatedSettings.DefaultConcurrency,
+		DefaultBalance:                       updatedSettings.DefaultBalance,
+		EnableModelFallback:                  updatedSettings.EnableModelFallback,
+		FallbackModelAnthropic:               updatedSettings.FallbackModelAnthropic,
+		FallbackModelOpenAI:                  updatedSettings.FallbackModelOpenAI,
+		FallbackModelGemini:                  updatedSettings.FallbackModelGemini,
+		FallbackModelAntigravity:             updatedSettings.FallbackModelAntigravity,
+		EnableIdentityPatch:                  updatedSettings.EnableIdentityPatch,
+		IdentityPatchPrompt:                  updatedSettings.IdentityPatchPrompt,
+		OpsMonitoringEnabled:                 updatedSettings.OpsMonitoringEnabled,
+		OpsRealtimeMonitoringEnabled:         updatedSettings.OpsRealtimeMonitoringEnabled,
+		OpsQueryModeDefault:                  updatedSettings.OpsQueryModeDefault,
+		OpsMetricsIntervalSeconds:            updatedSettings.OpsMetricsIntervalSeconds,
 	})
 }
 
@@ -298,6 +414,18 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if req.TurnstileSecretKey != "" {
 		changed = append(changed, "turnstile_secret_key")
 	}
+	if before.LinuxDoConnectEnabled != after.LinuxDoConnectEnabled {
+		changed = append(changed, "linuxdo_connect_enabled")
+	}
+	if before.LinuxDoConnectClientID != after.LinuxDoConnectClientID {
+		changed = append(changed, "linuxdo_connect_client_id")
+	}
+	if req.LinuxDoConnectClientSecret != "" {
+		changed = append(changed, "linuxdo_connect_client_secret")
+	}
+	if before.LinuxDoConnectRedirectURL != after.LinuxDoConnectRedirectURL {
+		changed = append(changed, "linuxdo_connect_redirect_url")
+	}
 	if before.SiteName != after.SiteName {
 		changed = append(changed, "site_name")
 	}
@@ -315,6 +443,12 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.DocURL != after.DocURL {
 		changed = append(changed, "doc_url")
+	}
+	if before.HomeContent != after.HomeContent {
+		changed = append(changed, "home_content")
+	}
+	if before.HideCcsImportButton != after.HideCcsImportButton {
+		changed = append(changed, "hide_ccs_import_button")
 	}
 	if before.DefaultConcurrency != after.DefaultConcurrency {
 		changed = append(changed, "default_concurrency")
@@ -336,6 +470,24 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.FallbackModelAntigravity != after.FallbackModelAntigravity {
 		changed = append(changed, "fallback_model_antigravity")
+	}
+	if before.EnableIdentityPatch != after.EnableIdentityPatch {
+		changed = append(changed, "enable_identity_patch")
+	}
+	if before.IdentityPatchPrompt != after.IdentityPatchPrompt {
+		changed = append(changed, "identity_patch_prompt")
+	}
+	if before.OpsMonitoringEnabled != after.OpsMonitoringEnabled {
+		changed = append(changed, "ops_monitoring_enabled")
+	}
+	if before.OpsRealtimeMonitoringEnabled != after.OpsRealtimeMonitoringEnabled {
+		changed = append(changed, "ops_realtime_monitoring_enabled")
+	}
+	if before.OpsQueryModeDefault != after.OpsQueryModeDefault {
+		changed = append(changed, "ops_query_mode_default")
+	}
+	if before.OpsMetricsIntervalSeconds != after.OpsMetricsIntervalSeconds {
+		changed = append(changed, "ops_metrics_interval_seconds")
 	}
 	return changed
 }
@@ -512,4 +664,69 @@ func (h *SettingHandler) DeleteAdminAPIKey(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "Admin API key deleted"})
+}
+
+// GetStreamTimeoutSettings 获取流超时处理配置
+// GET /api/v1/admin/settings/stream-timeout
+func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {
+	settings, err := h.settingService.GetStreamTimeoutSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.StreamTimeoutSettings{
+		Enabled:                settings.Enabled,
+		Action:                 settings.Action,
+		TempUnschedMinutes:     settings.TempUnschedMinutes,
+		ThresholdCount:         settings.ThresholdCount,
+		ThresholdWindowMinutes: settings.ThresholdWindowMinutes,
+	})
+}
+
+// UpdateStreamTimeoutSettingsRequest 更新流超时配置请求
+type UpdateStreamTimeoutSettingsRequest struct {
+	Enabled                bool   `json:"enabled"`
+	Action                 string `json:"action"`
+	TempUnschedMinutes     int    `json:"temp_unsched_minutes"`
+	ThresholdCount         int    `json:"threshold_count"`
+	ThresholdWindowMinutes int    `json:"threshold_window_minutes"`
+}
+
+// UpdateStreamTimeoutSettings 更新流超时处理配置
+// PUT /api/v1/admin/settings/stream-timeout
+func (h *SettingHandler) UpdateStreamTimeoutSettings(c *gin.Context) {
+	var req UpdateStreamTimeoutSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.StreamTimeoutSettings{
+		Enabled:                req.Enabled,
+		Action:                 req.Action,
+		TempUnschedMinutes:     req.TempUnschedMinutes,
+		ThresholdCount:         req.ThresholdCount,
+		ThresholdWindowMinutes: req.ThresholdWindowMinutes,
+	}
+
+	if err := h.settingService.SetStreamTimeoutSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 重新获取设置返回
+	updatedSettings, err := h.settingService.GetStreamTimeoutSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, dto.StreamTimeoutSettings{
+		Enabled:                updatedSettings.Enabled,
+		Action:                 updatedSettings.Action,
+		TempUnschedMinutes:     updatedSettings.TempUnschedMinutes,
+		ThresholdCount:         updatedSettings.ThresholdCount,
+		ThresholdWindowMinutes: updatedSettings.ThresholdWindowMinutes,
+	})
 }

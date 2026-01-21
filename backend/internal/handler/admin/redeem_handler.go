@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -41,6 +42,11 @@ func (h *RedeemHandler) List(c *gin.Context) {
 	codeType := c.Query("type")
 	status := c.Query("status")
 	search := c.Query("search")
+	// 标准化和验证 search 参数
+	search = strings.TrimSpace(search)
+	if len(search) > 100 {
+		search = search[:100]
+	}
 
 	codes, total, err := h.adminService.ListRedeemCodes(c.Request.Context(), page, pageSize, codeType, status, search)
 	if err != nil {
@@ -48,9 +54,9 @@ func (h *RedeemHandler) List(c *gin.Context) {
 		return
 	}
 
-	out := make([]dto.RedeemCode, 0, len(codes))
+	out := make([]dto.AdminRedeemCode, 0, len(codes))
 	for i := range codes {
-		out = append(out, *dto.RedeemCodeFromService(&codes[i]))
+		out = append(out, *dto.RedeemCodeFromServiceAdmin(&codes[i]))
 	}
 	response.Paginated(c, out, total, page, pageSize)
 }
@@ -70,7 +76,7 @@ func (h *RedeemHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.RedeemCodeFromService(code))
+	response.Success(c, dto.RedeemCodeFromServiceAdmin(code))
 }
 
 // Generate handles generating new redeem codes
@@ -94,9 +100,9 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 		return
 	}
 
-	out := make([]dto.RedeemCode, 0, len(codes))
+	out := make([]dto.AdminRedeemCode, 0, len(codes))
 	for i := range codes {
-		out = append(out, *dto.RedeemCodeFromService(&codes[i]))
+		out = append(out, *dto.RedeemCodeFromServiceAdmin(&codes[i]))
 	}
 	response.Success(c, out)
 }
@@ -157,7 +163,7 @@ func (h *RedeemHandler) Expire(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.RedeemCodeFromService(code))
+	response.Success(c, dto.RedeemCodeFromServiceAdmin(code))
 }
 
 // GetStats handles getting redeem code statistics

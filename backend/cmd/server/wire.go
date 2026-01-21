@@ -62,7 +62,15 @@ func provideServiceBuildInfo(buildInfo handler.BuildInfo) service.BuildInfo {
 func provideCleanup(
 	entClient *ent.Client,
 	rdb *redis.Client,
+	opsMetricsCollector *service.OpsMetricsCollector,
+	opsAggregation *service.OpsAggregationService,
+	opsAlertEvaluator *service.OpsAlertEvaluatorService,
+	opsCleanup *service.OpsCleanupService,
+	opsScheduledReport *service.OpsScheduledReportService,
+	schedulerSnapshot *service.SchedulerSnapshotService,
 	tokenRefresh *service.TokenRefreshService,
+	accountExpiry *service.AccountExpiryService,
+	usageCleanup *service.UsageCleanupService,
 	pricing *service.PricingService,
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
@@ -80,8 +88,54 @@ func provideCleanup(
 			name string
 			fn   func() error
 		}{
+			{"OpsScheduledReportService", func() error {
+				if opsScheduledReport != nil {
+					opsScheduledReport.Stop()
+				}
+				return nil
+			}},
+			{"OpsCleanupService", func() error {
+				if opsCleanup != nil {
+					opsCleanup.Stop()
+				}
+				return nil
+			}},
+			{"OpsAlertEvaluatorService", func() error {
+				if opsAlertEvaluator != nil {
+					opsAlertEvaluator.Stop()
+				}
+				return nil
+			}},
+			{"OpsAggregationService", func() error {
+				if opsAggregation != nil {
+					opsAggregation.Stop()
+				}
+				return nil
+			}},
+			{"OpsMetricsCollector", func() error {
+				if opsMetricsCollector != nil {
+					opsMetricsCollector.Stop()
+				}
+				return nil
+			}},
+			{"SchedulerSnapshotService", func() error {
+				if schedulerSnapshot != nil {
+					schedulerSnapshot.Stop()
+				}
+				return nil
+			}},
+			{"UsageCleanupService", func() error {
+				if usageCleanup != nil {
+					usageCleanup.Stop()
+				}
+				return nil
+			}},
 			{"TokenRefreshService", func() error {
 				tokenRefresh.Stop()
+				return nil
+			}},
+			{"AccountExpiryService", func() error {
+				accountExpiry.Stop()
 				return nil
 			}},
 			{"PricingService", func() error {

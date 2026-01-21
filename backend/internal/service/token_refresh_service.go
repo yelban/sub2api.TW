@@ -14,9 +14,10 @@ import (
 // TokenRefreshService OAuth token自动刷新服务
 // 定期检查并刷新即将过期的token
 type TokenRefreshService struct {
-	accountRepo AccountRepository
-	refreshers  []TokenRefresher
-	cfg         *config.TokenRefreshConfig
+	accountRepo      AccountRepository
+	refreshers       []TokenRefresher
+	cfg              *config.TokenRefreshConfig
+	cacheInvalidator TokenCacheInvalidator
 
 	stopCh chan struct{}
 	wg     sync.WaitGroup
@@ -29,12 +30,14 @@ func NewTokenRefreshService(
 	openaiOAuthService *OpenAIOAuthService,
 	geminiOAuthService *GeminiOAuthService,
 	antigravityOAuthService *AntigravityOAuthService,
+	cacheInvalidator TokenCacheInvalidator,
 	cfg *config.Config,
 ) *TokenRefreshService {
 	s := &TokenRefreshService{
-		accountRepo: accountRepo,
-		cfg:         &cfg.TokenRefresh,
-		stopCh:      make(chan struct{}),
+		accountRepo:      accountRepo,
+		cfg:              &cfg.TokenRefresh,
+		cacheInvalidator: cacheInvalidator,
+		stopCh:           make(chan struct{}),
 	}
 
 	// 注册平台特定的刷新器
@@ -163,11 +166,33 @@ func (s *TokenRefreshService) refreshWithRetry(ctx context.Context, account *Acc
 
 	for attempt := 1; attempt <= s.cfg.MaxRetries; attempt++ {
 		newCredentials, err := refresher.Refresh(ctx, account)
-		if err == nil {
-			// 刷新成功，更新账号credentials
+
+		// 如果有新凭证，先更新（即使有错误也要保存 token）
+		if newCredentials != nil {
 			account.Credentials = newCredentials
-			if err := s.accountRepo.Update(ctx, account); err != nil {
-				return fmt.Errorf("failed to save credentials: %w", err)
+			if saveErr := s.accountRepo.Update(ctx, account); saveErr != nil {
+				return fmt.Errorf("failed to save credentials: %w", saveErr)
+			}
+		}
+
+		if err == nil {
+			// Antigravity 账户：如果之前是因为缺少 project_id 而标记为 error，现在成功获取到了，清除错误状态
+			if account.Platform == PlatformAntigravity &&
+				account.Status == StatusError &&
+				strings.Contains(account.ErrorMessage, "missing_project_id:") {
+				if clearErr := s.accountRepo.ClearError(ctx, account.ID); clearErr != nil {
+					log.Printf("[TokenRefresh] Failed to clear error status for account %d: %v", account.ID, clearErr)
+				} else {
+					log.Printf("[TokenRefresh] Account %d: cleared missing_project_id error", account.ID)
+				}
+			}
+			// 对所有 OAuth 账号调用缓存失效（InvalidateToken 内部根据平台判断是否需要处理）
+			if s.cacheInvalidator != nil && account.Type == AccountTypeOAuth {
+				if err := s.cacheInvalidator.InvalidateToken(ctx, account); err != nil {
+					log.Printf("[TokenRefresh] Failed to invalidate token cache for account %d: %v", account.ID, err)
+				} else {
+					log.Printf("[TokenRefresh] Token cache invalidated for account %d", account.ID)
+				}
 			}
 			return nil
 		}
@@ -219,6 +244,7 @@ func isNonRetryableRefreshError(err error) bool {
 		"invalid_client",      // 客户端配置错误
 		"unauthorized_client", // 客户端未授权
 		"access_denied",       // 访问被拒绝
+		"missing_project_id",  // 缺少 project_id
 	}
 	for _, needle := range nonRetryable {
 		if strings.Contains(msg, needle) {
