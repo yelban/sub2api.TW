@@ -273,7 +273,7 @@ EXCLUDE_FILES=(...)
 # OpenCC 轉換
 opencc -i <source> -o <target> -c s2twp.json
 
-# 手動校正（規則定義在 .fork-sync.yaml）
+# 手動校正（規則定義在 scripts/convert-config.sh）
 sed -i '' 's/賬/帳/g' <target>
 ```
 
@@ -282,4 +282,4 @@ sed -i '' 's/賬/帳/g' <target>
 1. **上游 i18n 結構變更**：如果上游修改了 `index.ts`（如改回 `zh.ts`），需要手動恢復 `zh-Hans`/`zh-Hant` 結構
 2. **新增翻譯 key**：OpenCC 會自動處理新增的簡體內容
 3. **衝突處理**：i18n 檔案衝突時，優先採用上游版本，再重新執行中文化流程
-4. **新增校正詞彙**：更新 `.fork-sync.yaml` 的 `manual_corrections`，並同步更新腳本
+4. **新增校正詞彙**：更新 `scripts/convert-config.sh` 的 `MANUAL_CORRECTIONS` 陣列

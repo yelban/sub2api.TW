@@ -2,7 +2,7 @@
 # 繁體中文化配置檔
 # 此檔案由 convert-to-traditional-chinese.sh 載入
 #
-# 配置說明請參考：.fork-sync.yaml
+# 詳細說明請參考：docs/i18n-traditional-chinese.md
 
 # =============================================================================
 # OpenCC 同步配置：source → target
