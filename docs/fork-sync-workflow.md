@@ -256,24 +256,46 @@ git push origin main
 
 > **配置檔**：同步規則定義在 [.fork-sync.yaml](../.fork-sync.yaml)
 
-### 快速流程
+### 快速流程（推薦）
+
+使用批次轉換腳本：
 
 ```bash
 # 1. 同步上游
 git fetch upstream
 git merge upstream/main
 
-# 2. 重新中文化（OpenCC + 手動校正）
-# ⚠️ 手動校正規則定義在 .fork-sync.yaml 的 manual_corrections
-opencc -i frontend/src/i18n/locales/zh-Hans.ts \
-       -o frontend/src/i18n/locales/zh-Hant.ts \
-       -c s2twp.json && \
-sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+# 2. 批次繁體中文化（.md, .yaml, i18n 翻譯檔）
+./scripts/convert-to-traditional-chinese.sh
 
-# 3. 提交
-git add frontend/src/i18n/locales/zh-Hant.ts
+# 3. 驗證
+cd frontend && pnpm run typecheck
+
+# 4. 提交
+git add -A
 git commit -m "chore(i18n): update Traditional Chinese translations"
 git push origin main
+```
+
+### 腳本選項
+
+```bash
+./scripts/convert-to-traditional-chinese.sh -h        # 顯示說明
+./scripts/convert-to-traditional-chinese.sh -n        # Dry run（預覽不修改）
+./scripts/convert-to-traditional-chinese.sh -v        # 詳細輸出
+./scripts/convert-to-traditional-chinese.sh docs/     # 只處理特定目錄
+```
+
+### 手動流程（備用）
+
+如果需要手動處理單一檔案：
+
+```bash
+# OpenCC 轉換
+opencc -i <source> -o <target> -c s2twp.json
+
+# 手動校正（規則定義在 .fork-sync.yaml）
+sed -i '' 's/賬/帳/g' <target>
 ```
 
 > **詳細說明**：參見 [i18n-traditional-chinese.md](./i18n-traditional-chinese.md)

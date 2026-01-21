@@ -33,12 +33,20 @@ Sub2API is an AI API gateway platform for distributing and managing API quotas f
 git fetch upstream
 git merge upstream/main
 
-# 2. 重新中文化（OpenCC + 手動校正）
-# ⚠️ 手動校正命令需與 docs/i18n-traditional-chinese.md 中的詞彙表保持同步
-opencc -i frontend/src/i18n/locales/zh-Hans.ts \
-       -o frontend/src/i18n/locales/zh-Hant.ts \
-       -c s2twp.json && \
-sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+# 2. 批次繁體中文化（推薦）
+./scripts/convert-to-traditional-chinese.sh
+
+# 3. 驗證
+cd frontend && pnpm run typecheck
+
+# 4. 提交
+git add -A && git commit -m "chore(i18n): update Traditional Chinese translations"
+```
+
+**腳本選項：**
+```bash
+./scripts/convert-to-traditional-chinese.sh -n   # Dry run（預覽）
+./scripts/convert-to-traditional-chinese.sh -v   # 詳細輸出
 ```
 
 **必讀文件：**

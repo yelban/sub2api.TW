@@ -212,38 +212,60 @@ manual_corrections:
 
 當從上游 (upstream) 拉取更新後，需要重新執行繁體中文化。
 
-### 完整流程
+### 完整流程（推薦使用腳本）
 
 ```bash
-# 1. 同步上游（詳見 fork-sync-workflow.md）
+# 1. 同步上游
 git fetch upstream
 git merge upstream/main
 # 解決衝突後 commit
 
-# 2. OpenCC 簡轉繁
-opencc -i frontend/src/i18n/locales/zh-Hans.ts \
-       -o frontend/src/i18n/locales/zh-Hant.ts \
-       -c s2twp.json
+# 2. 批次繁體中文化（自動處理 .md, .yaml, i18n 翻譯檔）
+./scripts/convert-to-traditional-chinese.sh
 
-# 3. 手動校正詞彙
-sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
-
-# 4. 驗證（TypeScript 類型檢查）
+# 3. 驗證
 cd frontend && pnpm run typecheck
 
-# 5. 提交變更
-git add frontend/src/i18n/locales/zh-Hant.ts
+# 4. 提交變更
+git add -A
 git commit -m "chore(i18n): update Traditional Chinese translations"
 ```
 
-### 快速參考命令
+### 腳本說明
+
+批次轉換腳本：`scripts/convert-to-traditional-chinese.sh`
 
 ```bash
-# 一行完成 OpenCC + 手動校正
-opencc -i frontend/src/i18n/locales/zh-Hans.ts \
-       -o frontend/src/i18n/locales/zh-Hant.ts \
-       -c s2twp.json && \
-sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
+# 顯示說明
+./scripts/convert-to-traditional-chinese.sh -h
+
+# Dry run（預覽不修改）
+./scripts/convert-to-traditional-chinese.sh -n
+
+# 詳細輸出
+./scripts/convert-to-traditional-chinese.sh -v
+
+# 只處理特定目錄
+./scripts/convert-to-traditional-chinese.sh docs/
+```
+
+**腳本功能：**
+- 遞迴處理 `.md`, `.yaml`, `.yml` 檔案
+- 使用 OpenCC s2twp（台灣正體+常用詞彙）
+- 自動套用手動校正規則（定義在 `.fork-sync.yaml`）
+- 智慧偵測：只轉換包含簡體中文的檔案
+- 排除 node_modules、config 等不需轉換的檔案
+
+### 手動流程（備用）
+
+如果需要手動處理單一檔案：
+
+```bash
+# OpenCC 轉換
+opencc -i <source> -o <target> -c s2twp.json
+
+# 手動校正（規則定義在 .fork-sync.yaml）
+sed -i '' 's/賬/帳/g' <target>
 ```
 
 ### 注意事項
@@ -251,3 +273,4 @@ sed -i '' 's/賬/帳/g' frontend/src/i18n/locales/zh-Hant.ts
 1. **上游 i18n 結構變更**：如果上游修改了 `index.ts`（如改回 `zh.ts`），需要手動恢復 `zh-Hans`/`zh-Hant` 結構
 2. **新增翻譯 key**：OpenCC 會自動處理新增的簡體內容
 3. **衝突處理**：i18n 檔案衝突時，優先採用上游版本，再重新執行中文化流程
+4. **新增校正詞彙**：更新 `.fork-sync.yaml` 的 `manual_corrections`，並同步更新腳本
