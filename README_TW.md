@@ -2,33 +2,36 @@
 
 <div align="center">
 
-[![Go](https://img.shields.io/badge/Go-1.25.5-00ADD8.svg)](https://golang.org/)
+[![Go](https://img.shields.io/badge/Go-1.25.7-00ADD8.svg)](https://golang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
+<a href="https://trendshift.io/repositories/21823" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21823" alt="Wei-Shaw%2Fsub2api | Trendshift" width="250" height="55"/></a>
+
 **AI API 閘道器平臺 - 訂閱配額分發管理**
 
-[English](README.md) | 中文
+[English](README.md) | 中文 | [日本語](README_JA.md)
 
 </div>
 
+> **Sub2API 官方僅使用  `sub2api.org` 與 `pincc.ai` 兩個域名。其他使用 Sub2API 名義的網站可能為第三方部署或服務，與本專案無關，請自行甄別。**
 ---
 
 ## 線上體驗
 
-體驗地址：**https://v2.pincc.ai/**
+體驗地址：**[https://demo.sub2api.org/](https://demo.sub2api.org/)**
 
 演示帳號（共享演示環境；自建部署不會自動建立該帳號）：
 
 | 郵箱 | 密碼 |
 |------|------|
-| admin@sub2api.com | admin123 |
+| admin@sub2api.org | admin123 |
 
 ## 專案概述
 
-Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱（如 Claude Code $200/月）的 API 配額。使用者透過平臺生成的 API Key 呼叫上游 AI 服務，平臺負責鑑權、計費、負載均衡和請求轉發。
+Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱的 API 配額。使用者透過平臺生成的 API Key 呼叫上游 AI 服務，平臺負責鑑權、計費、負載均衡和請求轉發。
 
 ## 核心功能
 
@@ -38,29 +41,103 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 - **智慧排程** - 智慧帳號選擇，支援粘性會話
 - **併發控制** - 使用者級和帳號級併發限制
 - **速率限制** - 可配置的請求和 Token 速率限制
+- **內建支付系統** - 支援 EasyPay 易支付、支付寶官方、微信官方、Stripe，使用者自助充值，無需獨立部署支付服務（[配置指南](docs/PAYMENT_CN.md)）
 - **管理後臺** - Web 介面進行監控和管理
+- **外部系統整合** - 支援透過 iframe 嵌入外部系統（如工單等），擴充套件管理後臺功能
+
+## ❤️ 贊助商
+
+> [想出現在這裡？](mailto:support@pincc.ai)
+
+<table>
+<tr>
+<td width="180" align="center" valign="middle"><a href="https://shop.pincc.ai/"><img src="assets/partners/logos/pincc-logo.png" alt="pincc" width="150"></a></td>
+<td valign="middle"><b><a href="https://shop.pincc.ai/">PinCC</a></b> 是基於 Sub2API 搭建的官方中轉服務，提供 Claude Code、Codex、Gemini 等主流模型的穩定中轉，開箱即用，免去自建部署與運維煩惱。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.packyapi.com/register?aff=sub2api"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
+<td>感謝 PackyCode 贊助了本專案！PackyCode 是一家穩定、高效的API中轉服務商，提供 Claude Code、Codex、Gemini 等多種中轉服務。PackyCode 為本軟體的使用者提供了特別優惠，使用<a href="https://www.packyapi.com/register?aff=sub2api">此連結</a>註冊並在充值時填寫"sub2api"優惠碼，首次充值可以享受9折優惠！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://poixe.com/i/sub2api"><img src="assets/partners/logos/poixe.png" alt="PoixeAI" width="150"></a></td>
+<td>感謝 Poixe AI 贊助了本專案！Poixe AI 提供可靠的 AI 模型介面服務，您可以使用平臺提供的 LLM API 介面輕鬆構建 AI 產品，同時也可以成為供應商，為平臺提供大模型資源以賺取收益。透過 <a href="https://poixe.com/i/sub2api">此連結</a> 專屬連結註冊，充值額外贈送 $5 美金</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
+<td>感謝 CTok.ai 贊助了本專案！CTok.ai 致力於打造一站式 AI 程式設計工具服務平臺。我們提供 Claude Code 專業套餐及技術社群服務，同時支援 Google Gemini 和 OpenAI Codex。透過精心設計的套餐方案和專業的技術社群，為開發者提供穩定的服務保障和持續的技術支援，讓 AI 輔助程式設計真正成為開發者的生產力工具。點選<a href="https://ctok.ai">這裡</a>註冊！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://code.silkapi.com/"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
+<td>感謝 絲綢API 贊助了本專案！ <a href="https://code.silkapi.com/">絲綢API</a> 是基於 Sub2API 搭建的中轉服務，專注於提供 Codex 高速穩定API中轉。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://ylscode.com/"><img src="assets/partners/logos/ylscode.png" alt="ylscode" width="150"></a></td>
+<td>感謝 伊莉思Code 贊助了本專案！ <a href="https://ylscode.com/">伊莉思Code</a> 致力於構建安全的企業級Coding Agent生產力服務，提供穩定快速的 Codex / Claude / Gemini 訂閱服務與即用即付API多種方案靈活選擇，限時註冊贈送 3 天 Codex 試用福利！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
+<td>感謝 AICodeMirror 贊助了本專案！AICodeMirror 提供 Claude Code / Codex / Gemini CLI 官方高穩定性中轉服務，企業級併發、快速開票、7×24 小時專屬技術支援。Claude Code / Codex / Gemini 官方通道低至原價 38% / 2% / 9%，充值更享額外折扣！AICodeMirror 為 sub2api 使用者提供專屬福利：透過<a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">此連結</a>註冊，首次充值立享 8 折優惠，企業客戶最高可享 75 折！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
+<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://shop.bmoplus.com/?utm_source=github"><img src="assets/partners/logos/bmoplus.jpg" alt="bmoplus" width="150"></a></td>
+<td>感謝 BmoPlus 贊助了本專案！BmoPlus 是一家專為AI訂閱重度使用者打造的可靠 AI 帳號代充服務商，提供穩定的 ChatGPT Plus / ChatGPT Pro(全程質保) / Claude Pro / Super Grok / Gemini Pro 的官方代充&成品帳號。 透過<a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus AI成品號專賣/代充</a>註冊下單的使用者，可享GPT 官網訂閱一折 的震撼價格！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://bestproxy.com/?keyword=a2e8iuol"><img src="assets/partners/logos/bestproxy.png" alt="bestproxy" width="150"></a></td>
+<td>感謝 Bestproxy 贊助了本專案！<a href="https://bestproxy.com/?keyword=a2e8iuol">Bestproxy</a> 是一家提供高純度住宅IP，支援一號一IP獨享，結合真實家庭網路與指紋隔離，可實現鏈路環境隔離，降低關聯風控機率。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://pateway.ai/?ch=1tsfr51"><img src="assets/partners/logos/pateway.png" alt="pateway" width="150"></a></td>
+<td>感謝 PatewayAI 贊助了本專案！PatewayAI 是一家面向重度 AI 開發者、專注官方直連的高品質模型 API 中轉服務商。提供 Claude 全系列與 Codex 系列模型，100% 官方源直供，不摻假不注水，歡迎檢驗。計費透明，Token 級帳單可逐筆核驗。
+同時支援企業級高併發，併為企業客戶提供了專業的管理平臺，企業客戶可簽訂正式合同並開具發票，更多詳情進入官網獲取聯絡方式。
+現在透過 <a href="https://pateway.ai/?ch=1tsfr51">此連結</a> 註冊即送 $3 試用額度，使用者充值低至 6 折，邀請好友雙向贈送，邀請獎勵可達 $150。</td>
+</tr>
+
+</table>
+
+## 生態專案
+
+圍繞 Sub2API 的社群擴充套件與整合專案：
+
+| 專案 | 說明 | 功能 |
+|------|------|------|
+| ~~[Sub2ApiPay](https://github.com/touwaeriol/sub2apipay)~~ | ~~自助支付系統~~ | **已內建** — 支付功能已整合到 Sub2API 中，無需獨立部署。詳見 [支付配置指南](docs/PAYMENT_CN.md) |
+| [sub2api-mobile](https://github.com/ckken/sub2api-mobile) | 移動端管理控制台 | 跨平臺應用（iOS/Android/Web），支援使用者管理、帳號管理、監控看板、多後端切換；基於 Expo + React Native 構建 |
 
 ## 技術棧
 
 | 元件 | 技術 |
 |------|------|
-| 後端 | Go 1.25.5, Gin, Ent |
+| 後端 | Go 1.25.7, Gin, Ent |
 | 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
 | 資料庫 | PostgreSQL 15+ |
 | 快取/佇列 | Redis 7+ |
 
 ---
 
-## 文件
+## Nginx 反向代理注意事項
 
-- 依賴安全：`docs/dependency-security.md`
+透過 Nginx 反向代理 Sub2API（或 CRS 服務）並搭配 Codex CLI 使用時，需要在 Nginx 配置的 `http` 塊中新增：
 
----
+```nginx
+underscores_in_headers on;
+```
 
-## OpenAI Responses 相容注意事項
-
-- 當請求包含 `function_call_output` 時，需要攜帶 `previous_response_id`，或在 `input` 中包含帶 `call_id` 的 `tool_call`/`function_call`，或帶非空 `id` 且與 `function_call_output.call_id` 匹配的 `item_reference`。
-- 若依賴上游歷史記錄，閘道器會強制 `store=true` 並需要複用 `previous_response_id`，以避免出現 “No tool call found for function call output” 錯誤。
+Nginx 預設會丟棄名稱中含下劃線的請求頭（如 `session_id`），這會導致多帳號環境下的粘性會話功能失效。
 
 ---
 
@@ -135,7 +212,7 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 
 ---
 
-### 方式二：Docker Compose
+### 方式二：Docker Compose（推薦）
 
 使用 Docker Compose 部署，包含 PostgreSQL 和 Redis 容器。
 
@@ -144,28 +221,58 @@ curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install
 - Docker 20.10+
 - Docker Compose v2+
 
-#### 安裝步驟
+#### 快速開始（一鍵部署）
+
+使用自動化部署指令碼快速搭建：
+
+```bash
+# 建立部署目錄
+mkdir -p sub2api-deploy && cd sub2api-deploy
+
+# 下載並執行部署準備指令碼
+curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+
+# 啟動服務
+docker compose up -d
+
+# 檢視日誌
+docker compose logs -f sub2api
+```
+
+**指令碼功能：**
+- 下載 `docker-compose.local.yml`（本地儲存為 `docker-compose.yml`）和 `.env.example`
+- 自動生成安全憑證（JWT_SECRET、TOTP_ENCRYPTION_KEY、POSTGRES_PASSWORD）
+- 建立 `.env` 檔案並填充自動生成的金鑰
+- 建立資料目錄（使用本地目錄，便於備份和遷移）
+- 顯示生成的憑證供你記錄
+
+#### 手動部署
+
+如果你希望手動配置：
 
 ```bash
 # 1. 克隆倉庫
 git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api
+cd sub2api/deploy
 
-# 2. 進入 deploy 目錄
-cd deploy
-
-# 3. 複製環境配置檔案
+# 2. 複製環境配置檔案
 cp .env.example .env
 
-# 4. 編輯配置（設定密碼等）
+# 3. 編輯配置（生成安全密碼）
 nano .env
 ```
 
 **`.env` 必須配置項：**
 
 ```bash
-# PostgreSQL 密碼（必須修改！）
+# PostgreSQL 密碼（必需）
 POSTGRES_PASSWORD=your_secure_password_here
+
+# JWT 金鑰（推薦 - 重啟後保持使用者登入狀態）
+JWT_SECRET=your_jwt_secret_here
+
+# TOTP 加密金鑰（推薦 - 重啟後保留雙因素認證）
+TOTP_ENCRYPTION_KEY=your_totp_key_here
 
 # 可選：管理員帳號
 ADMIN_EMAIL=admin@example.com
@@ -173,58 +280,110 @@ ADMIN_PASSWORD=your_admin_password
 
 # 可選：自定義埠
 SERVER_PORT=8080
+```
 
-# 可選：安全配置
-# 啟用 URL 白名單驗證（false 則跳過白名單檢查，僅做基本格式校驗）
-SECURITY_URL_ALLOWLIST_ENABLED=false
+**生成安全金鑰：**
+```bash
+# 生成 JWT_SECRET
+openssl rand -hex 32
 
-# 關閉白名單時，是否允許 http:// URL（預設 false，只允許 https://）
-# ⚠️ 警告：允許 HTTP 會暴露 API 金鑰（明文傳輸）
-#          僅建議在以下場景使用：
-#          - 開發/測試環境
-#          - 內部可信網路
-#          - 本地測試伺服器（http://localhost）
-# 生產環境：保持 false 或僅使用 HTTPS URL
-SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
+# 生成 TOTP_ENCRYPTION_KEY
+openssl rand -hex 32
 
-# 是否允許私有 IP 地址用於上游/定價/CRS（內網部署時使用）
-SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS=false
+# 生成 POSTGRES_PASSWORD
+openssl rand -hex 32
 ```
 
 ```bash
+# 4. 建立資料目錄（本地版）
+mkdir -p data postgres_data redis_data
+
 # 5. 啟動所有服務
-docker-compose up -d
+# 選項 A：本地目錄版（推薦 - 易於遷移）
+docker compose -f docker-compose.local.yml up -d
+
+# 選項 B：命名卷版（簡單設定）
+docker compose up -d
 
 # 6. 檢視狀態
-docker-compose ps
+docker compose -f docker-compose.local.yml ps
 
 # 7. 檢視日誌
-docker-compose logs -f sub2api
+docker compose -f docker-compose.local.yml logs -f sub2api
 ```
+
+#### 部署版本對比
+
+| 版本 | 資料儲存 | 遷移便利性 | 適用場景 |
+|------|---------|-----------|---------|
+| **docker-compose.local.yml** | 本地目錄 | ✅ 簡單（打包整個目錄） | 生產環境、頻繁備份 |
+| **docker-compose.yml** | 命名卷 | ⚠️ 需要 docker 命令 | 簡單設定 |
+
+**推薦：** 使用 `docker-compose.local.yml`（指令碼部署）以便更輕鬆地管理資料。
+
+#### 啟用“資料管理”功能（datamanagementd）
+
+如需啟用管理後臺“資料管理”，需要額外部署宿主機資料管理程式 `datamanagementd`。
+
+關鍵點：
+
+- 主程式固定探測：`/tmp/sub2api-datamanagement.sock`
+- 只有該 Socket 可連通時，資料管理功能才會開啟
+- Docker 場景需將宿主機 Socket 掛載到容器同路徑
+
+詳細部署步驟見：`deploy/DATAMANAGEMENTD_CN.md`
 
 #### 訪問
 
 在瀏覽器中開啟 `http://你的伺服器IP:8080`
 
+如果管理員密碼是自動生成的，在日誌中查詢：
+```bash
+docker compose -f docker-compose.local.yml logs sub2api | grep "admin password"
+```
+
 #### 升級
 
 ```bash
 # 拉取最新映象並重建容器
-docker-compose pull
-docker-compose up -d
+docker compose -f docker-compose.local.yml pull
+docker compose -f docker-compose.local.yml up -d
+```
+
+#### 輕鬆遷移（本地目錄版）
+
+使用 `docker-compose.local.yml` 時，可以輕鬆遷移到新伺服器：
+
+```bash
+# 源伺服器
+docker compose -f docker-compose.local.yml down
+cd ..
+tar czf sub2api-complete.tar.gz sub2api-deploy/
+
+# 傳輸到新伺服器
+scp sub2api-complete.tar.gz user@new-server:/path/
+
+# 新伺服器
+tar xzf sub2api-complete.tar.gz
+cd sub2api-deploy/
+docker compose -f docker-compose.local.yml up -d
 ```
 
 #### 常用命令
 
 ```bash
 # 停止所有服務
-docker-compose down
+docker compose -f docker-compose.local.yml down
 
 # 重啟
-docker-compose restart
+docker compose -f docker-compose.local.yml restart
 
 # 檢視所有日誌
-docker-compose logs -f
+docker compose -f docker-compose.local.yml logs -f
+
+# 刪除所有資料（謹慎！）
+docker compose -f docker-compose.local.yml down
+rm -rf data/ postgres_data/ redis_data/
 ```
 
 ---
@@ -300,6 +459,33 @@ default:
   rate_multiplier: 1.0
 ```
 
+### Sora 功能狀態（暫不可用）
+
+> ⚠️ 當前 Sora 相關功能因上游接入與媒體鏈路存在技術問題，暫時不可用。
+> 現階段請勿在生產環境依賴 Sora 能力。
+> 檔案中的 `gateway.sora_*` 配置僅作預留，待技術問題修復後再恢復可用。
+
+### Sora 媒體簽名 URL（功能恢復後可選）
+
+當配置 `gateway.sora_media_signing_key` 且 `gateway.sora_media_signed_url_ttl_seconds > 0` 時，閘道器會將 Sora 輸出的媒體地址改寫為臨時簽名 URL（`/sora/media-signed/...`）。這樣無需 API Key 即可在瀏覽器中直接訪問，且具備過期控制與防篡改能力（簽名包含 path + query）。
+
+```yaml
+gateway:
+  # /sora/media 是否強制要求 API Key（預設 false）
+  sora_media_require_api_key: false
+  # 媒體臨時簽名金鑰（為空則停用簽名）
+  sora_media_signing_key: "your-signing-key"
+  # 臨時簽名 URL 有效期（秒）
+  sora_media_signed_url_ttl_seconds: 900
+```
+
+> 若未配置簽名金鑰，`/sora/media-signed` 將返回 503。  
+> 如需更嚴格的訪問控制，可將 `sora_media_require_api_key` 設為 true，僅允許攜帶 API Key 的 `/sora/media` 訪問。
+
+訪問策略說明：
+- `/sora/media`：內部呼叫或客戶端攜帶 API Key 才能下載
+- `/sora/media-signed`：外部可訪問，但有簽名 + 過期控制
+
 `config.yaml` 還支援以下安全相關配置：
 
 - `cors.allowed_origins` 配置 CORS 白名單
@@ -312,6 +498,14 @@ default:
 - `billing.circuit_breaker` 計費異常時 fail-closed
 - `server.trusted_proxies` 啟用可信代理解析 X-Forwarded-For
 - `turnstile.required` 在 release 模式強制啟用 Turnstile
+
+**閘道器防禦縱深建議（重點）**
+
+- `gateway.upstream_response_read_max_bytes`：限制非流式上游響應讀取大小（預設 `8MB`），用於防止異常響應導致記憶體放大。
+- `gateway.proxy_probe_response_read_max_bytes`：限制代理探測響應讀取大小（預設 `1MB`）。
+- `gateway.gemini_debug_response_headers`：預設 `false`，僅在排障時短時開啟，避免高頻請求日誌開銷。
+- `/auth/register`、`/auth/login`、`/auth/login/2fa`、`/auth/send-verify-code` 已提供服務端兜底限流（Redis 故障時 fail-close）。
+- 推薦將 WAF/CDN 作為第一層防護，服務端限流與響應讀取上限作為第二層兜底；兩層同時保留，避免旁路流量與誤配置風險。
 
 **⚠️ 安全警告：HTTP URL 配置**
 
@@ -356,6 +550,29 @@ Invalid base URL: invalid url scheme: http
 ```bash
 # 6. 執行應用
 ./sub2api
+```
+
+#### HTTP/2 (h2c) 與 HTTP/1.1 回退
+
+後端明文埠預設支援 h2c，並保留 HTTP/1.1 回退用於 WebSocket 與舊客戶端。瀏覽器通常不支援 h2c，效能收益主要在反向代理或內網鏈路。
+
+**反向代理示例（Caddy）：**
+
+```caddyfile
+transport http {
+	versions h2c h1
+}
+```
+
+**驗證：**
+
+```bash
+# h2c prior knowledge
+curl --http2-prior-knowledge -I http://localhost:8080/health
+# HTTP/1.1 回退
+curl --http1.1 -I http://localhost:8080/health
+# WebSocket 回退驗證（需管理員 token）
+websocat -H="Sec-WebSocket-Protocol: sub2api-admin, jwt.<ADMIN_TOKEN>" ws://localhost:8080/api/v1/admin/ops/ws/qps
 ```
 
 #### 開發模式
@@ -450,9 +667,33 @@ sub2api/
     └── install.sh            # 一鍵安裝指令碼
 ```
 
+## 免責宣告
+
+> **使用本專案前請仔細閱讀：**
+>
+> :rotating_light: **服務條款風險**: 使用本專案可能違反 Anthropic 的服務條款。請在使用前仔細閱讀 Anthropic 的使用者協議，使用本專案的一切風險由使用者自行承擔。
+>
+> :book: **免責宣告**: 本專案僅供技術學習和研究使用，作者不對因使用本專案導致的帳戶封禁、服務中斷或其他損失承擔任何責任。
+
+---
+
+## Star History
+
+<a href="https://star-history.com/#Wei-Shaw/sub2api&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
+ </picture>
+</a>
+
+---
+
 ## 許可證
 
-MIT License
+本專案基於 [GNU 寬通用公共許可證 v3.0](LICENSE)（或更高版本）授權。
+
+Copyright (c) 2026 Wesley Liddick
 
 ---
 

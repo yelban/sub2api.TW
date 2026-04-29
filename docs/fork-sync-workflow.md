@@ -88,7 +88,7 @@ git push origin main --force-with-lease
 **適用場景：**
 - 個人專案，無其他協作者
 - 尚未 push 到遠端的本地修改
-- 準備向上游提交 PR 時
+- 準備向上遊提交 PR 時
 
 ---
 
@@ -96,7 +96,7 @@ git push origin main --force-with-lease
 
 ```bash
 git fetch upstream
-git log upstream/main --oneline  # 查看新 commits
+git log upstream/main --oneline  # 檢視新 commits
 git cherry-pick <commit-hash>    # 挑選需要的
 ```
 
@@ -133,10 +133,10 @@ git rebase main  # 定期 rebase 到最新的 main
 |------|------|
 | ✅ main 永遠與上游一致 | ❌ 需要管理多個分支 |
 | ✅ 功能分支清晰隔離 | ❌ rebase 可能頻繁產生衝突 |
-| ✅ 容易向上游提交 PR | |
+| ✅ 容易向上遊提交 PR | |
 
 **適用場景：**
-- 計畫向上游貢獻程式碼
+- 計畫向上遊貢獻程式碼
 - 多個獨立功能同時開發
 - 需要清晰區分「上游程式碼」和「自訂程式碼」
 
@@ -150,7 +150,7 @@ git rebase main  # 定期 rebase 到最新的 main
 # 1. 開始工作前，先同步上游
 git fetch upstream
 
-# 2. 查看上游有多少新更新
+# 2. 檢視上游有多少新更新
 git log main..upstream/main --oneline
 
 # 3. 如果有更新，合併它
@@ -172,7 +172,7 @@ git push origin main
 git merge upstream/main
 # CONFLICT (content): Merge conflict in path/to/file
 
-# 1. 查看衝突檔案
+# 1. 檢視衝突檔案
 git status
 
 # 2. 手動編輯解決衝突（找到 <<<<<<< ======= >>>>>>> 標記）
@@ -187,28 +187,28 @@ git commit
 ### 減少衝突的技巧
 
 1. **頻繁同步**：定期（每週或每次開發前）同步上游，避免差異過大
-2. **隔離修改**：盡量不修改上游的核心檔案，用擴展/覆蓋方式新增功能
+2. **隔離修改**：盡量不修改上游的核心檔案，用擴充套件/覆蓋方式新增功能
 3. **獨立配置**：使用 `.env`、`config.local.yaml` 等方式隔離本地配置
-4. **文件隔離**：自訂文檔放在獨立目錄（如 `docs/local/`）
+4. **檔案隔離**：自訂文件放在獨立目錄（如 `docs/local/`）
 
 ---
 
 ## 常用命令速查
 
 ```bash
-# 查看 remote 設定
+# 檢視 remote 設定
 git remote -v
 
 # 取得上游更新（不合併）
 git fetch upstream
 
-# 查看上游新增的 commits
+# 檢視上游新增的 commits
 git log main..upstream/main --oneline
 
-# 查看上游變更的檔案
+# 檢視上游變更的檔案
 git diff main..upstream/main --stat
 
-# 查看特定檔案的上游變更
+# 檢視特定檔案的上游變更
 git diff main..upstream/main -- path/to/file
 
 # 合併上游（推薦）
@@ -254,11 +254,11 @@ git push origin main
 
 本專案維護繁體中文翻譯，每次同步上游後需要重新執行中文化流程。
 
-> **腳本配置**：定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
+> **指令碼配置**：定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
 
 ### 快速流程（推薦）
 
-使用批次轉換腳本：
+使用批次轉換指令碼：
 
 ```bash
 # 1. 同步上游
@@ -277,7 +277,7 @@ git commit -m "chore(i18n): update Traditional Chinese translations"
 git push origin main
 ```
 
-### 腳本選項
+### 指令碼選項
 
 ```bash
 ./scripts/convert-to-traditional-chinese.sh -h        # 顯示說明
@@ -295,7 +295,7 @@ git push origin main
 opencc -i <source> -o <target> -c s2twp.json
 
 # 手動校正（規則定義在 scripts/convert-config.sh）
-sed -i '' 's/賬/帳/g' <target>
+sed -i '' 's/帳/帳/g' <target>
 ```
 
 > **詳細說明**：參見 [i18n-traditional-chinese.md](./i18n-traditional-chinese.md)

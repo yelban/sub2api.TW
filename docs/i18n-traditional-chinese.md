@@ -4,37 +4,37 @@
 
 ## 決策摘要
 
-| 項目 | 決定 | 說明 |
+| 專案 | 決定 | 說明 |
 |------|------|------|
-| 語言代碼 | `zh-Hans` / `zh-Hant` | 基於書寫系統 (BCP 47 標準) |
-| 顯示名稱 | 「简体中文」/「繁體中文」| - |
+| 語言程式碼 | `zh-Hans` / `zh-Hant` | 基於書寫系統 (BCP 47 標準) |
+| 顯示名稱 | 「簡體中文」/「繁體中文」| - |
 | 旗幟 | 🇨🇳 / 🇹🇼 | - |
 | 翻譯方式 | OpenCC 簡轉繁 + 人工校對 | 使用 `s2twp.json` 配置 |
 
 ---
 
-## 背景: 中文語言代碼最佳實踐
+## 背景: 中文語言程式碼最佳實踐
 
 ### BCP 47 標準的兩種方式
 
-| 方式 | 代碼範例 | 說明 |
+| 方式 | 程式碼範例 | 說明 |
 |------|----------|------|
 | **Script-based** | `zh-Hans`, `zh-Hant` | 基於書寫系統 (推薦) |
 | **Region-based** | `zh-CN`, `zh-TW`, `zh-HK` | 基於地區 |
 
 ### 為什麼選擇 `zh-Hans` / `zh-Hant`
 
-1. **不綁定地區**: 繁體中文使用者不只在台灣，還有香港、澳門、馬來西亞、海外華人社區
+1. **不繫結地區**: 繁體中文使用者不只在臺灣，還有香港、澳門、馬來西亞、海外華人社群
 2. **語意清晰**: 明確表達「簡化字」vs「正體字/繁體字」
 3. **W3C 建議**: W3C 建議中文使用 script subtag
 4. **國際標準**: 符合 ISO 15924 script codes
 
-### 瀏覽器語言偵測映射
+### 瀏覽器語言偵測對映
 
 ```
 zh-CN, zh-SG, zh-Hans, zh-Hans-* → zh-Hans (簡體)
 zh-TW, zh-HK, zh-MO, zh-Hant, zh-Hant-* → zh-Hant (繁體)
-zh (無後綴) → 預設為 zh-Hans
+zh (無字尾) → 預設為 zh-Hans
 ```
 
 ---
@@ -107,14 +107,14 @@ export function getLocale(): string {
 
 export const availableLocales = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'zh-Hans', name: '简体中文', flag: '🇨🇳' },
+  { code: 'zh-Hans', name: '簡體中文', flag: '🇨🇳' },
   { code: 'zh-Hant', name: '繁體中文', flag: '🇹🇼' }
 ]
 
 export default i18n
 ```
 
-### Step 2: 重命名簡體中文檔案
+### Step 2: 重新命名簡體中文件案
 
 ```bash
 git mv frontend/src/i18n/locales/zh.ts frontend/src/i18n/locales/zh-Hans.ts
@@ -122,35 +122,35 @@ git mv frontend/src/i18n/locales/zh.ts frontend/src/i18n/locales/zh-Hans.ts
 
 ### Step 3: 建立繁體中文翻譯檔
 
-使用 OpenCC 將簡體轉換為繁體 (台灣正體):
+使用 OpenCC 將簡體轉換為繁體 (臺灣正體):
 
 ```bash
 # 安裝 OpenCC (macOS)
 brew install opencc
 
-# 轉換 (使用 s2twp 配置: 簡體→繁體台灣 + 常用詞彙轉換)
+# 轉換 (使用 s2twp 配置: 簡體→繁體臺灣 + 常用詞彙轉換)
 opencc -i frontend/src/i18n/locales/zh-Hans.ts \
        -o frontend/src/i18n/locales/zh-Hant.ts \
        -c s2twp.json
 ```
 
 **OpenCC 配置說明:**
-- `s2twp.json`: 簡體到繁體 (台灣正體) + 常用詞彙轉換
-  - 「软件」→「軟體」
-  - 「内存」→「記憶體」
-  - 「信息」→「資訊」
-  - 「视频」→「影片」
+- `s2twp.json`: 簡體到繁體 (臺灣正體) + 常用詞彙轉換
+  - 「軟體」→「軟體」
+  - 「記憶體」→「記憶體」
+  - 「資訊」→「資訊」
+  - 「影片」→「影片」
 
 ### Step 4: 手動校正詞彙
 
 OpenCC 無法完美處理所有詞彙，需要手動校正。
 
-> **配置檔**：腳本配置定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
+> **配置檔**：指令碼配置定義在 [scripts/convert-config.sh](../scripts/convert-config.sh)
 
-#### 查看目前的校正規則
+#### 檢視目前的校正規則
 
 ```bash
-# 查看配置檔
+# 檢視配置檔
 cat scripts/convert-config.sh
 ```
 
@@ -160,9 +160,9 @@ cat scripts/convert-config.sh
 
 ```bash
 MANUAL_CORRECTIONS=(
-    "賬|帳"    # 台灣用語：帳號、帳戶、帳單
+    "帳|帳"    # 臺灣用語：帳號、帳戶、帳單
     # 新增規則放在這裡
-    "新詞|台灣用語"    # 說明
+    "新詞|臺灣用語"    # 說明
 )
 ```
 
@@ -173,7 +173,7 @@ MANUAL_CORRECTIONS=(
 | 檔案 | 操作 |
 |------|------|
 | `frontend/src/i18n/index.ts` | 修改 |
-| `frontend/src/i18n/locales/zh.ts` | 重命名為 `zh-Hans.ts` |
+| `frontend/src/i18n/locales/zh.ts` | 重新命名為 `zh-Hans.ts` |
 | `frontend/src/i18n/locales/zh-Hant.ts` | 新增 |
 
 **不需修改:**
@@ -185,11 +185,11 @@ MANUAL_CORRECTIONS=(
 ## 向後相容性
 
 - 舊的 `zh` localStorage 值會自動遷移到 `zh-Hans`
-- 現有用戶體驗不受影響
+- 現有使用者體驗不受影響
 
 ---
 
-## 測試項目
+## 測試專案
 
 - [ ] 語言切換功能正常 (en ↔ zh-Hans ↔ zh-Hant)
 - [ ] 瀏覽器自動偵測 (zh-TW → zh-Hant, zh-CN → zh-Hans)
@@ -203,7 +203,7 @@ MANUAL_CORRECTIONS=(
 
 當從上游 (upstream) 拉取更新後，需要重新執行繁體中文化。
 
-### 完整流程（推薦使用腳本）
+### 完整流程（推薦使用指令碼）
 
 ```bash
 # 1. 同步上游
@@ -222,10 +222,10 @@ git add -A
 git commit -m "chore(i18n): update Traditional Chinese translations"
 ```
 
-### 腳本說明
+### 指令碼說明
 
-批次轉換腳本：`scripts/convert-to-traditional-chinese.sh`
-腳本配置檔：`scripts/convert-config.sh`
+批次轉換指令碼：`scripts/convert-to-traditional-chinese.sh`
+指令碼配置檔：`scripts/convert-config.sh`
 
 ```bash
 # 顯示說明
@@ -241,9 +241,9 @@ git commit -m "chore(i18n): update Traditional Chinese translations"
 ./scripts/convert-to-traditional-chinese.sh docs/
 ```
 
-**腳本功能：**
+**指令碼功能：**
 - 遞迴處理 `.md`, `.yaml`, `.yml` 檔案
-- 使用 OpenCC s2twp（台灣正體+常用詞彙）
+- 使用 OpenCC s2twp（臺灣正體+常用詞彙）
 - 自動套用手動校正規則（定義在 `scripts/convert-config.sh`）
 - 智慧偵測：只轉換包含簡體中文的檔案
 - 排除 node_modules、config 等不需轉換的檔案
@@ -274,7 +274,7 @@ EXCLUDE_FILES=(...)
 opencc -i <source> -o <target> -c s2twp.json
 
 # 手動校正（規則定義在 scripts/convert-config.sh）
-sed -i '' 's/賬/帳/g' <target>
+sed -i '' 's/帳/帳/g' <target>
 ```
 
 ### 注意事項

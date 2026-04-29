@@ -141,7 +141,7 @@ services:
       - SECURITY_URL_ALLOWLIST_UPSTREAM_HOSTS=${SECURITY_URL_ALLOWLIST_UPSTREAM_HOSTS:-}
 
       # =======================================================================
-      # Update Configuration (在线更新配置)
+      # Update Configuration (線上更新配置)
       # =======================================================================
       # Proxy for accessing GitHub (online updates + pricing data)
       # Examples: http://host:port, socks5://host:port
@@ -188,8 +188,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    # 注意：不暴露端口到宿主机，应用通过内部网络连接
-    # 如需调试，可临时添加：ports: ["127.0.0.1:5433:5432"]
+    # 注意：不暴露埠到宿主機，應用透過內部網路連線
+    # 如需除錯，可臨時新增：ports: ["127.0.0.1:5433:5432"]
 
   # ===========================================================================
   # Redis Cache

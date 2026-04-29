@@ -19,10 +19,10 @@ This directory contains files for deploying Sub2API on Linux servers.
 | `.env.example` | Docker environment variables template |
 | `DOCKER.md` | Docker Hub documentation |
 | `install.sh` | One-click binary installation script |
-| `install-datamanagementd.sh` | datamanagementd 一键安装脚本 |
+| `install-datamanagementd.sh` | datamanagementd 一鍵安裝指令碼 |
 | `sub2api.service` | Systemd service unit file |
 | `sub2api-datamanagementd.service` | datamanagementd systemd service unit file |
-| `DATAMANAGEMENTD_CN.md` | datamanagementd 部署与联动说明（中文） |
+| `DATAMANAGEMENTD_CN.md` | datamanagementd 部署與聯動說明（中文） |
 | `config.example.yaml` | Example configuration file |
 
 ---
@@ -148,13 +148,13 @@ SELECT
   (SELECT COUNT(*) FROM user_allowed_groups) AS new_pair_count;
 ```
 
-### datamanagementd（数据管理）联动
+### datamanagementd（資料管理）聯動
 
-如需启用管理后台“数据管理”功能，请额外部署宿主机 `datamanagementd`：
+如需啟用管理後臺“資料管理”功能，請額外部署宿主機 `datamanagementd`：
 
-- 主进程固定探测 `/tmp/sub2api-datamanagement.sock`
-- Docker 场景下需把宿主机 Socket 挂载到容器内同路径
-- 详细步骤见：`deploy/DATAMANAGEMENTD_CN.md`
+- 主程序固定探測 `/tmp/sub2api-datamanagement.sock`
+- Docker 場景下需把宿主機 Socket 掛載到容器內同路徑
+- 詳細步驟見：`deploy/DATAMANAGEMENTD_CN.md`
 
 ### Commands
 
@@ -315,8 +315,8 @@ Requires your own OAuth client credentials.
 GEMINI_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
 
-# 可选：如需使用 Gemini CLI 内置 OAuth Client（Code Assist / Google One）
-# 安全说明：本仓库不会内置该 client_secret，请在运行环境通过环境变量注入。
+# 可選：如需使用 Gemini CLI 內建 OAuth Client（Code Assist / Google One）
+# 安全說明：本倉庫不會內建該 client_secret，請在執行環境透過環境變數注入。
 # GEMINI_CLI_OAUTH_CLIENT_SECRET=GOCSPX-your-built-in-secret
 ```
 
@@ -445,7 +445,7 @@ If you need to use AI Studio OAuth for Gemini accounts, add the OAuth client cre
    Environment=GEMINI_OAUTH_CLIENT_SECRET=GOCSPX-your-client-secret
    ```
 
-   如需使用“内置 Gemini CLI OAuth Client”（Code Assist / Google One），还需要注入：
+   如需使用“內建 Gemini CLI OAuth Client”（Code Assist / Google One），還需要注入：
    ```ini
    Environment=GEMINI_CLI_OAUTH_CLIENT_SECRET=GOCSPX-your-built-in-secret
    ```

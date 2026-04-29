@@ -1,7 +1,7 @@
 # Fork Sync Configuration
 # 同步 fork 時自動處理本地客製化
 #
-# ⚠️ 此檔案僅供參考，實際腳本配置在：scripts/convert-config.sh
+# ⚠️ 此檔案僅供參考，實際指令碼配置在：scripts/convert-config.sh
 #
 # 完整流程：
 #   1. git fetch upstream && git merge upstream/main
@@ -10,17 +10,17 @@
 #   4. git add -A && git commit
 #
 # 詳細說明：docs/i18n-traditional-chinese.md
-# 轉換腳本：scripts/convert-to-traditional-chinese.sh
-# 腳本配置：scripts/convert-config.sh
+# 轉換指令碼：scripts/convert-to-traditional-chinese.sh
+# 指令碼配置：scripts/convert-config.sh
 
 # OpenCC 自動同步：當簡體中文更新時，自動重新產生繁體中文
 opencc_sync:
   # i18n 翻譯檔
   - source: frontend/src/i18n/locales/zh-Hans.ts
     target: frontend/src/i18n/locales/zh-Hant.ts
-    config: s2twp  # 簡體 → 繁體（台灣用語）
+    config: s2twp  # 簡體 → 繁體（臺灣用語）
 
-  # 文件檔案（上游為簡體，轉換為繁體）
+  # 檔案檔案（上游為簡體，轉換為繁體）
   - source: README_CN.md
     target: README_TW.md
     config: s2twp
@@ -28,9 +28,9 @@ opencc_sync:
 # 手動校正詞彙（OpenCC 後需額外處理）
 # 執行命令：sed -i '' 's/<pattern>/<replacement>/g' <target>
 manual_corrections:
-  - pattern: "賬"
+  - pattern: "帳"
     replacement: "帳"
-    description: "台灣用語：帳號、帳戶、帳單"
+    description: "臺灣用語：帳號、帳戶、帳單"
 
 # 本地客製化 commits（合併後需要保留的修改）
 # 注意：opencc_sync 會自動處理翻譯檔，以下只需追蹤其他客製化

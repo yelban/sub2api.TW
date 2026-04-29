@@ -12,25 +12,25 @@ Format: `NNN_description.sql`
 
 Example: `017_add_gemini_tier_id.sql`
 
-### `_notx.sql` 命名与执行语义（并发索引专用）
+### `_notx.sql` 命名與執行語義（併發索引專用）
 
-当迁移包含 `CREATE INDEX CONCURRENTLY` 或 `DROP INDEX CONCURRENTLY` 时，必须使用 `_notx.sql` 后缀，例如：
+當遷移包含 `CREATE INDEX CONCURRENTLY` 或 `DROP INDEX CONCURRENTLY` 時，必須使用 `_notx.sql` 字尾，例如：
 
 - `062_add_accounts_priority_indexes_notx.sql`
 - `063_drop_legacy_indexes_notx.sql`
 
-运行规则：
+執行規則：
 
-1. `*.sql`（不带 `_notx`）按事务执行。
-2. `*_notx.sql` 按非事务执行，不会包裹在 `BEGIN/COMMIT` 中。
-3. `*_notx.sql` 仅允许并发索引语句，不允许混入事务控制语句或其他 DDL/DML。
+1. `*.sql`（不帶 `_notx`）按事務執行。
+2. `*_notx.sql` 按非事務執行，不會包裹在 `BEGIN/COMMIT` 中。
+3. `*_notx.sql` 僅允許併發索引語句，不允許混入事務控制語句或其他 DDL/DML。
 
-幂等要求（必须）：
+冪等要求（必須）：
 
-- 创建索引：`CREATE INDEX CONCURRENTLY IF NOT EXISTS ...`
-- 删除索引：`DROP INDEX CONCURRENTLY IF EXISTS ...`
+- 建立索引：`CREATE INDEX CONCURRENTLY IF NOT EXISTS ...`
+- 刪除索引：`DROP INDEX CONCURRENTLY IF EXISTS ...`
 
-这样可以保证灾备重放、重复执行时不会因对象已存在/不存在而失败。
+這樣可以保證災備重放、重複執行時不會因物件已存在/不存在而失敗。
 
 ## Migration File Structure
 
