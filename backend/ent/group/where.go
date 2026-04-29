@@ -150,9 +150,49 @@ func FallbackGroupID(v int64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldFallbackGroupID, v))
 }
 
+// FallbackGroupIDOnInvalidRequest applies equality check predicate on the "fallback_group_id_on_invalid_request" field. It's identical to FallbackGroupIDOnInvalidRequestEQ.
+func FallbackGroupIDOnInvalidRequest(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
 // ModelRoutingEnabled applies equality check predicate on the "model_routing_enabled" field. It's identical to ModelRoutingEnabledEQ.
 func ModelRoutingEnabled(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldModelRoutingEnabled, v))
+}
+
+// McpXMLInject applies equality check predicate on the "mcp_xml_inject" field. It's identical to McpXMLInjectEQ.
+func McpXMLInject(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldMcpXMLInject, v))
+}
+
+// SortOrder applies equality check predicate on the "sort_order" field. It's identical to SortOrderEQ.
+func SortOrder(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldSortOrder, v))
+}
+
+// AllowMessagesDispatch applies equality check predicate on the "allow_messages_dispatch" field. It's identical to AllowMessagesDispatchEQ.
+func AllowMessagesDispatch(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowMessagesDispatch, v))
+}
+
+// RequireOauthOnly applies equality check predicate on the "require_oauth_only" field. It's identical to RequireOauthOnlyEQ.
+func RequireOauthOnly(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRequireOauthOnly, v))
+}
+
+// RequirePrivacySet applies equality check predicate on the "require_privacy_set" field. It's identical to RequirePrivacySetEQ.
+func RequirePrivacySet(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRequirePrivacySet, v))
+}
+
+// DefaultMappedModel applies equality check predicate on the "default_mapped_model" field. It's identical to DefaultMappedModelEQ.
+func DefaultMappedModel(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldDefaultMappedModel, v))
+}
+
+// RpmLimit applies equality check predicate on the "rpm_limit" field. It's identical to RpmLimitEQ.
+func RpmLimit(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -1070,6 +1110,56 @@ func FallbackGroupIDNotNil() predicate.Group {
 	return predicate.Group(sql.FieldNotNull(FieldFallbackGroupID))
 }
 
+// FallbackGroupIDOnInvalidRequestEQ applies the EQ predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestNEQ applies the NEQ predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestNEQ(v int64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestIn applies the In predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldFallbackGroupIDOnInvalidRequest, vs...))
+}
+
+// FallbackGroupIDOnInvalidRequestNotIn applies the NotIn predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestNotIn(vs ...int64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldFallbackGroupIDOnInvalidRequest, vs...))
+}
+
+// FallbackGroupIDOnInvalidRequestGT applies the GT predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestGT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestGTE applies the GTE predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestGTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestLT applies the LT predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestLT(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestLTE applies the LTE predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestLTE(v int64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldFallbackGroupIDOnInvalidRequest, v))
+}
+
+// FallbackGroupIDOnInvalidRequestIsNil applies the IsNil predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldFallbackGroupIDOnInvalidRequest))
+}
+
+// FallbackGroupIDOnInvalidRequestNotNil applies the NotNil predicate on the "fallback_group_id_on_invalid_request" field.
+func FallbackGroupIDOnInvalidRequestNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldFallbackGroupIDOnInvalidRequest))
+}
+
 // ModelRoutingIsNil applies the IsNil predicate on the "model_routing" field.
 func ModelRoutingIsNil() predicate.Group {
 	return predicate.Group(sql.FieldIsNull(FieldModelRouting))
@@ -1088,6 +1178,191 @@ func ModelRoutingEnabledEQ(v bool) predicate.Group {
 // ModelRoutingEnabledNEQ applies the NEQ predicate on the "model_routing_enabled" field.
 func ModelRoutingEnabledNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldModelRoutingEnabled, v))
+}
+
+// McpXMLInjectEQ applies the EQ predicate on the "mcp_xml_inject" field.
+func McpXMLInjectEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldMcpXMLInject, v))
+}
+
+// McpXMLInjectNEQ applies the NEQ predicate on the "mcp_xml_inject" field.
+func McpXMLInjectNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldMcpXMLInject, v))
+}
+
+// SortOrderEQ applies the EQ predicate on the "sort_order" field.
+func SortOrderEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldSortOrder, v))
+}
+
+// SortOrderNEQ applies the NEQ predicate on the "sort_order" field.
+func SortOrderNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldSortOrder, v))
+}
+
+// SortOrderIn applies the In predicate on the "sort_order" field.
+func SortOrderIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldSortOrder, vs...))
+}
+
+// SortOrderNotIn applies the NotIn predicate on the "sort_order" field.
+func SortOrderNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldSortOrder, vs...))
+}
+
+// SortOrderGT applies the GT predicate on the "sort_order" field.
+func SortOrderGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldSortOrder, v))
+}
+
+// SortOrderGTE applies the GTE predicate on the "sort_order" field.
+func SortOrderGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldSortOrder, v))
+}
+
+// SortOrderLT applies the LT predicate on the "sort_order" field.
+func SortOrderLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldSortOrder, v))
+}
+
+// SortOrderLTE applies the LTE predicate on the "sort_order" field.
+func SortOrderLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldSortOrder, v))
+}
+
+// AllowMessagesDispatchEQ applies the EQ predicate on the "allow_messages_dispatch" field.
+func AllowMessagesDispatchEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowMessagesDispatch, v))
+}
+
+// AllowMessagesDispatchNEQ applies the NEQ predicate on the "allow_messages_dispatch" field.
+func AllowMessagesDispatchNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldAllowMessagesDispatch, v))
+}
+
+// RequireOauthOnlyEQ applies the EQ predicate on the "require_oauth_only" field.
+func RequireOauthOnlyEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRequireOauthOnly, v))
+}
+
+// RequireOauthOnlyNEQ applies the NEQ predicate on the "require_oauth_only" field.
+func RequireOauthOnlyNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldRequireOauthOnly, v))
+}
+
+// RequirePrivacySetEQ applies the EQ predicate on the "require_privacy_set" field.
+func RequirePrivacySetEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRequirePrivacySet, v))
+}
+
+// RequirePrivacySetNEQ applies the NEQ predicate on the "require_privacy_set" field.
+func RequirePrivacySetNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldRequirePrivacySet, v))
+}
+
+// DefaultMappedModelEQ applies the EQ predicate on the "default_mapped_model" field.
+func DefaultMappedModelEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelNEQ applies the NEQ predicate on the "default_mapped_model" field.
+func DefaultMappedModelNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelIn applies the In predicate on the "default_mapped_model" field.
+func DefaultMappedModelIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldDefaultMappedModel, vs...))
+}
+
+// DefaultMappedModelNotIn applies the NotIn predicate on the "default_mapped_model" field.
+func DefaultMappedModelNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldDefaultMappedModel, vs...))
+}
+
+// DefaultMappedModelGT applies the GT predicate on the "default_mapped_model" field.
+func DefaultMappedModelGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelGTE applies the GTE predicate on the "default_mapped_model" field.
+func DefaultMappedModelGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelLT applies the LT predicate on the "default_mapped_model" field.
+func DefaultMappedModelLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelLTE applies the LTE predicate on the "default_mapped_model" field.
+func DefaultMappedModelLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelContains applies the Contains predicate on the "default_mapped_model" field.
+func DefaultMappedModelContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelHasPrefix applies the HasPrefix predicate on the "default_mapped_model" field.
+func DefaultMappedModelHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelHasSuffix applies the HasSuffix predicate on the "default_mapped_model" field.
+func DefaultMappedModelHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelEqualFold applies the EqualFold predicate on the "default_mapped_model" field.
+func DefaultMappedModelEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldDefaultMappedModel, v))
+}
+
+// DefaultMappedModelContainsFold applies the ContainsFold predicate on the "default_mapped_model" field.
+func DefaultMappedModelContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldDefaultMappedModel, v))
+}
+
+// RpmLimitEQ applies the EQ predicate on the "rpm_limit" field.
+func RpmLimitEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRpmLimit, v))
+}
+
+// RpmLimitNEQ applies the NEQ predicate on the "rpm_limit" field.
+func RpmLimitNEQ(v int) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldRpmLimit, v))
+}
+
+// RpmLimitIn applies the In predicate on the "rpm_limit" field.
+func RpmLimitIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldRpmLimit, vs...))
+}
+
+// RpmLimitNotIn applies the NotIn predicate on the "rpm_limit" field.
+func RpmLimitNotIn(vs ...int) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldRpmLimit, vs...))
+}
+
+// RpmLimitGT applies the GT predicate on the "rpm_limit" field.
+func RpmLimitGT(v int) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldRpmLimit, v))
+}
+
+// RpmLimitGTE applies the GTE predicate on the "rpm_limit" field.
+func RpmLimitGTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldRpmLimit, v))
+}
+
+// RpmLimitLT applies the LT predicate on the "rpm_limit" field.
+func RpmLimitLT(v int) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldRpmLimit, v))
+}
+
+// RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
+func RpmLimitLTE(v int) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldRpmLimit, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

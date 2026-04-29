@@ -4,7 +4,7 @@ package schema
 
 import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -97,6 +97,8 @@ func (Account) Fields() []ent.Field {
 		field.Int("concurrency").
 			Default(3),
 
+		field.Int("load_factor").Optional().Nillable(),
+
 		// priority: 账户优先级，数值越小优先级越高
 		// 调度器会优先使用高优先级的账户
 		field.Int("priority").
@@ -111,7 +113,7 @@ func (Account) Fields() []ent.Field {
 		// status: 账户状态，如 "active", "error", "disabled"
 		field.String("status").
 			MaxLen(20).
-			Default(service.StatusActive),
+			Default(domain.StatusActive),
 
 		// error_message: 错误信息，记录账户异常时的详细信息
 		field.String("error_message").
@@ -164,6 +166,19 @@ func (Account) Fields() []ent.Field {
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 
+		// temp_unschedulable_until: 临时不可调度状态解除时间
+		// 当命中临时不可调度规则时设置，在此时间前调度器应跳过该账号
+		field.Time("temp_unschedulable_until").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+
+		// temp_unschedulable_reason: 临时不可调度原因，便于排障审计
+		field.String("temp_unschedulable_reason").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "text"}),
+
 		// session_window_*: 会话窗口相关字段
 		// 用于管理某些需要会话时间窗口的 API（如 Claude Pro）
 		field.Time("session_window_start").
@@ -213,6 +228,9 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("rate_limited_at"),     // 筛选速率限制账户
 		index.Fields("rate_limit_reset_at"), // 筛选速率限制解除时间
 		index.Fields("overload_until"),      // 筛选过载账户
-		index.Fields("deleted_at"),          // 软删除查询优化
+		// 调度热路径复合索引（线上由 SQL 迁移创建部分索引，schema 仅用于模型可读性对齐）
+		index.Fields("platform", "priority"),
+		index.Fields("priority", "status"),
+		index.Fields("deleted_at"), // 软删除查询优化
 	}
 }

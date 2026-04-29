@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -44,7 +44,7 @@ func (UserSubscription) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.String("status").
 			MaxLen(20).
-			Default(service.SubscriptionStatusActive),
+			Default(domain.SubscriptionStatusActive),
 
 		field.Time("daily_window_start").
 			Optional().
@@ -108,6 +108,8 @@ func (UserSubscription) Indexes() []ent.Index {
 		index.Fields("group_id"),
 		index.Fields("status"),
 		index.Fields("expires_at"),
+		// 活跃订阅查询复合索引（线上由 SQL 迁移创建部分索引，schema 仅用于模型可读性对齐）
+		index.Fields("user_id", "status", "expires_at"),
 		index.Fields("assigned_by"),
 		// 唯一约束通过部分索引实现（WHERE deleted_at IS NULL），支持软删除后重新订阅
 		// 见迁移文件 016_soft_delete_partial_unique_indexes.sql

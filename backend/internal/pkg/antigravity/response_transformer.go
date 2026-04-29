@@ -1,9 +1,13 @@
 package antigravity
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 // TransformGeminiToClaude 将 Gemini 响应转换为 Claude 格式（非流式）
@@ -15,6 +19,15 @@ func TransformGeminiToClaude(geminiResp []byte, originalModel string) ([]byte, *
 		var directResp GeminiResponse
 		if err2 := json.Unmarshal(geminiResp, &directResp); err2 != nil {
 			return nil, nil, fmt.Errorf("parse gemini response: %w", err)
+		}
+		v1Resp.Response = directResp
+		v1Resp.ResponseID = directResp.ResponseID
+		v1Resp.ModelVersion = directResp.ModelVersion
+	} else if len(v1Resp.Response.Candidates) == 0 {
+		// 第一次解析成功但 candidates 为空，说明是直接的 GeminiResponse 格式
+		var directResp GeminiResponse
+		if err2 := json.Unmarshal(geminiResp, &directResp); err2 != nil {
+			return nil, nil, fmt.Errorf("parse gemini response as direct: %w", err2)
 		}
 		v1Resp.Response = directResp
 		v1Resp.ResponseID = directResp.ResponseID
@@ -173,16 +186,20 @@ func (p *NonStreamingProcessor) processPart(part *GeminiPart) {
 				p.trailingSignature = ""
 			}
 
-			p.textBuilder += part.Text
-
-			// 非空 text 带签名 - 立即刷新并输出空 thinking 块
+			// 非空 text 带签名 - 特殊处理：先输出 text，再输出空 thinking 块
 			if signature != "" {
-				p.flushText()
+				p.contentBlocks = append(p.contentBlocks, ClaudeContentItem{
+					Type: "text",
+					Text: part.Text,
+				})
 				p.contentBlocks = append(p.contentBlocks, ClaudeContentItem{
 					Type:      "thinking",
 					Thinking:  "",
 					Signature: signature,
 				})
+			} else {
+				// 普通 text (无签名) - 累积到 builder
+				p.textBuilder += part.Text
 			}
 		}
 	}
@@ -242,6 +259,14 @@ func (p *NonStreamingProcessor) buildResponse(geminiResp *GeminiResponse, respon
 	var finishReason string
 	if len(geminiResp.Candidates) > 0 {
 		finishReason = geminiResp.Candidates[0].FinishReason
+		if finishReason == "MALFORMED_FUNCTION_CALL" {
+			log.Printf("[Antigravity] MALFORMED_FUNCTION_CALL detected in response for model %s", originalModel)
+			if geminiResp.Candidates[0].Content != nil {
+				if b, err := json.Marshal(geminiResp.Candidates[0].Content); err == nil {
+					log.Printf("[Antigravity] Malformed content: %s", string(b))
+				}
+			}
+		}
 	}
 
 	stopReason := "end_turn"
@@ -257,8 +282,9 @@ func (p *NonStreamingProcessor) buildResponse(geminiResp *GeminiResponse, respon
 	if geminiResp.UsageMetadata != nil {
 		cached := geminiResp.UsageMetadata.CachedContentTokenCount
 		usage.InputTokens = geminiResp.UsageMetadata.PromptTokenCount - cached
-		usage.OutputTokens = geminiResp.UsageMetadata.CandidatesTokenCount
+		usage.OutputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
 		usage.CacheReadInputTokens = cached
+		usage.ImageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
 	}
 
 	// 生成响应 ID
@@ -319,12 +345,30 @@ func buildGroundingText(grounding *GeminiGroundingMetadata) string {
 	return builder.String()
 }
 
-// generateRandomID 生成随机 ID
+// fallbackCounter 降级伪随机 ID 的全局计数器，混入 seed 避免高并发下 UnixNano 相同导致碰撞。
+var fallbackCounter uint64
+
+// generateRandomID 生成密码学安全的随机 ID
 func generateRandomID() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	result := make([]byte, 12)
-	for i := range result {
-		result[i] = chars[i%len(chars)]
+	id := make([]byte, 12)
+	randBytes := make([]byte, 12)
+	if _, err := rand.Read(randBytes); err != nil {
+		// 避免在请求路径里 panic：极端情况下熵源不可用时降级为伪随机。
+		// 这里主要用于生成响应/工具调用的临时 ID，安全要求不高但需尽量避免碰撞。
+		cnt := atomic.AddUint64(&fallbackCounter, 1)
+		seed := uint64(time.Now().UnixNano()) ^ cnt
+		seed ^= uint64(len(err.Error())) << 32
+		for i := range id {
+			seed ^= seed << 13
+			seed ^= seed >> 7
+			seed ^= seed << 17
+			id[i] = chars[int(seed)%len(chars)]
+		}
+		return string(id)
 	}
-	return string(result)
+	for i, b := range randBytes {
+		id[i] = chars[int(b)%len(chars)]
+	}
+	return string(id)
 }

@@ -2,7 +2,10 @@
 package handler
 
 import (
+	"context"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -27,11 +30,18 @@ func NewAPIKeyHandler(apiKeyService *service.APIKeyService) *APIKeyHandler {
 
 // CreateAPIKeyRequest represents the create API key request payload
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	GroupID     *int64   `json:"group_id"`     // nullable
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name          string   `json:"name" binding:"required"`
+	GroupID       *int64   `json:"group_id"`        // nullable
+	CustomKey     *string  `json:"custom_key"`      // 可选的自定义key
+	IPWhitelist   []string `json:"ip_whitelist"`    // IP 白名单
+	IPBlacklist   []string `json:"ip_blacklist"`    // IP 黑名单
+	Quota         *float64 `json:"quota"`           // 配额限制 (USD)
+	ExpiresInDays *int     `json:"expires_in_days"` // 过期天数
+
+	// Rate limit fields (0 = unlimited)
+	RateLimit5h *float64 `json:"rate_limit_5h"`
+	RateLimit1d *float64 `json:"rate_limit_1d"`
+	RateLimit7d *float64 `json:"rate_limit_7d"`
 }
 
 // UpdateAPIKeyRequest represents the update API key request payload
@@ -41,6 +51,15 @@ type UpdateAPIKeyRequest struct {
 	Status      string   `json:"status" binding:"omitempty,oneof=active inactive"`
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Quota       *float64 `json:"quota"`        // 配额限制 (USD), 0=无限制
+	ExpiresAt   *string  `json:"expires_at"`   // 过期时间 (ISO 8601)
+	ResetQuota  *bool    `json:"reset_quota"`  // 重置已用配额
+
+	// Rate limit fields (nil = no change, 0 = unlimited)
+	RateLimit5h         *float64 `json:"rate_limit_5h"`
+	RateLimit1d         *float64 `json:"rate_limit_1d"`
+	RateLimit7d         *float64 `json:"rate_limit_7d"`
+	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // 重置限速用量
 }
 
 // List handles listing user's API keys with pagination
@@ -53,9 +72,30 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 	}
 
 	page, pageSize := response.ParsePagination(c)
-	params := pagination.PaginationParams{Page: page, PageSize: pageSize}
+	params := pagination.PaginationParams{
+		Page:      page,
+		PageSize:  pageSize,
+		SortBy:    c.DefaultQuery("sort_by", "created_at"),
+		SortOrder: c.DefaultQuery("sort_order", "desc"),
+	}
 
-	keys, result, err := h.apiKeyService.List(c.Request.Context(), subject.UserID, params)
+	// Parse filter parameters
+	var filters service.APIKeyListFilters
+	if search := strings.TrimSpace(c.Query("search")); search != "" {
+		if len(search) > 100 {
+			search = search[:100]
+		}
+		filters.Search = search
+	}
+	filters.Status = c.Query("status")
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		gid, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err == nil {
+			filters.GroupID = &gid
+		}
+	}
+
+	keys, result, err := h.apiKeyService.List(c.Request.Context(), subject.UserID, params, filters)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -114,19 +154,33 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	}
 
 	svcReq := service.CreateAPIKeyRequest{
-		Name:        req.Name,
-		GroupID:     req.GroupID,
-		CustomKey:   req.CustomKey,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
+		Name:          req.Name,
+		GroupID:       req.GroupID,
+		CustomKey:     req.CustomKey,
+		IPWhitelist:   req.IPWhitelist,
+		IPBlacklist:   req.IPBlacklist,
+		ExpiresInDays: req.ExpiresInDays,
 	}
-	key, err := h.apiKeyService.Create(c.Request.Context(), subject.UserID, svcReq)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
+	if req.Quota != nil {
+		svcReq.Quota = *req.Quota
+	}
+	if req.RateLimit5h != nil {
+		svcReq.RateLimit5h = *req.RateLimit5h
+	}
+	if req.RateLimit1d != nil {
+		svcReq.RateLimit1d = *req.RateLimit1d
+	}
+	if req.RateLimit7d != nil {
+		svcReq.RateLimit7d = *req.RateLimit7d
 	}
 
-	response.Success(c, dto.APIKeyFromService(key))
+	executeUserIdempotentJSON(c, "user.api_keys.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		key, err := h.apiKeyService.Create(ctx, subject.UserID, svcReq)
+		if err != nil {
+			return nil, err
+		}
+		return dto.APIKeyFromService(key), nil
+	})
 }
 
 // Update handles updating an API key
@@ -151,8 +205,14 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	}
 
 	svcReq := service.UpdateAPIKeyRequest{
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
+		Quota:               req.Quota,
+		ResetQuota:          req.ResetQuota,
+		RateLimit5h:         req.RateLimit5h,
+		RateLimit1d:         req.RateLimit1d,
+		RateLimit7d:         req.RateLimit7d,
+		ResetRateLimitUsage: req.ResetRateLimitUsage,
 	}
 	if req.Name != "" {
 		svcReq.Name = &req.Name
@@ -160,6 +220,21 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	svcReq.GroupID = req.GroupID
 	if req.Status != "" {
 		svcReq.Status = &req.Status
+	}
+	// Parse expires_at if provided
+	if req.ExpiresAt != nil {
+		if *req.ExpiresAt == "" {
+			// Empty string means clear expiration
+			svcReq.ExpiresAt = nil
+			svcReq.ClearExpiration = true
+		} else {
+			t, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+			if err != nil {
+				response.BadRequest(c, "Invalid expires_at format: "+err.Error())
+				return
+			}
+			svcReq.ExpiresAt = &t
+		}
 	}
 
 	key, err := h.apiKeyService.Update(c.Request.Context(), keyID, subject.UserID, svcReq)
@@ -215,4 +290,22 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 		out = append(out, *dto.GroupFromService(&groups[i]))
 	}
 	response.Success(c, out)
+}
+
+// GetUserGroupRates 获取当前用户的专属分组倍率配置
+// GET /api/v1/groups/rates
+func (h *APIKeyHandler) GetUserGroupRates(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	rates, err := h.apiKeyService.GetUserGroupRates(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, rates)
 }

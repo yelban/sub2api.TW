@@ -22,10 +22,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 const geminiStickySessionTTL = time.Hour
@@ -35,6 +37,11 @@ const (
 	geminiRetryBaseDelay = 1 * time.Second
 	geminiRetryMaxDelay  = 16 * time.Second
 )
+
+// Gemini tool calling now requires `thoughtSignature` in parts that include `functionCall`.
+// Many clients don't send it; we inject a known dummy signature to satisfy the validator.
+// Ref: https://ai.google.dev/gemini-api/docs/thought-signatures
+const geminiDummyThoughtSignature = "skip_thought_signature_validator"
 
 type GeminiMessagesCompatService struct {
 	accountRepo               AccountRepository
@@ -46,6 +53,7 @@ type GeminiMessagesCompatService struct {
 	httpUpstream              HTTPUpstream
 	antigravityGatewayService *AntigravityGatewayService
 	cfg                       *config.Config
+	responseHeaderFilter      *responseheaders.CompiledHeaderFilter
 }
 
 func NewGeminiMessagesCompatService(
@@ -69,6 +77,7 @@ func NewGeminiMessagesCompatService(
 		httpUpstream:              httpUpstream,
 		antigravityGatewayService: antigravityGatewayService,
 		cfg:                       cfg,
+		responseHeaderFilter:      compileResponseHeaderFilter(cfg),
 	}
 }
 
@@ -128,7 +137,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx co
 		_ = s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), cacheKey, selected.ID, geminiStickySessionTTL)
 	}
 
-	return selected, nil
+	return s.hydrateSelectedAccount(ctx, selected)
 }
 
 // resolvePlatformAndSchedulingMode 解析目标平台和调度模式。
@@ -195,7 +204,7 @@ func (s *GeminiMessagesCompatService) tryStickySessionHit(
 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
-	if shouldClearStickySession(account) {
+	if shouldClearStickySession(account, requestedModel) {
 		_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
 		return nil
 	}
@@ -223,9 +232,19 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequest(
 	requestedModel, platform string,
 	useMixedScheduling bool,
 ) bool {
+	return s.isAccountUsableForRequestWithPrecheck(ctx, account, requestedModel, platform, useMixedScheduling, nil)
+}
+
+func (s *GeminiMessagesCompatService) isAccountUsableForRequestWithPrecheck(
+	ctx context.Context,
+	account *Account,
+	requestedModel, platform string,
+	useMixedScheduling bool,
+	precheckResult map[int64]bool,
+) bool {
 	// 检查模型调度能力
 	// Check model scheduling capability
-	if !account.IsSchedulableForModel(requestedModel) {
+	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
 		return false
 	}
 
@@ -243,7 +262,7 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequest(
 
 	// 速率限制预检
 	// Rate limit precheck
-	if !s.passesRateLimitPreCheck(ctx, account, requestedModel) {
+	if !s.passesRateLimitPreCheckWithCache(ctx, account, requestedModel, precheckResult) {
 		return false
 	}
 
@@ -265,18 +284,20 @@ func (s *GeminiMessagesCompatService) isAccountValidForPlatform(account *Account
 	return false
 }
 
-// passesRateLimitPreCheck 执行速率限制预检。
-// 返回 true 表示通过预检或无需预检。
-//
-// passesRateLimitPreCheck performs rate limit precheck.
-// Returns true if passed or precheck not required.
-func (s *GeminiMessagesCompatService) passesRateLimitPreCheck(ctx context.Context, account *Account, requestedModel string) bool {
+func (s *GeminiMessagesCompatService) passesRateLimitPreCheckWithCache(ctx context.Context, account *Account, requestedModel string, precheckResult map[int64]bool) bool {
 	if s.rateLimitService == nil || requestedModel == "" {
 		return true
 	}
+
+	if precheckResult != nil {
+		if ok, exists := precheckResult[account.ID]; exists {
+			return ok
+		}
+	}
+
 	ok, err := s.rateLimitService.PreCheckUsage(ctx, account, requestedModel)
 	if err != nil {
-		log.Printf("[Gemini PreCheck] Account %d precheck error: %v", account.ID, err)
+		logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini PreCheck] Account %d precheck error: %v", account.ID, err)
 	}
 	return ok
 }
@@ -295,6 +316,7 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 	useMixedScheduling bool,
 ) *Account {
 	var selected *Account
+	precheckResult := s.buildPreCheckUsageResultMap(ctx, accounts, requestedModel)
 
 	for i := range accounts {
 		acc := &accounts[i]
@@ -305,7 +327,7 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 		}
 
 		// 检查账号是否可用于当前请求
-		if !s.isAccountUsableForRequest(ctx, acc, requestedModel, platform, useMixedScheduling) {
+		if !s.isAccountUsableForRequestWithPrecheck(ctx, acc, requestedModel, platform, useMixedScheduling, precheckResult) {
 			continue
 		}
 
@@ -321,6 +343,23 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 	}
 
 	return selected
+}
+
+func (s *GeminiMessagesCompatService) buildPreCheckUsageResultMap(ctx context.Context, accounts []Account, requestedModel string) map[int64]bool {
+	if s.rateLimitService == nil || requestedModel == "" || len(accounts) == 0 {
+		return nil
+	}
+
+	candidates := make([]*Account, 0, len(accounts))
+	for i := range accounts {
+		candidates = append(candidates, &accounts[i])
+	}
+
+	result, err := s.rateLimitService.PreCheckUsageBatch(ctx, candidates, requestedModel)
+	if err != nil {
+		logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini PreCheckBatch] failed: %v", err)
+	}
+	return result
 }
 
 // isBetterGeminiAccount 判断 candidate 是否比 current 更优。
@@ -357,7 +396,10 @@ func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *
 // isModelSupportedByAccount 根据账户平台检查模型支持
 func (s *GeminiMessagesCompatService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
 	if account.Platform == PlatformAntigravity {
-		return IsAntigravityModelSupported(requestedModel)
+		if strings.TrimSpace(requestedModel) == "" {
+			return true
+		}
+		return mapAntigravityModel(account, requestedModel) != ""
 	}
 	return account.IsModelSupported(requestedModel)
 }
@@ -372,6 +414,20 @@ func (s *GeminiMessagesCompatService) getSchedulableAccount(ctx context.Context,
 		return s.schedulerSnapshot.GetAccount(ctx, accountID)
 	}
 	return s.accountRepo.GetByID(ctx, accountID)
+}
+
+func (s *GeminiMessagesCompatService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
+	if account == nil || s.schedulerSnapshot == nil {
+		return account, nil
+	}
+	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	if err != nil {
+		return nil, err
+	}
+	if hydrated == nil {
+		return nil, fmt.Errorf("selected gemini account %d not found during hydration", account.ID)
+	}
+	return hydrated, nil
 }
 
 func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, error) {
@@ -389,7 +445,10 @@ func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Co
 	if groupID != nil {
 		return s.accountRepo.ListSchedulableByGroupIDAndPlatforms(ctx, *groupID, queryPlatforms)
 	}
-	return s.accountRepo.ListSchedulableByPlatforms(ctx, queryPlatforms)
+	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		return s.accountRepo.ListSchedulableByPlatforms(ctx, queryPlatforms)
+	}
+	return s.accountRepo.ListSchedulableUngroupedByPlatforms(ctx, queryPlatforms)
 }
 
 func (s *GeminiMessagesCompatService) validateUpstreamBaseURL(raw string) (string, error) {
@@ -456,6 +515,10 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 			}
 			// Code Assist OAuth tokens often lack AI Studio scopes for models listing.
 			return 3
+		case AccountTypeServiceAccount:
+			// Vertex service accounts use aiplatform.googleapis.com, not the AI Studio
+			// endpoint (generativelanguage.googleapis.com), so they cannot serve these requests.
+			return 999
 		default:
 			return 10
 		}
@@ -501,7 +564,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 	if selected == nil {
 		return nil, errors.New("no available Gemini accounts")
 	}
-	return selected, nil
+	return s.hydrateSelectedAccount(ctx, selected)
 }
 
 func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*ForwardResult, error) {
@@ -520,7 +583,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	originalModel := req.Model
 	mappedModel := req.Model
-	if account.Type == AccountTypeAPIKey {
+	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
 		mappedModel = account.GetMappedModel(req.Model)
 	}
 
@@ -528,6 +591,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 	}
+	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
 	originalClaudeBody := body
 
 	proxyURL := ""
@@ -551,10 +615,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				return nil, "", errors.New("gemini api_key not configured")
 			}
 
-			baseURL := strings.TrimSpace(account.GetCredential("base_url"))
-			if baseURL == "" {
-				baseURL = geminicli.AIStudioBaseURL
-			}
+			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -569,7 +630,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				fullURL += "?alt=sse"
 			}
 
-			upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(geminiReq))
+			restGeminiReq := normalizeGeminiRequestForAIStudio(geminiReq)
+			upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(restGeminiReq))
 			if err != nil {
 				return nil, "", err
 			}
@@ -631,10 +693,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				return upstreamReq, "x-request-id", nil
 			} else {
 				// Mode 2: AI Studio API with OAuth (like API key mode, but using Bearer token)
-				baseURL := strings.TrimSpace(account.GetCredential("base_url"))
-				if baseURL == "" {
-					baseURL = geminicli.AIStudioBaseURL
-				}
+				baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 				normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 				if err != nil {
 					return nil, "", err
@@ -645,7 +704,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 					fullURL += "?alt=sse"
 				}
 
-				upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(geminiReq))
+				restGeminiReq := normalizeGeminiRequestForAIStudio(geminiReq)
+				upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(restGeminiReq))
 				if err != nil {
 					return nil, "", err
 				}
@@ -653,6 +713,36 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				upstreamReq.Header.Set("Authorization", "Bearer "+accessToken)
 				return upstreamReq, "x-request-id", nil
 			}
+		}
+		requestIDHeader = "x-request-id"
+
+	case AccountTypeServiceAccount:
+		buildReq = func(ctx context.Context) (*http.Request, string, error) {
+			if s.tokenProvider == nil {
+				return nil, "", errors.New("gemini token provider not configured")
+			}
+			accessToken, err := s.tokenProvider.GetAccessToken(ctx, account)
+			if err != nil {
+				return nil, "", err
+			}
+
+			action := "generateContent"
+			if req.Stream {
+				action = "streamGenerateContent"
+			}
+			fullURL, err := buildVertexGeminiURL(account.VertexProjectID(), account.VertexLocation(mappedModel), mappedModel, action, req.Stream)
+			if err != nil {
+				return nil, "", err
+			}
+
+			restGeminiReq := normalizeGeminiRequestForAIStudio(geminiReq)
+			upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(restGeminiReq))
+			if err != nil {
+				return nil, "", err
+			}
+			upstreamReq.Header.Set("Content-Type", "application/json")
+			upstreamReq.Header.Set("Authorization", "Bearer "+accessToken)
+			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
 
@@ -694,7 +784,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				Message:            safeErr,
 			})
 			if attempt < geminiMaxRetries {
-				log.Printf("Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -750,7 +840,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				}
 				retryGeminiReq, txErr := convertClaudeMessagesToGeminiGenerateContent(strippedClaudeBody)
 				if txErr == nil {
-					log.Printf("Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
+					logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: detected signature-related 400, retrying with downgraded Claude blocks (%s)", account.ID, stageName)
 					geminiReq = retryGeminiReq
 					// Consume one retry budget attempt and continue with the updated request payload.
 					sleepGeminiBackoff(1)
@@ -765,6 +855,14 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				Body:       io.NopCloser(bytes.NewReader(respBody)),
 			}
 			break
+		}
+
+		// 错误策略优先：匹配则跳过重试直接处理。
+		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); matched {
+			resp = rebuilt
+			break
+		} else {
+			resp = rebuilt
 		}
 
 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
@@ -809,7 +907,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 					Detail:             upstreamDetail,
 				})
 
-				log.Printf("Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -828,37 +926,77 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-		tempMatched := false
+		// 统一错误策略：自定义错误码 + 临时不可调度
 		if s.rateLimitService != nil {
-			tempMatched = s.rateLimitService.HandleTempUnschedulable(ctx, account, resp.StatusCode, respBody)
-		}
-		s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
-		if tempMatched {
-			upstreamReqID := resp.Header.Get(requestIDHeader)
-			if upstreamReqID == "" {
-				upstreamReqID = resp.Header.Get("x-goog-request-id")
-			}
-			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
-			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
-			upstreamDetail := ""
-			if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
-				maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
-				if maxBytes <= 0 {
-					maxBytes = 2048
+			switch s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody) {
+			case ErrorPolicySkipped:
+				upstreamReqID := resp.Header.Get(requestIDHeader)
+				if upstreamReqID == "" {
+					upstreamReqID = resp.Header.Get("x-goog-request-id")
 				}
-				upstreamDetail = truncateString(string(respBody), maxBytes)
+				return nil, s.writeGeminiMappedError(c, account, http.StatusInternalServerError, upstreamReqID, respBody)
+			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
+				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				upstreamReqID := resp.Header.Get(requestIDHeader)
+				if upstreamReqID == "" {
+					upstreamReqID = resp.Header.Get("x-goog-request-id")
+				}
+				upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
+				upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+				upstreamDetail := ""
+				if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
+					maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
+					if maxBytes <= 0 {
+						maxBytes = 2048
+					}
+					upstreamDetail = truncateString(string(respBody), maxBytes)
+				}
+				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+					Platform:           account.Platform,
+					AccountID:          account.ID,
+					AccountName:        account.Name,
+					UpstreamStatusCode: resp.StatusCode,
+					UpstreamRequestID:  upstreamReqID,
+					Kind:               "failover",
+					Message:            upstreamMsg,
+					Detail:             upstreamDetail,
+				})
+				return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBody}
 			}
-			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-				Platform:           account.Platform,
-				AccountID:          account.ID,
-				AccountName:        account.Name,
-				UpstreamStatusCode: resp.StatusCode,
-				UpstreamRequestID:  upstreamReqID,
-				Kind:               "failover",
-				Message:            upstreamMsg,
-				Detail:             upstreamDetail,
-			})
-			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode}
+		}
+
+		// ErrorPolicyNone → 原有逻辑
+		s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		// 精确匹配服务端配置类 400 错误，触发 failover + 临时封禁
+		if resp.StatusCode == http.StatusBadRequest {
+			msg400 := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+			if isGoogleProjectConfigError(msg400) {
+				upstreamReqID := resp.Header.Get(requestIDHeader)
+				if upstreamReqID == "" {
+					upstreamReqID = resp.Header.Get("x-goog-request-id")
+				}
+				upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+				upstreamDetail := ""
+				if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
+					maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
+					if maxBytes <= 0 {
+						maxBytes = 2048
+					}
+					upstreamDetail = truncateString(string(respBody), maxBytes)
+				}
+				log.Printf("[Gemini] status=400 google_config_error failover=true upstream_message=%q account=%d", upstreamMsg, account.ID)
+				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+					Platform:           account.Platform,
+					AccountID:          account.ID,
+					AccountName:        account.Name,
+					UpstreamStatusCode: resp.StatusCode,
+					UpstreamRequestID:  upstreamReqID,
+					Kind:               "failover",
+					Message:            upstreamMsg,
+					Detail:             upstreamDetail,
+				})
+				return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBody, RetryableOnSameAccount: true}
+			}
 		}
 		if s.shouldFailoverGeminiUpstreamError(resp.StatusCode) {
 			upstreamReqID := resp.Header.Get(requestIDHeader)
@@ -885,7 +1023,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				Message:            upstreamMsg,
 				Detail:             upstreamDetail,
 			})
-			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode}
+			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBody}
 		}
 		upstreamReqID := resp.Header.Get(requestIDHeader)
 		if upstreamReqID == "" {
@@ -917,7 +1055,8 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			if err != nil {
 				return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream stream")
 			}
-			claudeResp, usageObj2 := convertGeminiToClaudeMessage(collected, originalModel)
+			collectedBytes, _ := json.Marshal(collected)
+			claudeResp, usageObj2 := convertGeminiToClaudeMessage(collected, originalModel, collectedBytes)
 			c.JSON(http.StatusOK, claudeResp)
 			usage = usageObj2
 			if usageObj != nil && (usageObj.InputTokens > 0 || usageObj.OutputTokens > 0) {
@@ -931,13 +1070,23 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 		}
 	}
 
+	// 图片生成计费
+	imageCount := 0
+	imageSize := s.extractImageSize(body)
+	if isImageGenerationModel(originalModel) {
+		imageCount = 1
+	}
+
 	return &ForwardResult{
-		RequestID:    requestID,
-		Usage:        *usage,
-		Model:        originalModel,
-		Stream:       req.Stream,
-		Duration:     time.Since(startTime),
-		FirstTokenMs: firstTokenMs,
+		RequestID:     requestID,
+		Usage:         *usage,
+		Model:         originalModel,
+		UpstreamModel: mappedModel,
+		Stream:        req.Stream,
+		Duration:      time.Since(startTime),
+		FirstTokenMs:  firstTokenMs,
+		ImageCount:    imageCount,
+		ImageSize:     imageSize,
 	}, nil
 }
 
@@ -962,6 +1111,11 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		return nil, s.writeGoogleError(c, http.StatusBadRequest, "Request body is empty")
 	}
 
+	// 过滤掉 parts 为空的消息（Gemini API 不接受空 parts）
+	if filteredBody, err := filterEmptyPartsFromGeminiRequest(body); err == nil {
+		body = filteredBody
+	}
+
 	switch action {
 	case "generateContent", "streamGenerateContent", "countTokens":
 		// ok
@@ -969,8 +1123,12 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		return nil, s.writeGoogleError(c, http.StatusNotFound, "Unsupported action: "+action)
 	}
 
+	// Some Gemini upstreams validate tool call parts strictly; ensure any `functionCall` part includes a
+	// `thoughtSignature` to avoid frequent INVALID_ARGUMENT 400s.
+	body = ensureGeminiFunctionCallThoughtSignatures(body)
+
 	mappedModel := originalModel
-	if account.Type == AccountTypeAPIKey {
+	if account.Type == AccountTypeAPIKey || account.Type == AccountTypeServiceAccount {
 		mappedModel = account.GetMappedModel(originalModel)
 	}
 
@@ -999,10 +1157,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return nil, "", errors.New("gemini api_key not configured")
 			}
 
-			baseURL := strings.TrimSpace(account.GetCredential("base_url"))
-			if baseURL == "" {
-				baseURL = geminicli.AIStudioBaseURL
-			}
+			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -1070,10 +1225,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				return upstreamReq, "x-request-id", nil
 			} else {
 				// Mode 2: AI Studio API with OAuth (like API key mode, but using Bearer token)
-				baseURL := strings.TrimSpace(account.GetCredential("base_url"))
-				if baseURL == "" {
-					baseURL = geminicli.AIStudioBaseURL
-				}
+				baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 				normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 				if err != nil {
 					return nil, "", err
@@ -1092,6 +1244,31 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				upstreamReq.Header.Set("Authorization", "Bearer "+accessToken)
 				return upstreamReq, "x-request-id", nil
 			}
+		}
+		requestIDHeader = "x-request-id"
+
+	case AccountTypeServiceAccount:
+		buildReq = func(ctx context.Context) (*http.Request, string, error) {
+			if s.tokenProvider == nil {
+				return nil, "", errors.New("gemini token provider not configured")
+			}
+			accessToken, err := s.tokenProvider.GetAccessToken(ctx, account)
+			if err != nil {
+				return nil, "", err
+			}
+
+			fullURL, err := buildVertexGeminiURL(account.VertexProjectID(), account.VertexLocation(mappedModel), mappedModel, upstreamAction, useUpstreamStream)
+			if err != nil {
+				return nil, "", err
+			}
+
+			upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(body))
+			if err != nil {
+				return nil, "", err
+			}
+			upstreamReq.Header.Set("Content-Type", "application/json")
+			upstreamReq.Header.Set("Authorization", "Bearer "+accessToken)
+			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
 
@@ -1132,7 +1309,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				Message:            safeErr,
 			})
 			if attempt < geminiMaxRetries {
-				log.Printf("Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream request failed, retry %d/%d: %v", account.ID, attempt, geminiMaxRetries, err)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -1140,16 +1317,25 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				estimated := estimateGeminiCountTokens(body)
 				c.JSON(http.StatusOK, map[string]any{"totalTokens": estimated})
 				return &ForwardResult{
-					RequestID:    "",
-					Usage:        ClaudeUsage{},
-					Model:        originalModel,
-					Stream:       false,
-					Duration:     time.Since(startTime),
-					FirstTokenMs: nil,
+					RequestID:     "",
+					Usage:         ClaudeUsage{},
+					Model:         originalModel,
+					UpstreamModel: mappedModel,
+					Stream:        false,
+					Duration:      time.Since(startTime),
+					FirstTokenMs:  nil,
 				}, nil
 			}
 			setOpsUpstreamError(c, 0, safeErr, "")
 			return nil, s.writeGoogleError(c, http.StatusBadGateway, "Upstream request failed after retries: "+safeErr)
+		}
+
+		// 错误策略优先：匹配则跳过重试直接处理。
+		if matched, rebuilt := s.checkErrorPolicyInLoop(ctx, account, resp); matched {
+			resp = rebuilt
+			break
+		} else {
+			resp = rebuilt
 		}
 
 		if resp.StatusCode >= 400 && s.shouldRetryGeminiUpstreamError(account, resp.StatusCode) {
@@ -1193,7 +1379,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 					Detail:             upstreamDetail,
 				})
 
-				log.Printf("Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
+				logger.LegacyPrintf("service.gemini_messages_compat", "Gemini account %d: upstream status %d, retry %d/%d", account.ID, resp.StatusCode, attempt, geminiMaxRetries)
 				sleepGeminiBackoff(attempt)
 				continue
 			}
@@ -1201,12 +1387,13 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				estimated := estimateGeminiCountTokens(body)
 				c.JSON(http.StatusOK, map[string]any{"totalTokens": estimated})
 				return &ForwardResult{
-					RequestID:    "",
-					Usage:        ClaudeUsage{},
-					Model:        originalModel,
-					Stream:       false,
-					Duration:     time.Since(startTime),
-					FirstTokenMs: nil,
+					RequestID:     "",
+					Usage:         ClaudeUsage{},
+					Model:         originalModel,
+					UpstreamModel: mappedModel,
+					Stream:        false,
+					Duration:      time.Since(startTime),
+					FirstTokenMs:  nil,
 				}, nil
 			}
 			// Final attempt: surface the upstream error body (passed through below) instead of a generic retry error.
@@ -1234,50 +1421,90 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-		tempMatched := false
-		if s.rateLimitService != nil {
-			tempMatched = s.rateLimitService.HandleTempUnschedulable(ctx, account, resp.StatusCode, respBody)
-		}
-		s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
-
 		// Best-effort fallback for OAuth tokens missing AI Studio scopes when calling countTokens.
 		// This avoids Gemini SDKs failing hard during preflight token counting.
+		// Checked before error policy so it always works regardless of custom error codes.
 		if action == "countTokens" && isOAuth && isGeminiInsufficientScope(resp.Header, respBody) {
 			estimated := estimateGeminiCountTokens(body)
 			c.JSON(http.StatusOK, map[string]any{"totalTokens": estimated})
 			return &ForwardResult{
-				RequestID:    requestID,
-				Usage:        ClaudeUsage{},
-				Model:        originalModel,
-				Stream:       false,
-				Duration:     time.Since(startTime),
-				FirstTokenMs: nil,
+				RequestID:     requestID,
+				Usage:         ClaudeUsage{},
+				Model:         originalModel,
+				UpstreamModel: mappedModel,
+				Stream:        false,
+				Duration:      time.Since(startTime),
+				FirstTokenMs:  nil,
 			}, nil
 		}
 
-		if tempMatched {
-			evBody := unwrapIfNeeded(isOAuth, respBody)
-			upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(evBody))
-			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
-			upstreamDetail := ""
-			if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
-				maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
-				if maxBytes <= 0 {
-					maxBytes = 2048
+		// 统一错误策略：自定义错误码 + 临时不可调度
+		if s.rateLimitService != nil {
+			switch s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody) {
+			case ErrorPolicySkipped:
+				respBody = unwrapIfNeeded(isOAuth, respBody)
+				contentType := resp.Header.Get("Content-Type")
+				if contentType == "" {
+					contentType = "application/json"
 				}
-				upstreamDetail = truncateString(string(evBody), maxBytes)
+				c.Data(http.StatusInternalServerError, contentType, respBody)
+				return nil, fmt.Errorf("gemini upstream error: %d (skipped by error policy)", resp.StatusCode)
+			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
+				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+				evBody := unwrapIfNeeded(isOAuth, respBody)
+				upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(evBody))
+				upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
+				upstreamDetail := ""
+				if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
+					maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
+					if maxBytes <= 0 {
+						maxBytes = 2048
+					}
+					upstreamDetail = truncateString(string(evBody), maxBytes)
+				}
+				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+					Platform:           account.Platform,
+					AccountID:          account.ID,
+					AccountName:        account.Name,
+					UpstreamStatusCode: resp.StatusCode,
+					UpstreamRequestID:  requestID,
+					Kind:               "failover",
+					Message:            upstreamMsg,
+					Detail:             upstreamDetail,
+				})
+				return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBody}
 			}
-			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-				Platform:           account.Platform,
-				AccountID:          account.ID,
-				AccountName:        account.Name,
-				UpstreamStatusCode: resp.StatusCode,
-				UpstreamRequestID:  requestID,
-				Kind:               "failover",
-				Message:            upstreamMsg,
-				Detail:             upstreamDetail,
-			})
-			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode}
+		}
+
+		// ErrorPolicyNone → 原有逻辑
+		s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
+		// 精确匹配服务端配置类 400 错误，触发 failover + 临时封禁
+		if resp.StatusCode == http.StatusBadRequest {
+			msg400 := strings.ToLower(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+			if isGoogleProjectConfigError(msg400) {
+				evBody := unwrapIfNeeded(isOAuth, respBody)
+				upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(evBody)))
+				upstreamDetail := ""
+				if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
+					maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
+					if maxBytes <= 0 {
+						maxBytes = 2048
+					}
+					upstreamDetail = truncateString(string(evBody), maxBytes)
+				}
+				log.Printf("[Gemini] status=400 google_config_error failover=true upstream_message=%q account=%d", upstreamMsg, account.ID)
+				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+					Platform:           account.Platform,
+					AccountID:          account.ID,
+					AccountName:        account.Name,
+					UpstreamStatusCode: resp.StatusCode,
+					UpstreamRequestID:  requestID,
+					Kind:               "failover",
+					Message:            upstreamMsg,
+					Detail:             upstreamDetail,
+				})
+				return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: evBody, RetryableOnSameAccount: true}
+			}
 		}
 		if s.shouldFailoverGeminiUpstreamError(resp.StatusCode) {
 			evBody := unwrapIfNeeded(isOAuth, respBody)
@@ -1301,7 +1528,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				Message:            upstreamMsg,
 				Detail:             upstreamDetail,
 			})
-			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode}
+			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: evBody}
 		}
 
 		respBody = unwrapIfNeeded(isOAuth, respBody)
@@ -1314,7 +1541,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 				maxBytes = 2048
 			}
 			upstreamDetail = truncateString(string(respBody), maxBytes)
-			log.Printf("[Gemini] native upstream error %d: %s", resp.StatusCode, truncateForLog(respBody, s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes))
+			logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini] native upstream error %d: %s", resp.StatusCode, truncateForLog(respBody, s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes))
 		}
 		setOpsUpstreamError(c, resp.StatusCode, upstreamMsg, upstreamDetail)
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
@@ -1371,14 +1598,44 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		usage = &ClaudeUsage{}
 	}
 
+	// 图片生成计费
+	imageCount := 0
+	imageSize := s.extractImageSize(body)
+	if isImageGenerationModel(originalModel) {
+		imageCount = 1
+	}
+
 	return &ForwardResult{
-		RequestID:    requestID,
-		Usage:        *usage,
-		Model:        originalModel,
-		Stream:       stream,
-		Duration:     time.Since(startTime),
-		FirstTokenMs: firstTokenMs,
+		RequestID:     requestID,
+		Usage:         *usage,
+		Model:         originalModel,
+		UpstreamModel: mappedModel,
+		Stream:        stream,
+		Duration:      time.Since(startTime),
+		FirstTokenMs:  firstTokenMs,
+		ImageCount:    imageCount,
+		ImageSize:     imageSize,
 	}, nil
+}
+
+// checkErrorPolicyInLoop 在重试循环内预检查错误策略。
+// 返回 true 表示策略已匹配（调用者应 break），resp 已重建可直接使用。
+// 返回 false 表示 ErrorPolicyNone，resp 已重建，调用者继续走重试逻辑。
+func (s *GeminiMessagesCompatService) checkErrorPolicyInLoop(
+	ctx context.Context, account *Account, resp *http.Response,
+) (matched bool, rebuilt *http.Response) {
+	if resp.StatusCode < 400 || s.rateLimitService == nil {
+		return false, resp
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	_ = resp.Body.Close()
+	rebuilt = &http.Response{
+		StatusCode: resp.StatusCode,
+		Header:     resp.Header.Clone(),
+		Body:       io.NopCloser(bytes.NewReader(body)),
+	}
+	policy := s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, body)
+	return policy != ErrorPolicyNone, rebuilt
 }
 
 func (s *GeminiMessagesCompatService) shouldRetryGeminiUpstreamError(account *Account, statusCode int) bool {
@@ -1462,7 +1719,29 @@ func (s *GeminiMessagesCompatService) writeGeminiMappedError(c *gin.Context, acc
 	})
 
 	if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
-		log.Printf("[Gemini] upstream error %d: %s", upstreamStatus, truncateForLog(body, s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes))
+		logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini] upstream error %d: %s", upstreamStatus, truncateForLog(body, s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes))
+	}
+
+	if status, errType, errMsg, matched := applyErrorPassthroughRule(
+		c,
+		PlatformGemini,
+		upstreamStatus,
+		body,
+		http.StatusBadGateway,
+		"upstream_error",
+		"Upstream request failed",
+	); matched {
+		c.JSON(status, gin.H{
+			"type":  "error",
+			"error": gin.H{"type": errType, "message": errMsg},
+		})
+		if upstreamMsg == "" {
+			upstreamMsg = errMsg
+		}
+		if upstreamMsg == "" {
+			return fmt.Errorf("upstream error: %d (passthrough rule matched)", upstreamStatus)
+		}
+		return fmt.Errorf("upstream error: %d (passthrough rule matched) message=%s", upstreamStatus, upstreamMsg)
 	}
 
 	var statusCode int
@@ -1660,12 +1939,17 @@ func (s *GeminiMessagesCompatService) handleNonStreamingResponse(c *gin.Context,
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to read upstream response")
 	}
 
-	geminiResp, err := unwrapGeminiResponse(body)
+	unwrappedBody, err := unwrapGeminiResponse(body)
 	if err != nil {
 		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
 	}
 
-	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel)
+	var geminiResp map[string]any
+	if err := json.Unmarshal(unwrappedBody, &geminiResp); err != nil {
+		return nil, s.writeClaudeError(c, http.StatusBadGateway, "upstream_error", "Failed to parse upstream response")
+	}
+
+	claudeResp, usage := convertGeminiToClaudeMessage(geminiResp, originalModel, unwrappedBody)
 	c.JSON(http.StatusOK, claudeResp)
 
 	return usage, nil
@@ -1738,8 +2022,13 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 			continue
 		}
 
-		geminiResp, err := unwrapGeminiResponse([]byte(payload))
+		unwrappedBytes, err := unwrapGeminiResponse([]byte(payload))
 		if err != nil {
+			continue
+		}
+
+		var geminiResp map[string]any
+		if err := json.Unmarshal(unwrappedBytes, &geminiResp); err != nil {
 			continue
 		}
 
@@ -1869,7 +2158,7 @@ func (s *GeminiMessagesCompatService) handleStreamingResponse(c *gin.Context, re
 			}
 		}
 
-		if u := extractGeminiUsage(geminiResp); u != nil {
+		if u := extractGeminiUsage(unwrappedBytes); u != nil {
 			usage = *u
 		}
 
@@ -1960,11 +2249,7 @@ func unwrapIfNeeded(isOAuth bool, raw []byte) []byte {
 	if err != nil {
 		return raw
 	}
-	b, err := json.Marshal(inner)
-	if err != nil {
-		return raw
-	}
-	return b
+	return inner
 }
 
 func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsage, error) {
@@ -1972,6 +2257,7 @@ func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsag
 
 	var last map[string]any
 	var lastWithParts map[string]any
+	var collectedTextParts []string // Collect all text parts for aggregation
 	usage := &ClaudeUsage{}
 
 	for {
@@ -1983,25 +2269,34 @@ func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsag
 				switch payload {
 				case "", "[DONE]":
 					if payload == "[DONE]" {
-						return pickGeminiCollectResult(last, lastWithParts), usage, nil
+						return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, nil
 					}
 				default:
 					var parsed map[string]any
+					var rawBytes []byte
 					if isOAuth {
-						inner, err := unwrapGeminiResponse([]byte(payload))
-						if err == nil && inner != nil {
-							parsed = inner
+						innerBytes, err := unwrapGeminiResponse([]byte(payload))
+						if err == nil {
+							rawBytes = innerBytes
+							_ = json.Unmarshal(innerBytes, &parsed)
 						}
 					} else {
-						_ = json.Unmarshal([]byte(payload), &parsed)
+						rawBytes = []byte(payload)
+						_ = json.Unmarshal(rawBytes, &parsed)
 					}
 					if parsed != nil {
 						last = parsed
-						if u := extractGeminiUsage(parsed); u != nil {
+						if u := extractGeminiUsage(rawBytes); u != nil {
 							usage = u
 						}
 						if parts := extractGeminiParts(parsed); len(parts) > 0 {
 							lastWithParts = parsed
+							// Collect text from each part for aggregation
+							for _, part := range parts {
+								if text, ok := part["text"].(string); ok && text != "" {
+									collectedTextParts = append(collectedTextParts, text)
+								}
+							}
 						}
 					}
 				}
@@ -2016,7 +2311,7 @@ func collectGeminiSSE(body io.Reader, isOAuth bool) (map[string]any, *ClaudeUsag
 		}
 	}
 
-	return pickGeminiCollectResult(last, lastWithParts), usage, nil
+	return mergeCollectedTextParts(pickGeminiCollectResult(last, lastWithParts), collectedTextParts), usage, nil
 }
 
 func pickGeminiCollectResult(last map[string]any, lastWithParts map[string]any) map[string]any {
@@ -2027,6 +2322,83 @@ func pickGeminiCollectResult(last map[string]any, lastWithParts map[string]any) 
 		return last
 	}
 	return map[string]any{}
+}
+
+// mergeCollectedTextParts merges all collected text chunks into the final response.
+// This fixes the issue where non-streaming responses only returned the last chunk
+// instead of the complete aggregated text.
+func mergeCollectedTextParts(response map[string]any, textParts []string) map[string]any {
+	if len(textParts) == 0 {
+		return response
+	}
+
+	// Join all text parts
+	mergedText := strings.Join(textParts, "")
+
+	// Deep copy response
+	result := make(map[string]any)
+	for k, v := range response {
+		result[k] = v
+	}
+
+	// Get or create candidates
+	candidates, ok := result["candidates"].([]any)
+	if !ok || len(candidates) == 0 {
+		candidates = []any{map[string]any{}}
+	}
+
+	// Get first candidate
+	candidate, ok := candidates[0].(map[string]any)
+	if !ok {
+		candidate = make(map[string]any)
+		candidates[0] = candidate
+	}
+
+	// Get or create content
+	content, ok := candidate["content"].(map[string]any)
+	if !ok {
+		content = map[string]any{"role": "model"}
+		candidate["content"] = content
+	}
+
+	// Get existing parts
+	existingParts, ok := content["parts"].([]any)
+	if !ok {
+		existingParts = []any{}
+	}
+
+	// Find and update first text part, or create new one
+	newParts := make([]any, 0, len(existingParts)+1)
+	textUpdated := false
+
+	for _, p := range existingParts {
+		pm, ok := p.(map[string]any)
+		if !ok {
+			newParts = append(newParts, p)
+			continue
+		}
+		if _, hasText := pm["text"]; hasText && !textUpdated {
+			// Replace with merged text
+			newPart := make(map[string]any)
+			for k, v := range pm {
+				newPart[k] = v
+			}
+			newPart["text"] = mergedText
+			newParts = append(newParts, newPart)
+			textUpdated = true
+		} else {
+			newParts = append(newParts, pm)
+		}
+	}
+
+	if !textUpdated {
+		newParts = append([]any{map[string]any{"text": mergedText}}, newParts...)
+	}
+
+	content["parts"] = newParts
+	result["candidates"] = candidates
+
+	return result
 }
 
 type geminiNativeStreamResult struct {
@@ -2043,53 +2415,27 @@ func isGeminiInsufficientScope(headers http.Header, body []byte) bool {
 }
 
 func estimateGeminiCountTokens(reqBody []byte) int {
-	var obj map[string]any
-	if err := json.Unmarshal(reqBody, &obj); err != nil {
-		return 0
-	}
-
-	var texts []string
+	total := 0
 
 	// systemInstruction.parts[].text
-	if si, ok := obj["systemInstruction"].(map[string]any); ok {
-		if parts, ok := si["parts"].([]any); ok {
-			for _, p := range parts {
-				if pm, ok := p.(map[string]any); ok {
-					if t, ok := pm["text"].(string); ok && strings.TrimSpace(t) != "" {
-						texts = append(texts, t)
-					}
-				}
-			}
+	gjson.GetBytes(reqBody, "systemInstruction.parts").ForEach(func(_, part gjson.Result) bool {
+		if t := strings.TrimSpace(part.Get("text").String()); t != "" {
+			total += estimateTokensForText(t)
 		}
-	}
+		return true
+	})
 
 	// contents[].parts[].text
-	if contents, ok := obj["contents"].([]any); ok {
-		for _, c := range contents {
-			cm, ok := c.(map[string]any)
-			if !ok {
-				continue
+	gjson.GetBytes(reqBody, "contents").ForEach(func(_, content gjson.Result) bool {
+		content.Get("parts").ForEach(func(_, part gjson.Result) bool {
+			if t := strings.TrimSpace(part.Get("text").String()); t != "" {
+				total += estimateTokensForText(t)
 			}
-			parts, ok := cm["parts"].([]any)
-			if !ok {
-				continue
-			}
-			for _, p := range parts {
-				pm, ok := p.(map[string]any)
-				if !ok {
-					continue
-				}
-				if t, ok := pm["text"].(string); ok && strings.TrimSpace(t) != "" {
-					texts = append(texts, t)
-				}
-			}
-		}
-	}
+			return true
+		})
+		return true
+	})
 
-	total := 0
-	for _, t := range texts {
-		total += estimateTokensForText(t)
-	}
 	if total < 0 {
 		return 0
 	}
@@ -2127,31 +2473,29 @@ type UpstreamHTTPResult struct {
 }
 
 func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Context, resp *http.Response, isOAuth bool) (*ClaudeUsage, error) {
-	// Log response headers for debugging
-	log.Printf("[GeminiAPI] ========== Response Headers ==========")
-	for key, values := range resp.Header {
-		if strings.HasPrefix(strings.ToLower(key), "x-ratelimit") {
-			log.Printf("[GeminiAPI] %s: %v", key, values)
+	if s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
+		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========== Response Headers ==========")
+		for key, values := range resp.Header {
+			if strings.HasPrefix(strings.ToLower(key), "x-ratelimit") {
+				logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] %s: %v", key, values)
+			}
 		}
+		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========================================")
 	}
-	log.Printf("[GeminiAPI] ========================================")
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := ReadUpstreamResponseBody(resp.Body, s.cfg, c, openAITooLargeError)
 	if err != nil {
 		return nil, err
 	}
 
-	var parsed map[string]any
 	if isOAuth {
-		parsed, err = unwrapGeminiResponse(respBody)
-		if err == nil && parsed != nil {
-			respBody, _ = json.Marshal(parsed)
+		unwrappedBody, uwErr := unwrapGeminiResponse(respBody)
+		if uwErr == nil {
+			respBody = unwrappedBody
 		}
-	} else {
-		_ = json.Unmarshal(respBody, &parsed)
 	}
 
-	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.cfg.Security.ResponseHeaders)
+	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
 	contentType := resp.Header.Get("Content-Type")
 	if contentType == "" {
@@ -2159,26 +2503,25 @@ func (s *GeminiMessagesCompatService) handleNativeNonStreamingResponse(c *gin.Co
 	}
 	c.Data(resp.StatusCode, contentType, respBody)
 
-	if parsed != nil {
-		if u := extractGeminiUsage(parsed); u != nil {
-			return u, nil
-		}
+	if u := extractGeminiUsage(respBody); u != nil {
+		return u, nil
 	}
 	return &ClaudeUsage{}, nil
 }
 
 func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Context, resp *http.Response, startTime time.Time, isOAuth bool) (*geminiNativeStreamResult, error) {
-	// Log response headers for debugging
-	log.Printf("[GeminiAPI] ========== Streaming Response Headers ==========")
-	for key, values := range resp.Header {
-		if strings.HasPrefix(strings.ToLower(key), "x-ratelimit") {
-			log.Printf("[GeminiAPI] %s: %v", key, values)
+	if s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
+		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ========== Streaming Response Headers ==========")
+		for key, values := range resp.Header {
+			if strings.HasPrefix(strings.ToLower(key), "x-ratelimit") {
+				logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] %s: %v", key, values)
+			}
 		}
+		logger.LegacyPrintf("service.gemini_messages_compat", "[GeminiAPI] ====================================================")
 	}
-	log.Printf("[GeminiAPI] ====================================================")
 
-	if s.cfg != nil {
-		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.cfg.Security.ResponseHeaders)
+	if s.responseHeaderFilter != nil {
+		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
 
 	c.Status(resp.StatusCode)
@@ -2215,23 +2558,19 @@ func (s *GeminiMessagesCompatService) handleNativeStreamingResponse(c *gin.Conte
 					var rawToWrite string
 					rawToWrite = payload
 
-					var parsed map[string]any
+					var rawBytes []byte
 					if isOAuth {
-						inner, err := unwrapGeminiResponse([]byte(payload))
-						if err == nil && inner != nil {
-							parsed = inner
-							if b, err := json.Marshal(inner); err == nil {
-								rawToWrite = string(b)
-							}
+						innerBytes, err := unwrapGeminiResponse([]byte(payload))
+						if err == nil {
+							rawToWrite = string(innerBytes)
+							rawBytes = innerBytes
 						}
 					} else {
-						_ = json.Unmarshal([]byte(payload), &parsed)
+						rawBytes = []byte(payload)
 					}
 
-					if parsed != nil {
-						if u := extractGeminiUsage(parsed); u != nil {
-							usage = u
-						}
+					if u := extractGeminiUsage(rawBytes); u != nil {
+						usage = u
 					}
 
 					if firstTokenMs == nil {
@@ -2278,10 +2617,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 		return nil, errors.New("invalid path")
 	}
 
-	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
-	if baseURL == "" {
-		baseURL = geminicli.AIStudioBaseURL
-	}
+	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
 		return nil, err
@@ -2326,7 +2662,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	wwwAuthenticate := resp.Header.Get("Www-Authenticate")
-	filteredHeaders := responseheaders.FilterHeaders(resp.Header, s.cfg.Security.ResponseHeaders)
+	filteredHeaders := responseheaders.FilterHeaders(resp.Header, s.responseHeaderFilter)
 	if wwwAuthenticate != "" {
 		filteredHeaders.Set("Www-Authenticate", wwwAuthenticate)
 	}
@@ -2337,19 +2673,18 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 	}, nil
 }
 
-func unwrapGeminiResponse(raw []byte) (map[string]any, error) {
-	var outer map[string]any
-	if err := json.Unmarshal(raw, &outer); err != nil {
-		return nil, err
+// unwrapGeminiResponse 解包 Gemini OAuth 响应中的 response 字段
+// 使用 gjson 零拷贝提取，避免完整 Unmarshal+Marshal
+func unwrapGeminiResponse(raw []byte) ([]byte, error) {
+	result := gjson.GetBytes(raw, "response")
+	if result.Exists() && result.Type == gjson.JSON {
+		return []byte(result.Raw), nil
 	}
-	if resp, ok := outer["response"].(map[string]any); ok && resp != nil {
-		return resp, nil
-	}
-	return outer, nil
+	return raw, nil
 }
 
-func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel string) (map[string]any, *ClaudeUsage) {
-	usage := extractGeminiUsage(geminiResp)
+func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel string, rawData []byte) (map[string]any, *ClaudeUsage) {
+	usage := extractGeminiUsage(rawData)
 	if usage == nil {
 		usage = &ClaudeUsage{}
 	}
@@ -2413,16 +2748,36 @@ func convertGeminiToClaudeMessage(geminiResp map[string]any, originalModel strin
 	return resp, usage
 }
 
-func extractGeminiUsage(geminiResp map[string]any) *ClaudeUsage {
-	usageMeta, ok := geminiResp["usageMetadata"].(map[string]any)
-	if !ok || usageMeta == nil {
+func extractGeminiUsage(data []byte) *ClaudeUsage {
+	usage := gjson.GetBytes(data, "usageMetadata")
+	if !usage.Exists() {
 		return nil
 	}
-	prompt, _ := asInt(usageMeta["promptTokenCount"])
-	cand, _ := asInt(usageMeta["candidatesTokenCount"])
+	prompt := int(usage.Get("promptTokenCount").Int())
+	cand := int(usage.Get("candidatesTokenCount").Int())
+	cached := int(usage.Get("cachedContentTokenCount").Int())
+	thoughts := int(usage.Get("thoughtsTokenCount").Int())
+
+	// 从 candidatesTokensDetails 提取 IMAGE 模态 token 数
+	imageTokens := 0
+	candidateDetails := usage.Get("candidatesTokensDetails")
+	if candidateDetails.Exists() {
+		candidateDetails.ForEach(func(_, detail gjson.Result) bool {
+			if detail.Get("modality").String() == "IMAGE" {
+				imageTokens = int(detail.Get("tokenCount").Int())
+				return false
+			}
+			return true
+		})
+	}
+
+	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
+	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
 	return &ClaudeUsage{
-		InputTokens:  prompt,
-		OutputTokens: cand,
+		InputTokens:          prompt - cached,
+		OutputTokens:         cand + thoughts,
+		CacheReadInputTokens: cached,
+		ImageOutputTokens:    imageTokens,
 	}
 }
 
@@ -2446,6 +2801,10 @@ func asInt(v any) (int, bool) {
 }
 
 func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, body []byte) {
+	// 遵守自定义错误码策略：未命中则跳过所有限流处理
+	if !account.ShouldHandleErrorCode(statusCode) {
+		return
+	}
 	if s.rateLimitService != nil && (statusCode == 401 || statusCode == 403 || statusCode == 529) {
 		s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, headers, body)
 		return
@@ -2470,16 +2829,16 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 				cooldown = s.rateLimitService.GeminiCooldown(ctx, account)
 			}
 			ra = time.Now().Add(cooldown)
-			log.Printf("[Gemini 429] Account %d (Code Assist, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
+			logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (Code Assist, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
 		} else {
 			// API Key / AI Studio OAuth: PST 午夜
 			if ts := nextGeminiDailyResetUnix(); ts != nil {
 				ra = time.Unix(*ts, 0)
-				log.Printf("[Gemini 429] Account %d (API Key/AI Studio, type=%s) rate limited, reset at PST midnight (%v)", account.ID, account.Type, ra)
+				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (API Key/AI Studio, type=%s) rate limited, reset at PST midnight (%v)", account.ID, account.Type, ra)
 			} else {
 				// 兜底：5 分钟
 				ra = time.Now().Add(5 * time.Minute)
-				log.Printf("[Gemini 429] Account %d rate limited, fallback to 5min", account.ID)
+				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d rate limited, fallback to 5min", account.ID)
 			}
 		}
 		_ = s.accountRepo.SetRateLimited(ctx, account.ID, ra)
@@ -2489,43 +2848,41 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 	// 使用解析到的重置时间
 	resetTime := time.Unix(*resetAt, 0)
 	_ = s.accountRepo.SetRateLimited(ctx, account.ID, resetTime)
-	log.Printf("[Gemini 429] Account %d rate limited until %v (oauth_type=%s, tier=%s)",
+	logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d rate limited until %v (oauth_type=%s, tier=%s)",
 		account.ID, resetTime, oauthType, tierID)
 }
 
 // ParseGeminiRateLimitResetTime 解析 Gemini 格式的 429 响应，返回重置时间的 Unix 时间戳
 func ParseGeminiRateLimitResetTime(body []byte) *int64 {
-	// Try to parse metadata.quotaResetDelay like "12.345s"
-	var parsed map[string]any
-	if err := json.Unmarshal(body, &parsed); err == nil {
-		if errObj, ok := parsed["error"].(map[string]any); ok {
-			if msg, ok := errObj["message"].(string); ok {
-				if looksLikeGeminiDailyQuota(msg) {
-					if ts := nextGeminiDailyResetUnix(); ts != nil {
-						return ts
-					}
-				}
-			}
-			if details, ok := errObj["details"].([]any); ok {
-				for _, d := range details {
-					dm, ok := d.(map[string]any)
-					if !ok {
-						continue
-					}
-					if meta, ok := dm["metadata"].(map[string]any); ok {
-						if v, ok := meta["quotaResetDelay"].(string); ok {
-							if dur, err := time.ParseDuration(v); err == nil {
-								ts := time.Now().Unix() + int64(dur.Seconds())
-								return &ts
-							}
-						}
-					}
-				}
-			}
+	// 第一阶段：gjson 结构化提取
+	errMsg := gjson.GetBytes(body, "error.message").String()
+	if looksLikeGeminiDailyQuota(errMsg) {
+		if ts := nextGeminiDailyResetUnix(); ts != nil {
+			return ts
 		}
 	}
 
-	// Match "Please retry in Xs"
+	// 遍历 error.details 查找 quotaResetDelay
+	var found *int64
+	gjson.GetBytes(body, "error.details").ForEach(func(_, detail gjson.Result) bool {
+		v := detail.Get("metadata.quotaResetDelay").String()
+		if v == "" {
+			return true
+		}
+		if dur, err := time.ParseDuration(v); err == nil {
+			// Use ceil to avoid undercounting fractional seconds (e.g. 10.1s should not become 10s),
+			// which can affect scheduling decisions around thresholds (like 10s).
+			ts := time.Now().Unix() + int64(math.Ceil(dur.Seconds()))
+			found = &ts
+			return false
+		}
+		return true
+	})
+	if found != nil {
+		return found
+	}
+
+	// 第二阶段：regex 回退匹配 "Please retry in Xs"
 	matches := retryInRegex.FindStringSubmatch(string(body))
 	if len(matches) == 2 {
 		if dur, err := time.ParseDuration(matches[1] + "s"); err == nil {
@@ -2549,6 +2906,58 @@ func nextGeminiDailyResetUnix() *int64 {
 	reset := geminiDailyResetTime(time.Now())
 	ts := reset.Unix()
 	return &ts
+}
+
+func ensureGeminiFunctionCallThoughtSignatures(body []byte) []byte {
+	// Fast path: only run when functionCall is present.
+	if !bytes.Contains(body, []byte(`"functionCall"`)) {
+		return body
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+
+	contentsAny, ok := payload["contents"].([]any)
+	if !ok || len(contentsAny) == 0 {
+		return body
+	}
+
+	modified := false
+	for _, c := range contentsAny {
+		cm, ok := c.(map[string]any)
+		if !ok {
+			continue
+		}
+		partsAny, ok := cm["parts"].([]any)
+		if !ok || len(partsAny) == 0 {
+			continue
+		}
+		for _, p := range partsAny {
+			pm, ok := p.(map[string]any)
+			if !ok || pm == nil {
+				continue
+			}
+			if fc, ok := pm["functionCall"].(map[string]any); !ok || fc == nil {
+				continue
+			}
+			ts, _ := pm["thoughtSignature"].(string)
+			if strings.TrimSpace(ts) == "" {
+				pm["thoughtSignature"] = geminiDummyThoughtSignature
+				modified = true
+			}
+		}
+	}
+
+	if !modified {
+		return body
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return b
 }
 
 func extractGeminiFinishReason(geminiResp map[string]any) string {
@@ -2750,7 +3159,13 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 					if strings.TrimSpace(id) != "" && strings.TrimSpace(name) != "" {
 						toolUseIDToName[id] = name
 					}
+					signature, _ := bm["signature"].(string)
+					signature = strings.TrimSpace(signature)
+					if signature == "" {
+						signature = geminiDummyThoughtSignature
+					}
 					parts = append(parts, map[string]any{
+						"thoughtSignature": signature,
 						"functionCall": map[string]any{
 							"name": name,
 							"args": bm["input"],
@@ -2834,10 +3249,15 @@ func convertClaudeToolsToGeminiTools(tools any) []any {
 		return nil
 	}
 
+	hasWebSearch := false
 	funcDecls := make([]any, 0, len(arr))
 	for _, t := range arr {
 		tm, ok := t.(map[string]any)
 		if !ok {
+			continue
+		}
+		if isClaudeWebSearchToolMap(tm) {
+			hasWebSearch = true
 			continue
 		}
 
@@ -2883,13 +3303,75 @@ func convertClaudeToolsToGeminiTools(tools any) []any {
 		})
 	}
 
-	if len(funcDecls) == 0 {
+	out := make([]any, 0, 2)
+	if len(funcDecls) > 0 {
+		out = append(out, map[string]any{
+			"functionDeclarations": funcDecls,
+		})
+	}
+	if hasWebSearch {
+		out = append(out, map[string]any{
+			"googleSearch": map[string]any{},
+		})
+	}
+	if len(out) == 0 {
 		return nil
 	}
-	return []any{
-		map[string]any{
-			"functionDeclarations": funcDecls,
-		},
+	return out
+}
+
+func normalizeGeminiRequestForAIStudio(body []byte) []byte {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+
+	tools, ok := payload["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		return body
+	}
+
+	modified := false
+	for _, rawTool := range tools {
+		tool, ok := rawTool.(map[string]any)
+		if !ok {
+			continue
+		}
+		googleSearch, ok := tool["googleSearch"]
+		if !ok {
+			continue
+		}
+		if _, exists := tool["google_search"]; exists {
+			continue
+		}
+		tool["google_search"] = googleSearch
+		delete(tool, "googleSearch")
+		modified = true
+	}
+
+	if !modified {
+		return body
+	}
+
+	normalized, err := json.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return normalized
+}
+
+func isClaudeWebSearchToolMap(tool map[string]any) bool {
+	toolType, _ := tool["type"].(string)
+	if strings.HasPrefix(toolType, "web_search") || toolType == "google_search" {
+		return true
+	}
+
+	name, _ := tool["name"].(string)
+	switch strings.TrimSpace(name) {
+	case "web_search", "google_search", "web_search_20250305":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -2905,7 +3387,7 @@ func cleanToolSchema(schema any) any {
 		for key, value := range v {
 			// 跳过不支持的字段
 			if key == "$schema" || key == "$id" || key == "$ref" ||
-				key == "additionalProperties" || key == "minLength" ||
+				key == "additionalProperties" || key == "patternProperties" || key == "minLength" ||
 				key == "maxLength" || key == "minItems" || key == "maxItems" {
 				continue
 			}
@@ -2946,4 +3428,27 @@ func convertClaudeGenerationConfig(req map[string]any) map[string]any {
 		return nil
 	}
 	return out
+}
+
+// extractImageSize 从 Gemini 请求中提取 image_size 参数
+func (s *GeminiMessagesCompatService) extractImageSize(body []byte) string {
+	var req struct {
+		GenerationConfig *struct {
+			ImageConfig *struct {
+				ImageSize string `json:"imageSize"`
+			} `json:"imageConfig"`
+		} `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return "2K"
+	}
+
+	if req.GenerationConfig != nil && req.GenerationConfig.ImageConfig != nil {
+		size := strings.ToUpper(strings.TrimSpace(req.GenerationConfig.ImageConfig.ImageSize))
+		if size == "1K" || size == "2K" || size == "4K" {
+			return size
+		}
+	}
+
+	return "2K"
 }

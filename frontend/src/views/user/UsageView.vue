@@ -113,6 +113,9 @@
 
             <!-- Actions -->
             <div class="ml-auto flex items-center gap-3">
+              <button @click="applyFilters" :disabled="loading" class="btn btn-secondary">
+                {{ t('common.refresh') }}
+              </button>
               <button @click="resetFilters" class="btn btn-secondary">
                 {{ t('common.reset') }}
               </button>
@@ -146,7 +149,15 @@
       </template>
 
       <template #table>
-        <DataTable :columns="columns" :data="usageLogs" :loading="loading">
+        <DataTable
+          :columns="columns"
+          :data="usageLogs"
+          :loading="loading"
+          :server-side-sort="true"
+          default-sort-key="created_at"
+          default-sort-order="desc"
+          @sort="handleSort"
+        >
           <template #cell-api_key="{ row }">
             <span class="text-sm text-gray-900 dark:text-white">{{
               row.api_key?.name || '-'
@@ -157,22 +168,37 @@
             <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
           </template>
 
+          <template #cell-reasoning_effort="{ row }">
+            <span class="text-sm text-gray-900 dark:text-white">
+              {{ formatReasoningEffort(row.reasoning_effort) }}
+            </span>
+          </template>
+
+          <template #cell-endpoint="{ row }">
+            <span class="text-sm text-gray-600 dark:text-gray-300 block max-w-[320px] whitespace-normal break-all">
+              {{ formatUsageEndpoints(row) }}
+            </span>
+          </template>
+
           <template #cell-stream="{ row }">
             <span
               class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
-              :class="
-                row.stream
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-              "
+              :class="getRequestTypeBadgeClass(row)"
             >
-              {{ row.stream ? t('usage.stream') : t('usage.sync') }}
+              {{ getRequestTypeLabel(row) }}
+            </span>
+          </template>
+
+          <template #cell-billing_mode="{ row }">
+            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium"
+                  :class="getBillingModeBadgeClass(row.billing_mode)">
+              {{ getBillingModeLabel(row.billing_mode, t) }}
             </span>
           </template>
 
           <template #cell-tokens="{ row }">
-            <!-- 图片生成请求 -->
-            <div v-if="row.image_count > 0" class="flex items-center gap-1.5">
+            <!-- 图片生成请求（仅按次计费时显示图片格式） -->
+            <div v-if="row.image_count > 0 && row.billing_mode === 'image'" class="flex items-center gap-1.5">
               <svg
                 class="h-4 w-4 text-indigo-500"
                 fill="none"
@@ -227,6 +253,8 @@
                     <span class="font-medium text-amber-600 dark:text-amber-400">{{
                       formatCacheTokens(row.cache_creation_tokens)
                     }}</span>
+                    <span v-if="row.cache_creation_1h_tokens > 0" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-100 text-orange-600 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:ring-orange-500/30">1h</span>
+                    <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30 cursor-help">R</span>
                   </div>
                 </div>
               </div>
@@ -296,7 +324,7 @@
           </template>
 
           <template #cell-user_agent="{ row }">
-            <span v-if="row.user_agent" class="text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate block" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
+            <span v-if="row.user_agent" class="text-sm text-gray-600 dark:text-gray-400 block max-w-[320px] whitespace-normal break-all" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
           </template>
 
@@ -344,9 +372,36 @@
               <span class="text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
               <span class="font-medium text-white">{{ tokenTooltipData.output_tokens.toLocaleString() }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0" class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{{ t('admin.usage.cacheCreationTokens') }}</span>
-              <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
+            <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0">
+              <!-- 有 5m/1h 明细时，展开显示 -->
+              <template v-if="tokenTooltipData.cache_creation_5m_tokens > 0 || tokenTooltipData.cache_creation_1h_tokens > 0">
+                <div v-if="tokenTooltipData.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
+                  <span class="text-gray-400 flex items-center gap-1.5">
+                    {{ t('admin.usage.cacheCreation5mTokens') }}
+                    <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-amber-500/20 text-amber-400 ring-1 ring-inset ring-amber-500/30">5m</span>
+                  </span>
+                  <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_5m_tokens.toLocaleString() }}</span>
+                </div>
+                <div v-if="tokenTooltipData.cache_creation_1h_tokens > 0" class="flex items-center justify-between gap-4">
+                  <span class="text-gray-400 flex items-center gap-1.5">
+                    {{ t('admin.usage.cacheCreation1hTokens') }}
+                    <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-500/20 text-orange-400 ring-1 ring-inset ring-orange-500/30">1h</span>
+                  </span>
+                  <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_1h_tokens.toLocaleString() }}</span>
+                </div>
+              </template>
+              <!-- 无明细时，只显示聚合值 -->
+              <div v-else class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('admin.usage.cacheCreationTokens') }}</span>
+                <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
+              </div>
+            </div>
+            <div v-if="tokenTooltipData && tokenTooltipData.cache_ttl_overridden" class="flex items-center justify-between gap-4">
+              <span class="text-gray-400 flex items-center gap-1.5">
+                {{ t('usage.cacheTtlOverriddenLabel') }}
+                <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-500/20 text-rose-400 ring-1 ring-inset ring-rose-500/30">R-{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? '5m' : '1H' }}</span>
+              </span>
+              <span class="font-medium text-rose-400">{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
@@ -392,6 +447,22 @@
               <span class="text-gray-400">{{ t('admin.usage.outputCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.output_cost.toFixed(6) }}</span>
             </div>
+            <!-- Token billing: show unit prices per 1M tokens -->
+            <template v-if="!tooltipData?.billing_mode || tooltipData.billing_mode === 'token'">
+              <div v-if="tooltipData && tooltipData.input_tokens > 0" class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.inputTokenPrice') }}</span>
+                <span class="font-medium text-sky-300">{{ formatTokenPricePerMillion(tooltipData.input_cost, tooltipData.input_tokens) }} {{ t('usage.perMillionTokens') }}</span>
+              </div>
+              <div v-if="tooltipData && tooltipData.output_tokens > 0" class="flex items-center justify-between gap-4">
+                <span class="text-gray-400">{{ t('usage.outputTokenPrice') }}</span>
+                <span class="font-medium text-violet-300">{{ formatTokenPricePerMillion(tooltipData.output_cost, tooltipData.output_tokens) }} {{ t('usage.perMillionTokens') }}</span>
+              </div>
+            </template>
+            <!-- Per-request / image billing: show unit price -->
+            <div v-else class="flex items-center justify-between gap-4">
+              <span class="text-gray-400">{{ tooltipData.billing_mode === 'image' ? t('usage.imageUnitPrice') : t('usage.unitPrice') }}</span>
+              <span class="font-medium text-sky-300">${{ tooltipData.total_cost?.toFixed(6) || '0.000000' }}</span>
+            </div>
             <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheCreationCost') }}</span>
               <span class="font-medium text-white">${{ tooltipData.cache_creation_cost.toFixed(6) }}</span>
@@ -403,9 +474,13 @@
           </div>
           <!-- Rate and Summary -->
           <div class="flex items-center justify-between gap-6">
+            <span class="text-gray-400">{{ t('usage.serviceTier') }}</span>
+            <span class="font-semibold text-cyan-300">{{ getUsageServiceTierLabel(tooltipData?.service_tier, t) }}</span>
+          </div>
+          <div class="flex items-center justify-between gap-6">
             <span class="text-gray-400">{{ t('usage.rate') }}</span>
             <span class="font-semibold text-blue-400"
-              >{{ (tooltipData?.rate_multiplier || 1).toFixed(2) }}x</span
+              >{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span
             >
           </div>
           <div class="flex items-center justify-between gap-6">
@@ -443,7 +518,13 @@ import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Icon from '@/components/icons/Icon.vue'
 import type { UsageLog, ApiKey, UsageQueryParams, UsageStatsResponse } from '@/types'
 import type { Column } from '@/components/common/types'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatReasoningEffort } from '@/utils/format'
+import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
+import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
+import { formatTokenPricePerMillion } from '@/utils/usagePricing'
+import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
+import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import { getBillingModeLabel, getBillingModeBadgeClass } from '@/utils/billingMode'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -466,7 +547,10 @@ const usageStats = ref<UsageStatsResponse | null>(null)
 const columns = computed<Column[]>(() => [
   { key: 'api_key', label: t('usage.apiKeyFilter'), sortable: false },
   { key: 'model', label: t('usage.model'), sortable: true },
+  { key: 'reasoning_effort', label: t('usage.reasoningEffort'), sortable: false },
+  { key: 'endpoint', label: t('usage.endpoint'), sortable: false },
   { key: 'stream', label: t('usage.type'), sortable: false },
+  { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'first_token', label: t('usage.firstToken'), sortable: false },
@@ -527,9 +611,13 @@ const onDateRangeChange = (range: {
 
 const pagination = reactive({
   page: 1,
-  page_size: 20,
+  page_size: getPersistedPageSize(),
   total: 0,
   pages: 0
+})
+const sortState = reactive({
+  sort_by: 'created_at',
+  sort_order: 'desc' as 'asc' | 'desc'
 })
 
 const formatDuration = (ms: number): string => {
@@ -538,16 +626,37 @@ const formatDuration = (ms: number): string => {
 }
 
 const formatUserAgent = (ua: string): string => {
-  // 提取主要客户端标识
-  if (ua.includes('claude-cli')) return ua.match(/claude-cli\/[\d.]+/)?.[0] || 'Claude CLI'
-  if (ua.includes('Cursor')) return 'Cursor'
-  if (ua.includes('VSCode') || ua.includes('vscode')) return 'VS Code'
-  if (ua.includes('Continue')) return 'Continue'
-  if (ua.includes('Cline')) return 'Cline'
-  if (ua.includes('OpenAI')) return 'OpenAI SDK'
-  if (ua.includes('anthropic')) return 'Anthropic SDK'
-  // 截断过长的 UA
-  return ua.length > 30 ? ua.substring(0, 30) + '...' : ua
+  return ua
+}
+
+const getRequestTypeLabel = (log: UsageLog): string => {
+  const requestType = resolveUsageRequestType(log)
+  if (requestType === 'ws_v2') return t('usage.ws')
+  if (requestType === 'stream') return t('usage.stream')
+  if (requestType === 'sync') return t('usage.sync')
+  return t('usage.unknown')
+}
+
+const getRequestTypeBadgeClass = (log: UsageLog): string => {
+  const requestType = resolveUsageRequestType(log)
+  if (requestType === 'ws_v2') return 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'
+  if (requestType === 'stream') return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+  if (requestType === 'sync') return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+  return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+}
+
+
+const getRequestTypeExportText = (log: UsageLog): string => {
+  const requestType = resolveUsageRequestType(log)
+  if (requestType === 'ws_v2') return 'WS'
+  if (requestType === 'stream') return 'Stream'
+  if (requestType === 'sync') return 'Sync'
+  return 'Unknown'
+}
+
+const formatUsageEndpoints = (log: UsageLog): string => {
+  const inbound = log.inbound_endpoint?.trim()
+  return inbound || '-'
 }
 
 const formatTokens = (value: number): string => {
@@ -561,15 +670,18 @@ const formatTokens = (value: number): string => {
   return value.toLocaleString()
 }
 
-// Compact format for cache tokens in table cells
-const formatCacheTokens = (value: number): string => {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`
-  } else if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`
-  }
-  return value.toLocaleString()
+type UsageTableQueryParams = UsageQueryParams & {
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }
+
+const buildUsageQueryParams = (page: number, pageSize: number): UsageTableQueryParams => ({
+  page,
+  page_size: pageSize,
+  ...filters.value,
+  sort_by: sortState.sort_by,
+  sort_order: sortState.sort_order
+})
 
 const loadUsageLogs = async () => {
   if (abortController) {
@@ -580,13 +692,10 @@ const loadUsageLogs = async () => {
   const { signal } = currentAbortController
   loading.value = true
   try {
-    const params: UsageQueryParams = {
-      page: pagination.page,
-      page_size: pagination.page_size,
-      ...filters.value
-    }
-
-    const response = await usageAPI.query(params, { signal })
+    const response = await usageAPI.query(
+      buildUsageQueryParams(pagination.page, pagination.page_size),
+      { signal }
+    )
     if (signal.aborted) {
       return
     }
@@ -668,6 +777,13 @@ const handlePageSizeChange = (pageSize: number) => {
   loadUsageLogs()
 }
 
+const handleSort = (key: string, order: 'asc' | 'desc') => {
+  sortState.sort_by = key
+  sortState.sort_order = order
+  pagination.page = 1
+  loadUsageLogs()
+}
+
 /**
  * Escape CSV value to prevent injection and handle special characters
  */
@@ -705,12 +821,7 @@ const exportToCSV = async () => {
     const totalRequests = Math.ceil(pagination.total / pageSize)
 
     for (let page = 1; page <= totalRequests; page++) {
-      const params: UsageQueryParams = {
-        page: page,
-        page_size: pageSize,
-        ...filters.value
-      }
-      const response = await usageAPI.query(params)
+      const response = await usageAPI.query(buildUsageQueryParams(page, pageSize))
       allLogs.push(...response.items)
     }
 
@@ -723,7 +834,10 @@ const exportToCSV = async () => {
       'Time',
       'API Key Name',
       'Model',
+      'Reasoning Effort',
+      'Inbound Endpoint',
       'Type',
+      'Billing Mode',
       'Input Tokens',
       'Output Tokens',
       'Cache Read Tokens',
@@ -739,7 +853,10 @@ const exportToCSV = async () => {
         log.created_at,
         log.api_key?.name || '',
         log.model,
-        log.stream ? 'Stream' : 'Sync',
+        formatReasoningEffort(log.reasoning_effort),
+        log.inbound_endpoint || '',
+        getRequestTypeExportText(log),
+        getBillingModeLabel(log.billing_mode, t),
         log.input_tokens,
         log.output_tokens,
         log.cache_read_tokens,

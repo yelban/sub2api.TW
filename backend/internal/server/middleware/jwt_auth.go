@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -11,11 +12,19 @@ import (
 
 // NewJWTAuthMiddleware 创建 JWT 认证中间件
 func NewJWTAuthMiddleware(authService *service.AuthService, userService *service.UserService) JWTAuthMiddleware {
-	return JWTAuthMiddleware(jwtAuth(authService, userService))
+	return JWTAuthMiddleware(jwtAuth(authService, userService, userService))
+}
+
+type jwtUserReader interface {
+	GetByID(ctx context.Context, id int64) (*service.User, error)
+}
+
+type userActivityToucher interface {
+	TouchLastActiveForUser(ctx context.Context, user *service.User)
 }
 
 // jwtAuth JWT认证中间件实现
-func jwtAuth(authService *service.AuthService, userService *service.UserService) gin.HandlerFunc {
+func jwtAuth(authService *service.AuthService, userService jwtUserReader, activityToucher userActivityToucher) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从Authorization header中提取token
 		authHeader := c.GetHeader("Authorization")
@@ -26,12 +35,12 @@ func jwtAuth(authService *service.AuthService, userService *service.UserService)
 
 		// 验证Bearer scheme
 		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			AbortWithError(c, 401, "INVALID_AUTH_HEADER", "Authorization header format must be 'Bearer {token}'")
 			return
 		}
 
-		tokenString := parts[1]
+		tokenString := strings.TrimSpace(parts[1])
 		if tokenString == "" {
 			AbortWithError(c, 401, "EMPTY_TOKEN", "Token cannot be empty")
 			return
@@ -73,6 +82,9 @@ func jwtAuth(authService *service.AuthService, userService *service.UserService)
 			Concurrency: user.Concurrency,
 		})
 		c.Set(string(ContextKeyUserRole), user.Role)
+		if activityToucher != nil {
+			activityToucher.TouchLastActiveForUser(c.Request.Context(), user)
+		}
 
 		c.Next()
 	}

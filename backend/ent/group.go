@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // Group is the model entity for the Group schema.
@@ -56,10 +57,30 @@ type Group struct {
 	ClaudeCodeOnly bool `json:"claude_code_only,omitempty"`
 	// 非 Claude Code 请求降级使用的分组 ID
 	FallbackGroupID *int64 `json:"fallback_group_id,omitempty"`
+	// 无效请求兜底使用的分组 ID
+	FallbackGroupIDOnInvalidRequest *int64 `json:"fallback_group_id_on_invalid_request,omitempty"`
 	// 模型路由配置：模型模式 -> 优先账号ID列表
 	ModelRouting map[string][]int64 `json:"model_routing,omitempty"`
 	// 是否启用模型路由配置
 	ModelRoutingEnabled bool `json:"model_routing_enabled,omitempty"`
+	// 是否注入 MCP XML 调用协议提示词（仅 antigravity 平台）
+	McpXMLInject bool `json:"mcp_xml_inject,omitempty"`
+	// 支持的模型系列：claude, gemini_text, gemini_image
+	SupportedModelScopes []string `json:"supported_model_scopes,omitempty"`
+	// 分组显示排序，数值越小越靠前
+	SortOrder int `json:"sort_order,omitempty"`
+	// 是否允许 /v1/messages 调度到此 OpenAI 分组
+	AllowMessagesDispatch bool `json:"allow_messages_dispatch,omitempty"`
+	// 仅允许非 apikey 类型账号关联到此分组
+	RequireOauthOnly bool `json:"require_oauth_only,omitempty"`
+	// 调度时仅允许 privacy 已成功设置的账号
+	RequirePrivacySet bool `json:"require_privacy_set,omitempty"`
+	// 默认映射模型 ID，当账号级映射找不到时使用此值
+	DefaultMappedModel string `json:"default_mapped_model,omitempty"`
+	// OpenAI Messages 调度模型配置：按 Claude 系列/精确模型映射到目标 GPT 模型
+	MessagesDispatchModelConfig domain.OpenAIMessagesDispatchModelConfig `json:"messages_dispatch_model_config,omitempty"`
+	// 分组 RPM 上限，0 表示不限制；设置后接管该分组用户的限流
+	RpmLimit int `json:"rpm_limit,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GroupQuery when eager-loading is set.
 	Edges        GroupEdges `json:"edges"`
@@ -166,15 +187,15 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case group.FieldModelRouting:
+		case group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig:
 			values[i] = new([]byte)
-		case group.FieldIsExclusive, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled:
+		case group.FieldIsExclusive, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
 			values[i] = new(sql.NullBool)
 		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
 			values[i] = new(sql.NullFloat64)
-		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID:
+		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
-		case group.FieldName, group.FieldDescription, group.FieldStatus, group.FieldPlatform, group.FieldSubscriptionType:
+		case group.FieldName, group.FieldDescription, group.FieldStatus, group.FieldPlatform, group.FieldSubscriptionType, group.FieldDefaultMappedModel:
 			values[i] = new(sql.NullString)
 		case group.FieldCreatedAt, group.FieldUpdatedAt, group.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
@@ -322,6 +343,13 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				_m.FallbackGroupID = new(int64)
 				*_m.FallbackGroupID = value.Int64
 			}
+		case group.FieldFallbackGroupIDOnInvalidRequest:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field fallback_group_id_on_invalid_request", values[i])
+			} else if value.Valid {
+				_m.FallbackGroupIDOnInvalidRequest = new(int64)
+				*_m.FallbackGroupIDOnInvalidRequest = value.Int64
+			}
 		case group.FieldModelRouting:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field model_routing", values[i])
@@ -335,6 +363,64 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field model_routing_enabled", values[i])
 			} else if value.Valid {
 				_m.ModelRoutingEnabled = value.Bool
+			}
+		case group.FieldMcpXMLInject:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field mcp_xml_inject", values[i])
+			} else if value.Valid {
+				_m.McpXMLInject = value.Bool
+			}
+		case group.FieldSupportedModelScopes:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field supported_model_scopes", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.SupportedModelScopes); err != nil {
+					return fmt.Errorf("unmarshal field supported_model_scopes: %w", err)
+				}
+			}
+		case group.FieldSortOrder:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field sort_order", values[i])
+			} else if value.Valid {
+				_m.SortOrder = int(value.Int64)
+			}
+		case group.FieldAllowMessagesDispatch:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field allow_messages_dispatch", values[i])
+			} else if value.Valid {
+				_m.AllowMessagesDispatch = value.Bool
+			}
+		case group.FieldRequireOauthOnly:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field require_oauth_only", values[i])
+			} else if value.Valid {
+				_m.RequireOauthOnly = value.Bool
+			}
+		case group.FieldRequirePrivacySet:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field require_privacy_set", values[i])
+			} else if value.Valid {
+				_m.RequirePrivacySet = value.Bool
+			}
+		case group.FieldDefaultMappedModel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field default_mapped_model", values[i])
+			} else if value.Valid {
+				_m.DefaultMappedModel = value.String
+			}
+		case group.FieldMessagesDispatchModelConfig:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field messages_dispatch_model_config", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.MessagesDispatchModelConfig); err != nil {
+					return fmt.Errorf("unmarshal field messages_dispatch_model_config: %w", err)
+				}
+			}
+		case group.FieldRpmLimit:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field rpm_limit", values[i])
+			} else if value.Valid {
+				_m.RpmLimit = int(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -487,11 +573,43 @@ func (_m *Group) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
+	if v := _m.FallbackGroupIDOnInvalidRequest; v != nil {
+		builder.WriteString("fallback_group_id_on_invalid_request=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("model_routing=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ModelRouting))
 	builder.WriteString(", ")
 	builder.WriteString("model_routing_enabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ModelRoutingEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("mcp_xml_inject=")
+	builder.WriteString(fmt.Sprintf("%v", _m.McpXMLInject))
+	builder.WriteString(", ")
+	builder.WriteString("supported_model_scopes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SupportedModelScopes))
+	builder.WriteString(", ")
+	builder.WriteString("sort_order=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SortOrder))
+	builder.WriteString(", ")
+	builder.WriteString("allow_messages_dispatch=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AllowMessagesDispatch))
+	builder.WriteString(", ")
+	builder.WriteString("require_oauth_only=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RequireOauthOnly))
+	builder.WriteString(", ")
+	builder.WriteString("require_privacy_set=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RequirePrivacySet))
+	builder.WriteString(", ")
+	builder.WriteString("default_mapped_model=")
+	builder.WriteString(_m.DefaultMappedModel)
+	builder.WriteString(", ")
+	builder.WriteString("messages_dispatch_model_config=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MessagesDispatchModelConfig))
+	builder.WriteString(", ")
+	builder.WriteString("rpm_limit=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RpmLimit))
 	builder.WriteByte(')')
 	return builder.String()
 }

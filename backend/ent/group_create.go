@@ -18,6 +18,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupCreate is the builder for creating a Group entity.
@@ -286,6 +287,20 @@ func (_c *GroupCreate) SetNillableFallbackGroupID(v *int64) *GroupCreate {
 	return _c
 }
 
+// SetFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field.
+func (_c *GroupCreate) SetFallbackGroupIDOnInvalidRequest(v int64) *GroupCreate {
+	_c.mutation.SetFallbackGroupIDOnInvalidRequest(v)
+	return _c
+}
+
+// SetNillableFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableFallbackGroupIDOnInvalidRequest(v *int64) *GroupCreate {
+	if v != nil {
+		_c.SetFallbackGroupIDOnInvalidRequest(*v)
+	}
+	return _c
+}
+
 // SetModelRouting sets the "model_routing" field.
 func (_c *GroupCreate) SetModelRouting(v map[string][]int64) *GroupCreate {
 	_c.mutation.SetModelRouting(v)
@@ -302,6 +317,124 @@ func (_c *GroupCreate) SetModelRoutingEnabled(v bool) *GroupCreate {
 func (_c *GroupCreate) SetNillableModelRoutingEnabled(v *bool) *GroupCreate {
 	if v != nil {
 		_c.SetModelRoutingEnabled(*v)
+	}
+	return _c
+}
+
+// SetMcpXMLInject sets the "mcp_xml_inject" field.
+func (_c *GroupCreate) SetMcpXMLInject(v bool) *GroupCreate {
+	_c.mutation.SetMcpXMLInject(v)
+	return _c
+}
+
+// SetNillableMcpXMLInject sets the "mcp_xml_inject" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableMcpXMLInject(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetMcpXMLInject(*v)
+	}
+	return _c
+}
+
+// SetSupportedModelScopes sets the "supported_model_scopes" field.
+func (_c *GroupCreate) SetSupportedModelScopes(v []string) *GroupCreate {
+	_c.mutation.SetSupportedModelScopes(v)
+	return _c
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (_c *GroupCreate) SetSortOrder(v int) *GroupCreate {
+	_c.mutation.SetSortOrder(v)
+	return _c
+}
+
+// SetNillableSortOrder sets the "sort_order" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableSortOrder(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetSortOrder(*v)
+	}
+	return _c
+}
+
+// SetAllowMessagesDispatch sets the "allow_messages_dispatch" field.
+func (_c *GroupCreate) SetAllowMessagesDispatch(v bool) *GroupCreate {
+	_c.mutation.SetAllowMessagesDispatch(v)
+	return _c
+}
+
+// SetNillableAllowMessagesDispatch sets the "allow_messages_dispatch" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableAllowMessagesDispatch(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetAllowMessagesDispatch(*v)
+	}
+	return _c
+}
+
+// SetRequireOauthOnly sets the "require_oauth_only" field.
+func (_c *GroupCreate) SetRequireOauthOnly(v bool) *GroupCreate {
+	_c.mutation.SetRequireOauthOnly(v)
+	return _c
+}
+
+// SetNillableRequireOauthOnly sets the "require_oauth_only" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableRequireOauthOnly(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetRequireOauthOnly(*v)
+	}
+	return _c
+}
+
+// SetRequirePrivacySet sets the "require_privacy_set" field.
+func (_c *GroupCreate) SetRequirePrivacySet(v bool) *GroupCreate {
+	_c.mutation.SetRequirePrivacySet(v)
+	return _c
+}
+
+// SetNillableRequirePrivacySet sets the "require_privacy_set" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableRequirePrivacySet(v *bool) *GroupCreate {
+	if v != nil {
+		_c.SetRequirePrivacySet(*v)
+	}
+	return _c
+}
+
+// SetDefaultMappedModel sets the "default_mapped_model" field.
+func (_c *GroupCreate) SetDefaultMappedModel(v string) *GroupCreate {
+	_c.mutation.SetDefaultMappedModel(v)
+	return _c
+}
+
+// SetNillableDefaultMappedModel sets the "default_mapped_model" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableDefaultMappedModel(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetDefaultMappedModel(*v)
+	}
+	return _c
+}
+
+// SetMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field.
+func (_c *GroupCreate) SetMessagesDispatchModelConfig(v domain.OpenAIMessagesDispatchModelConfig) *GroupCreate {
+	_c.mutation.SetMessagesDispatchModelConfig(v)
+	return _c
+}
+
+// SetNillableMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableMessagesDispatchModelConfig(v *domain.OpenAIMessagesDispatchModelConfig) *GroupCreate {
+	if v != nil {
+		_c.SetMessagesDispatchModelConfig(*v)
+	}
+	return _c
+}
+
+// SetRpmLimit sets the "rpm_limit" field.
+func (_c *GroupCreate) SetRpmLimit(v int) *GroupCreate {
+	_c.mutation.SetRpmLimit(v)
+	return _c
+}
+
+// SetNillableRpmLimit sets the "rpm_limit" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableRpmLimit(v *int) *GroupCreate {
+	if v != nil {
+		_c.SetRpmLimit(*v)
 	}
 	return _c
 }
@@ -479,6 +612,42 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultModelRoutingEnabled
 		_c.mutation.SetModelRoutingEnabled(v)
 	}
+	if _, ok := _c.mutation.McpXMLInject(); !ok {
+		v := group.DefaultMcpXMLInject
+		_c.mutation.SetMcpXMLInject(v)
+	}
+	if _, ok := _c.mutation.SupportedModelScopes(); !ok {
+		v := group.DefaultSupportedModelScopes
+		_c.mutation.SetSupportedModelScopes(v)
+	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		v := group.DefaultSortOrder
+		_c.mutation.SetSortOrder(v)
+	}
+	if _, ok := _c.mutation.AllowMessagesDispatch(); !ok {
+		v := group.DefaultAllowMessagesDispatch
+		_c.mutation.SetAllowMessagesDispatch(v)
+	}
+	if _, ok := _c.mutation.RequireOauthOnly(); !ok {
+		v := group.DefaultRequireOauthOnly
+		_c.mutation.SetRequireOauthOnly(v)
+	}
+	if _, ok := _c.mutation.RequirePrivacySet(); !ok {
+		v := group.DefaultRequirePrivacySet
+		_c.mutation.SetRequirePrivacySet(v)
+	}
+	if _, ok := _c.mutation.DefaultMappedModel(); !ok {
+		v := group.DefaultDefaultMappedModel
+		_c.mutation.SetDefaultMappedModel(v)
+	}
+	if _, ok := _c.mutation.MessagesDispatchModelConfig(); !ok {
+		v := group.DefaultMessagesDispatchModelConfig
+		_c.mutation.SetMessagesDispatchModelConfig(v)
+	}
+	if _, ok := _c.mutation.RpmLimit(); !ok {
+		v := group.DefaultRpmLimit
+		_c.mutation.SetRpmLimit(v)
+	}
 	return nil
 }
 
@@ -536,6 +705,38 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
 		return &ValidationError{Name: "model_routing_enabled", err: errors.New(`ent: missing required field "Group.model_routing_enabled"`)}
+	}
+	if _, ok := _c.mutation.McpXMLInject(); !ok {
+		return &ValidationError{Name: "mcp_xml_inject", err: errors.New(`ent: missing required field "Group.mcp_xml_inject"`)}
+	}
+	if _, ok := _c.mutation.SupportedModelScopes(); !ok {
+		return &ValidationError{Name: "supported_model_scopes", err: errors.New(`ent: missing required field "Group.supported_model_scopes"`)}
+	}
+	if _, ok := _c.mutation.SortOrder(); !ok {
+		return &ValidationError{Name: "sort_order", err: errors.New(`ent: missing required field "Group.sort_order"`)}
+	}
+	if _, ok := _c.mutation.AllowMessagesDispatch(); !ok {
+		return &ValidationError{Name: "allow_messages_dispatch", err: errors.New(`ent: missing required field "Group.allow_messages_dispatch"`)}
+	}
+	if _, ok := _c.mutation.RequireOauthOnly(); !ok {
+		return &ValidationError{Name: "require_oauth_only", err: errors.New(`ent: missing required field "Group.require_oauth_only"`)}
+	}
+	if _, ok := _c.mutation.RequirePrivacySet(); !ok {
+		return &ValidationError{Name: "require_privacy_set", err: errors.New(`ent: missing required field "Group.require_privacy_set"`)}
+	}
+	if _, ok := _c.mutation.DefaultMappedModel(); !ok {
+		return &ValidationError{Name: "default_mapped_model", err: errors.New(`ent: missing required field "Group.default_mapped_model"`)}
+	}
+	if v, ok := _c.mutation.DefaultMappedModel(); ok {
+		if err := group.DefaultMappedModelValidator(v); err != nil {
+			return &ValidationError{Name: "default_mapped_model", err: fmt.Errorf(`ent: validator failed for field "Group.default_mapped_model": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.MessagesDispatchModelConfig(); !ok {
+		return &ValidationError{Name: "messages_dispatch_model_config", err: errors.New(`ent: missing required field "Group.messages_dispatch_model_config"`)}
+	}
+	if _, ok := _c.mutation.RpmLimit(); !ok {
+		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "Group.rpm_limit"`)}
 	}
 	return nil
 }
@@ -640,6 +841,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 		_spec.SetField(group.FieldFallbackGroupID, field.TypeInt64, value)
 		_node.FallbackGroupID = &value
 	}
+	if value, ok := _c.mutation.FallbackGroupIDOnInvalidRequest(); ok {
+		_spec.SetField(group.FieldFallbackGroupIDOnInvalidRequest, field.TypeInt64, value)
+		_node.FallbackGroupIDOnInvalidRequest = &value
+	}
 	if value, ok := _c.mutation.ModelRouting(); ok {
 		_spec.SetField(group.FieldModelRouting, field.TypeJSON, value)
 		_node.ModelRouting = value
@@ -647,6 +852,42 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ModelRoutingEnabled(); ok {
 		_spec.SetField(group.FieldModelRoutingEnabled, field.TypeBool, value)
 		_node.ModelRoutingEnabled = value
+	}
+	if value, ok := _c.mutation.McpXMLInject(); ok {
+		_spec.SetField(group.FieldMcpXMLInject, field.TypeBool, value)
+		_node.McpXMLInject = value
+	}
+	if value, ok := _c.mutation.SupportedModelScopes(); ok {
+		_spec.SetField(group.FieldSupportedModelScopes, field.TypeJSON, value)
+		_node.SupportedModelScopes = value
+	}
+	if value, ok := _c.mutation.SortOrder(); ok {
+		_spec.SetField(group.FieldSortOrder, field.TypeInt, value)
+		_node.SortOrder = value
+	}
+	if value, ok := _c.mutation.AllowMessagesDispatch(); ok {
+		_spec.SetField(group.FieldAllowMessagesDispatch, field.TypeBool, value)
+		_node.AllowMessagesDispatch = value
+	}
+	if value, ok := _c.mutation.RequireOauthOnly(); ok {
+		_spec.SetField(group.FieldRequireOauthOnly, field.TypeBool, value)
+		_node.RequireOauthOnly = value
+	}
+	if value, ok := _c.mutation.RequirePrivacySet(); ok {
+		_spec.SetField(group.FieldRequirePrivacySet, field.TypeBool, value)
+		_node.RequirePrivacySet = value
+	}
+	if value, ok := _c.mutation.DefaultMappedModel(); ok {
+		_spec.SetField(group.FieldDefaultMappedModel, field.TypeString, value)
+		_node.DefaultMappedModel = value
+	}
+	if value, ok := _c.mutation.MessagesDispatchModelConfig(); ok {
+		_spec.SetField(group.FieldMessagesDispatchModelConfig, field.TypeJSON, value)
+		_node.MessagesDispatchModelConfig = value
+	}
+	if value, ok := _c.mutation.RpmLimit(); ok {
+		_spec.SetField(group.FieldRpmLimit, field.TypeInt, value)
+		_node.RpmLimit = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1128,6 +1369,30 @@ func (u *GroupUpsert) ClearFallbackGroupID() *GroupUpsert {
 	return u
 }
 
+// SetFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsert) SetFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsert {
+	u.Set(group.FieldFallbackGroupIDOnInvalidRequest, v)
+	return u
+}
+
+// UpdateFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateFallbackGroupIDOnInvalidRequest() *GroupUpsert {
+	u.SetExcluded(group.FieldFallbackGroupIDOnInvalidRequest)
+	return u
+}
+
+// AddFallbackGroupIDOnInvalidRequest adds v to the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsert) AddFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsert {
+	u.Add(group.FieldFallbackGroupIDOnInvalidRequest, v)
+	return u
+}
+
+// ClearFallbackGroupIDOnInvalidRequest clears the value of the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsert) ClearFallbackGroupIDOnInvalidRequest() *GroupUpsert {
+	u.SetNull(group.FieldFallbackGroupIDOnInvalidRequest)
+	return u
+}
+
 // SetModelRouting sets the "model_routing" field.
 func (u *GroupUpsert) SetModelRouting(v map[string][]int64) *GroupUpsert {
 	u.Set(group.FieldModelRouting, v)
@@ -1155,6 +1420,126 @@ func (u *GroupUpsert) SetModelRoutingEnabled(v bool) *GroupUpsert {
 // UpdateModelRoutingEnabled sets the "model_routing_enabled" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateModelRoutingEnabled() *GroupUpsert {
 	u.SetExcluded(group.FieldModelRoutingEnabled)
+	return u
+}
+
+// SetMcpXMLInject sets the "mcp_xml_inject" field.
+func (u *GroupUpsert) SetMcpXMLInject(v bool) *GroupUpsert {
+	u.Set(group.FieldMcpXMLInject, v)
+	return u
+}
+
+// UpdateMcpXMLInject sets the "mcp_xml_inject" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateMcpXMLInject() *GroupUpsert {
+	u.SetExcluded(group.FieldMcpXMLInject)
+	return u
+}
+
+// SetSupportedModelScopes sets the "supported_model_scopes" field.
+func (u *GroupUpsert) SetSupportedModelScopes(v []string) *GroupUpsert {
+	u.Set(group.FieldSupportedModelScopes, v)
+	return u
+}
+
+// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateSupportedModelScopes() *GroupUpsert {
+	u.SetExcluded(group.FieldSupportedModelScopes)
+	return u
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *GroupUpsert) SetSortOrder(v int) *GroupUpsert {
+	u.Set(group.FieldSortOrder, v)
+	return u
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateSortOrder() *GroupUpsert {
+	u.SetExcluded(group.FieldSortOrder)
+	return u
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *GroupUpsert) AddSortOrder(v int) *GroupUpsert {
+	u.Add(group.FieldSortOrder, v)
+	return u
+}
+
+// SetAllowMessagesDispatch sets the "allow_messages_dispatch" field.
+func (u *GroupUpsert) SetAllowMessagesDispatch(v bool) *GroupUpsert {
+	u.Set(group.FieldAllowMessagesDispatch, v)
+	return u
+}
+
+// UpdateAllowMessagesDispatch sets the "allow_messages_dispatch" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateAllowMessagesDispatch() *GroupUpsert {
+	u.SetExcluded(group.FieldAllowMessagesDispatch)
+	return u
+}
+
+// SetRequireOauthOnly sets the "require_oauth_only" field.
+func (u *GroupUpsert) SetRequireOauthOnly(v bool) *GroupUpsert {
+	u.Set(group.FieldRequireOauthOnly, v)
+	return u
+}
+
+// UpdateRequireOauthOnly sets the "require_oauth_only" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateRequireOauthOnly() *GroupUpsert {
+	u.SetExcluded(group.FieldRequireOauthOnly)
+	return u
+}
+
+// SetRequirePrivacySet sets the "require_privacy_set" field.
+func (u *GroupUpsert) SetRequirePrivacySet(v bool) *GroupUpsert {
+	u.Set(group.FieldRequirePrivacySet, v)
+	return u
+}
+
+// UpdateRequirePrivacySet sets the "require_privacy_set" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateRequirePrivacySet() *GroupUpsert {
+	u.SetExcluded(group.FieldRequirePrivacySet)
+	return u
+}
+
+// SetDefaultMappedModel sets the "default_mapped_model" field.
+func (u *GroupUpsert) SetDefaultMappedModel(v string) *GroupUpsert {
+	u.Set(group.FieldDefaultMappedModel, v)
+	return u
+}
+
+// UpdateDefaultMappedModel sets the "default_mapped_model" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateDefaultMappedModel() *GroupUpsert {
+	u.SetExcluded(group.FieldDefaultMappedModel)
+	return u
+}
+
+// SetMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field.
+func (u *GroupUpsert) SetMessagesDispatchModelConfig(v domain.OpenAIMessagesDispatchModelConfig) *GroupUpsert {
+	u.Set(group.FieldMessagesDispatchModelConfig, v)
+	return u
+}
+
+// UpdateMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateMessagesDispatchModelConfig() *GroupUpsert {
+	u.SetExcluded(group.FieldMessagesDispatchModelConfig)
+	return u
+}
+
+// SetRpmLimit sets the "rpm_limit" field.
+func (u *GroupUpsert) SetRpmLimit(v int) *GroupUpsert {
+	u.Set(group.FieldRpmLimit, v)
+	return u
+}
+
+// UpdateRpmLimit sets the "rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateRpmLimit() *GroupUpsert {
+	u.SetExcluded(group.FieldRpmLimit)
+	return u
+}
+
+// AddRpmLimit adds v to the "rpm_limit" field.
+func (u *GroupUpsert) AddRpmLimit(v int) *GroupUpsert {
+	u.Add(group.FieldRpmLimit, v)
 	return u
 }
 
@@ -1581,6 +1966,34 @@ func (u *GroupUpsertOne) ClearFallbackGroupID() *GroupUpsertOne {
 	})
 }
 
+// SetFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertOne) SetFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetFallbackGroupIDOnInvalidRequest(v)
+	})
+}
+
+// AddFallbackGroupIDOnInvalidRequest adds v to the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertOne) AddFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddFallbackGroupIDOnInvalidRequest(v)
+	})
+}
+
+// UpdateFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateFallbackGroupIDOnInvalidRequest() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateFallbackGroupIDOnInvalidRequest()
+	})
+}
+
+// ClearFallbackGroupIDOnInvalidRequest clears the value of the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertOne) ClearFallbackGroupIDOnInvalidRequest() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearFallbackGroupIDOnInvalidRequest()
+	})
+}
+
 // SetModelRouting sets the "model_routing" field.
 func (u *GroupUpsertOne) SetModelRouting(v map[string][]int64) *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
@@ -1613,6 +2026,146 @@ func (u *GroupUpsertOne) SetModelRoutingEnabled(v bool) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateModelRoutingEnabled() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateModelRoutingEnabled()
+	})
+}
+
+// SetMcpXMLInject sets the "mcp_xml_inject" field.
+func (u *GroupUpsertOne) SetMcpXMLInject(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetMcpXMLInject(v)
+	})
+}
+
+// UpdateMcpXMLInject sets the "mcp_xml_inject" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateMcpXMLInject() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateMcpXMLInject()
+	})
+}
+
+// SetSupportedModelScopes sets the "supported_model_scopes" field.
+func (u *GroupUpsertOne) SetSupportedModelScopes(v []string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetSupportedModelScopes(v)
+	})
+}
+
+// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateSupportedModelScopes() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateSupportedModelScopes()
+	})
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *GroupUpsertOne) SetSortOrder(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetSortOrder(v)
+	})
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *GroupUpsertOne) AddSortOrder(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddSortOrder(v)
+	})
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateSortOrder() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateSortOrder()
+	})
+}
+
+// SetAllowMessagesDispatch sets the "allow_messages_dispatch" field.
+func (u *GroupUpsertOne) SetAllowMessagesDispatch(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAllowMessagesDispatch(v)
+	})
+}
+
+// UpdateAllowMessagesDispatch sets the "allow_messages_dispatch" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateAllowMessagesDispatch() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAllowMessagesDispatch()
+	})
+}
+
+// SetRequireOauthOnly sets the "require_oauth_only" field.
+func (u *GroupUpsertOne) SetRequireOauthOnly(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRequireOauthOnly(v)
+	})
+}
+
+// UpdateRequireOauthOnly sets the "require_oauth_only" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateRequireOauthOnly() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRequireOauthOnly()
+	})
+}
+
+// SetRequirePrivacySet sets the "require_privacy_set" field.
+func (u *GroupUpsertOne) SetRequirePrivacySet(v bool) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRequirePrivacySet(v)
+	})
+}
+
+// UpdateRequirePrivacySet sets the "require_privacy_set" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateRequirePrivacySet() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRequirePrivacySet()
+	})
+}
+
+// SetDefaultMappedModel sets the "default_mapped_model" field.
+func (u *GroupUpsertOne) SetDefaultMappedModel(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDefaultMappedModel(v)
+	})
+}
+
+// UpdateDefaultMappedModel sets the "default_mapped_model" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateDefaultMappedModel() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDefaultMappedModel()
+	})
+}
+
+// SetMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field.
+func (u *GroupUpsertOne) SetMessagesDispatchModelConfig(v domain.OpenAIMessagesDispatchModelConfig) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetMessagesDispatchModelConfig(v)
+	})
+}
+
+// UpdateMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateMessagesDispatchModelConfig() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateMessagesDispatchModelConfig()
+	})
+}
+
+// SetRpmLimit sets the "rpm_limit" field.
+func (u *GroupUpsertOne) SetRpmLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRpmLimit(v)
+	})
+}
+
+// AddRpmLimit adds v to the "rpm_limit" field.
+func (u *GroupUpsertOne) AddRpmLimit(v int) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddRpmLimit(v)
+	})
+}
+
+// UpdateRpmLimit sets the "rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateRpmLimit() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRpmLimit()
 	})
 }
 
@@ -2205,6 +2758,34 @@ func (u *GroupUpsertBulk) ClearFallbackGroupID() *GroupUpsertBulk {
 	})
 }
 
+// SetFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertBulk) SetFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetFallbackGroupIDOnInvalidRequest(v)
+	})
+}
+
+// AddFallbackGroupIDOnInvalidRequest adds v to the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertBulk) AddFallbackGroupIDOnInvalidRequest(v int64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddFallbackGroupIDOnInvalidRequest(v)
+	})
+}
+
+// UpdateFallbackGroupIDOnInvalidRequest sets the "fallback_group_id_on_invalid_request" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateFallbackGroupIDOnInvalidRequest() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateFallbackGroupIDOnInvalidRequest()
+	})
+}
+
+// ClearFallbackGroupIDOnInvalidRequest clears the value of the "fallback_group_id_on_invalid_request" field.
+func (u *GroupUpsertBulk) ClearFallbackGroupIDOnInvalidRequest() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.ClearFallbackGroupIDOnInvalidRequest()
+	})
+}
+
 // SetModelRouting sets the "model_routing" field.
 func (u *GroupUpsertBulk) SetModelRouting(v map[string][]int64) *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
@@ -2237,6 +2818,146 @@ func (u *GroupUpsertBulk) SetModelRoutingEnabled(v bool) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateModelRoutingEnabled() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateModelRoutingEnabled()
+	})
+}
+
+// SetMcpXMLInject sets the "mcp_xml_inject" field.
+func (u *GroupUpsertBulk) SetMcpXMLInject(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetMcpXMLInject(v)
+	})
+}
+
+// UpdateMcpXMLInject sets the "mcp_xml_inject" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateMcpXMLInject() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateMcpXMLInject()
+	})
+}
+
+// SetSupportedModelScopes sets the "supported_model_scopes" field.
+func (u *GroupUpsertBulk) SetSupportedModelScopes(v []string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetSupportedModelScopes(v)
+	})
+}
+
+// UpdateSupportedModelScopes sets the "supported_model_scopes" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateSupportedModelScopes() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateSupportedModelScopes()
+	})
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (u *GroupUpsertBulk) SetSortOrder(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetSortOrder(v)
+	})
+}
+
+// AddSortOrder adds v to the "sort_order" field.
+func (u *GroupUpsertBulk) AddSortOrder(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddSortOrder(v)
+	})
+}
+
+// UpdateSortOrder sets the "sort_order" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateSortOrder() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateSortOrder()
+	})
+}
+
+// SetAllowMessagesDispatch sets the "allow_messages_dispatch" field.
+func (u *GroupUpsertBulk) SetAllowMessagesDispatch(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAllowMessagesDispatch(v)
+	})
+}
+
+// UpdateAllowMessagesDispatch sets the "allow_messages_dispatch" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateAllowMessagesDispatch() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAllowMessagesDispatch()
+	})
+}
+
+// SetRequireOauthOnly sets the "require_oauth_only" field.
+func (u *GroupUpsertBulk) SetRequireOauthOnly(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRequireOauthOnly(v)
+	})
+}
+
+// UpdateRequireOauthOnly sets the "require_oauth_only" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateRequireOauthOnly() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRequireOauthOnly()
+	})
+}
+
+// SetRequirePrivacySet sets the "require_privacy_set" field.
+func (u *GroupUpsertBulk) SetRequirePrivacySet(v bool) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRequirePrivacySet(v)
+	})
+}
+
+// UpdateRequirePrivacySet sets the "require_privacy_set" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateRequirePrivacySet() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRequirePrivacySet()
+	})
+}
+
+// SetDefaultMappedModel sets the "default_mapped_model" field.
+func (u *GroupUpsertBulk) SetDefaultMappedModel(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetDefaultMappedModel(v)
+	})
+}
+
+// UpdateDefaultMappedModel sets the "default_mapped_model" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateDefaultMappedModel() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateDefaultMappedModel()
+	})
+}
+
+// SetMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field.
+func (u *GroupUpsertBulk) SetMessagesDispatchModelConfig(v domain.OpenAIMessagesDispatchModelConfig) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetMessagesDispatchModelConfig(v)
+	})
+}
+
+// UpdateMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateMessagesDispatchModelConfig() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateMessagesDispatchModelConfig()
+	})
+}
+
+// SetRpmLimit sets the "rpm_limit" field.
+func (u *GroupUpsertBulk) SetRpmLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRpmLimit(v)
+	})
+}
+
+// AddRpmLimit adds v to the "rpm_limit" field.
+func (u *GroupUpsertBulk) AddRpmLimit(v int) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddRpmLimit(v)
+	})
+}
+
+// UpdateRpmLimit sets the "rpm_limit" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateRpmLimit() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRpmLimit()
 	})
 }
 

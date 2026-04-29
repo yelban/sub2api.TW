@@ -2,7 +2,10 @@ package antigravity
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestBuildParts_ThinkingBlockWithoutSignature 测试thinking block无signature时的处理
@@ -86,7 +89,7 @@ func TestBuildParts_ThinkingBlockWithoutSignature(t *testing.T) {
 				if len(parts) != 3 {
 					t.Fatalf("expected 3 parts, got %d", len(parts))
 				}
-				if !parts[1].Thought || parts[1].ThoughtSignature != dummyThoughtSignature {
+				if !parts[1].Thought || parts[1].ThoughtSignature != DummyThoughtSignature {
 					t.Fatalf("expected dummy thought signature, got thought=%v signature=%q",
 						parts[1].Thought, parts[1].ThoughtSignature)
 				}
@@ -100,7 +103,7 @@ func TestBuildParts_ToolUseSignatureHandling(t *testing.T) {
 		{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}, "signature": "sig_tool_abc"}
 	]`
 
-	t.Run("Gemini uses dummy tool_use signature", func(t *testing.T) {
+	t.Run("Gemini preserves provided tool_use signature", func(t *testing.T) {
 		toolIDToName := make(map[string]string)
 		parts, _, err := buildParts(json.RawMessage(content), toolIDToName, true)
 		if err != nil {
@@ -109,8 +112,25 @@ func TestBuildParts_ToolUseSignatureHandling(t *testing.T) {
 		if len(parts) != 1 || parts[0].FunctionCall == nil {
 			t.Fatalf("expected 1 functionCall part, got %+v", parts)
 		}
-		if parts[0].ThoughtSignature != dummyThoughtSignature {
-			t.Fatalf("expected dummy tool signature %q, got %q", dummyThoughtSignature, parts[0].ThoughtSignature)
+		if parts[0].ThoughtSignature != "sig_tool_abc" {
+			t.Fatalf("expected preserved tool signature %q, got %q", "sig_tool_abc", parts[0].ThoughtSignature)
+		}
+	})
+
+	t.Run("Gemini falls back to dummy tool_use signature when missing", func(t *testing.T) {
+		contentNoSig := `[
+			{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
+		]`
+		toolIDToName := make(map[string]string)
+		parts, _, err := buildParts(json.RawMessage(contentNoSig), toolIDToName, true)
+		if err != nil {
+			t.Fatalf("buildParts() error = %v", err)
+		}
+		if len(parts) != 1 || parts[0].FunctionCall == nil {
+			t.Fatalf("expected 1 functionCall part, got %+v", parts)
+		}
+		if parts[0].ThoughtSignature != DummyThoughtSignature {
+			t.Fatalf("expected dummy tool signature %q, got %q", DummyThoughtSignature, parts[0].ThoughtSignature)
 		}
 	})
 
@@ -241,4 +261,198 @@ func TestBuildTools_CustomTypeTools(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildTools_PreservesWebSearchAlongsideFunctions(t *testing.T) {
+	tools := []ClaudeTool{
+		{
+			Name:        "get_weather",
+			Description: "Get weather information",
+			InputSchema: map[string]any{"type": "object"},
+		},
+		{
+			Type: "web_search_20250305",
+			Name: "web_search",
+		},
+	}
+
+	result := buildTools(tools)
+	require.Len(t, result, 2)
+	require.Len(t, result[0].FunctionDeclarations, 1)
+	require.Equal(t, "get_weather", result[0].FunctionDeclarations[0].Name)
+	require.NotNil(t, result[1].GoogleSearch)
+	require.NotNil(t, result[1].GoogleSearch.EnhancedContent)
+	require.NotNil(t, result[1].GoogleSearch.EnhancedContent.ImageSearch)
+	require.Equal(t, 5, result[1].GoogleSearch.EnhancedContent.ImageSearch.MaxResultCount)
+}
+
+func TestBuildGenerationConfig_ThinkingDynamicBudget(t *testing.T) {
+	tests := []struct {
+		name        string
+		model       string
+		thinking    *ThinkingConfig
+		wantBudget  int
+		wantPresent bool
+	}{
+		{
+			name:        "enabled without budget defaults to dynamic (-1)",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    &ThinkingConfig{Type: "enabled"},
+			wantBudget:  -1,
+			wantPresent: true,
+		},
+		{
+			name:        "enabled with budget uses the provided value",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    &ThinkingConfig{Type: "enabled", BudgetTokens: 1024},
+			wantBudget:  1024,
+			wantPresent: true,
+		},
+		{
+			name:        "enabled with -1 budget uses dynamic (-1)",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    &ThinkingConfig{Type: "enabled", BudgetTokens: -1},
+			wantBudget:  -1,
+			wantPresent: true,
+		},
+		{
+			name:        "adaptive on opus4.6 maps to high budget (24576)",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    &ThinkingConfig{Type: "adaptive", BudgetTokens: 20000},
+			wantBudget:  ClaudeAdaptiveHighThinkingBudgetTokens,
+			wantPresent: true,
+		},
+		{
+			name:        "adaptive on non-opus model keeps default dynamic (-1)",
+			model:       "claude-sonnet-4-5-thinking",
+			thinking:    &ThinkingConfig{Type: "adaptive"},
+			wantBudget:  -1,
+			wantPresent: true,
+		},
+		{
+			name:        "disabled does not emit thinkingConfig",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    &ThinkingConfig{Type: "disabled", BudgetTokens: 1024},
+			wantBudget:  0,
+			wantPresent: false,
+		},
+		{
+			name:        "nil thinking does not emit thinkingConfig",
+			model:       "claude-opus-4-6-thinking",
+			thinking:    nil,
+			wantBudget:  0,
+			wantPresent: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &ClaudeRequest{
+				Model:    tt.model,
+				Thinking: tt.thinking,
+			}
+			cfg := buildGenerationConfig(req)
+			if cfg == nil {
+				t.Fatalf("expected non-nil generationConfig")
+			}
+
+			if tt.wantPresent {
+				if cfg.ThinkingConfig == nil {
+					t.Fatalf("expected thinkingConfig to be present")
+				}
+				if !cfg.ThinkingConfig.IncludeThoughts {
+					t.Fatalf("expected includeThoughts=true")
+				}
+				if cfg.ThinkingConfig.ThinkingBudget != tt.wantBudget {
+					t.Fatalf("expected thinkingBudget=%d, got %d", tt.wantBudget, cfg.ThinkingConfig.ThinkingBudget)
+				}
+				return
+			}
+
+			if cfg.ThinkingConfig != nil {
+				t.Fatalf("expected thinkingConfig to be nil, got %+v", cfg.ThinkingConfig)
+			}
+		})
+	}
+}
+
+func TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock(t *testing.T) {
+	tests := []struct {
+		name   string
+		system json.RawMessage
+	}{
+		{
+			name:   "system array",
+			system: json.RawMessage(`[{"type":"text","text":"x-anthropic-billing-header keep"}]`),
+		},
+		{
+			name:   "system string",
+			system: json.RawMessage(`"x-anthropic-billing-header keep"`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			claudeReq := &ClaudeRequest{
+				Model:  "claude-3-5-sonnet-latest",
+				System: tt.system,
+				Messages: []ClaudeMessage{
+					{
+						Role:    "user",
+						Content: json.RawMessage(`[{"type":"text","text":"hello"}]`),
+					},
+				},
+			}
+
+			body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "gemini-2.5-flash", DefaultTransformOptions())
+			require.NoError(t, err)
+
+			var req V1InternalRequest
+			require.NoError(t, json.Unmarshal(body, &req))
+			require.NotNil(t, req.Request.SystemInstruction)
+
+			found := false
+			for _, part := range req.Request.SystemInstruction.Parts {
+				if strings.Contains(part.Text, "x-anthropic-billing-header keep") {
+					found = true
+					break
+				}
+			}
+
+			require.True(t, found, "转换后的 systemInstruction 应保留 x-anthropic-billing-header 内容")
+		})
+	}
+}
+
+func TestTransformClaudeToGeminiWithOptions_PreservesWebSearchAlongsideFunctions(t *testing.T) {
+	claudeReq := &ClaudeRequest{
+		Model: "claude-3-5-sonnet-latest",
+		Messages: []ClaudeMessage{
+			{
+				Role:    "user",
+				Content: json.RawMessage(`[{"type":"text","text":"hello"}]`),
+			},
+		},
+		Tools: []ClaudeTool{
+			{
+				Name:        "get_weather",
+				Description: "Get weather information",
+				InputSchema: map[string]any{"type": "object"},
+			},
+			{
+				Type: "web_search_20250305",
+				Name: "web_search",
+			},
+		},
+	}
+
+	body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", "gemini-2.5-flash", DefaultTransformOptions())
+	require.NoError(t, err)
+
+	var req V1InternalRequest
+	require.NoError(t, json.Unmarshal(body, &req))
+	require.Len(t, req.Request.Tools, 2)
+	require.Len(t, req.Request.Tools[0].FunctionDeclarations, 1)
+	require.Equal(t, "get_weather", req.Request.Tools[0].FunctionDeclarations[0].Name)
+	require.NotNil(t, req.Request.Tools[1].GoogleSearch)
 }

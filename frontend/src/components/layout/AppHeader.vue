@@ -21,8 +21,11 @@
         </div>
       </div>
 
-      <!-- Right: Docs + Language + Subscriptions + Balance + User Dropdown -->
+      <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex items-center gap-3">
+        <!-- Announcement Bell -->
+        <AnnouncementBell v-if="user" />
+
         <!-- Docs Link -->
         <a
           v-if="docUrl"
@@ -71,10 +74,14 @@
             class="flex items-center gap-2 rounded-xl p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-dark-800"
             aria-label="User Menu"
           >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-sm font-medium text-white shadow-sm"
-            >
-              {{ userInitials }}
+            <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-sm font-medium text-white shadow-sm">
+              <img
+                v-if="avatarUrl"
+                :src="avatarUrl"
+                :alt="displayName"
+                class="h-full w-full object-cover"
+              >
+              <span v-else>{{ userInitials }}</span>
             </div>
             <div class="hidden text-left md:block">
               <div class="text-sm font-medium text-gray-900 dark:text-white">
@@ -120,6 +127,7 @@
                 </router-link>
 
                 <a
+                  v-if="authStore.isAdmin"
                   href="https://github.com/Wei-Shaw/sub2api"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -135,6 +143,7 @@
                   </svg>
                   {{ t('nav.github') }}
                 </a>
+
               </div>
 
               <!-- Contact Support (only show if configured) -->
@@ -208,8 +217,10 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
+import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const router = useRouter()
@@ -217,6 +228,7 @@ const route = useRoute()
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
 
 const user = computed(() => authStore.user)
@@ -224,6 +236,7 @@ const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
+const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 
 // 只在标准模式的管理员下显示新手引导按钮
 const showOnboardingButton = computed(() => {
@@ -250,6 +263,14 @@ const displayName = computed(() => {
 })
 
 const pageTitle = computed(() => {
+  // For custom pages, use the menu item's label instead of generic "自定义页面"
+  if (route.name === 'CustomPage') {
+    const id = route.params.id as string
+    const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
+    const menuItem = publicItems.find((item) => item.id === id)
+      ?? (authStore.isAdmin ? adminSettingsStore.customMenuItems.find((item) => item.id === id) : undefined)
+    if (menuItem?.label) return menuItem.label
+  }
   const titleKey = route.meta.titleKey as string
   if (titleKey) {
     return t(titleKey)
@@ -279,7 +300,12 @@ function closeDropdown() {
 
 async function handleLogout() {
   closeDropdown()
-  authStore.logout()
+  try {
+    await authStore.logout()
+  } catch (error) {
+    // Ignore logout errors - still redirect to login
+    console.error('Logout error:', error)
+  }
   await router.push('/login')
 }
 

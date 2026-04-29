@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -36,11 +36,15 @@ return 0
 // - Scheduling: 5-field cron spec (minute hour dom month dow).
 // - Multi-instance: best-effort Redis leader lock so only one node runs cleanup.
 // - Safety: deletes in batches to avoid long transactions.
+//
+// 附带：在 runCleanupOnce 末尾调用 ChannelMonitorService.RunDailyMaintenance，
+// 统一共享 cron schedule + leader lock + heartbeat，避免再引一套调度。
 type OpsCleanupService struct {
-	opsRepo     OpsRepository
-	db          *sql.DB
-	redisClient *redis.Client
-	cfg         *config.Config
+	opsRepo           OpsRepository
+	db                *sql.DB
+	redisClient       *redis.Client
+	cfg               *config.Config
+	channelMonitorSvc *ChannelMonitorService
 
 	instanceID string
 
@@ -57,13 +61,15 @@ func NewOpsCleanupService(
 	db *sql.DB,
 	redisClient *redis.Client,
 	cfg *config.Config,
+	channelMonitorSvc *ChannelMonitorService,
 ) *OpsCleanupService {
 	return &OpsCleanupService{
-		opsRepo:     opsRepo,
-		db:          db,
-		redisClient: redisClient,
-		cfg:         cfg,
-		instanceID:  uuid.NewString(),
+		opsRepo:           opsRepo,
+		db:                db,
+		redisClient:       redisClient,
+		cfg:               cfg,
+		channelMonitorSvc: channelMonitorSvc,
+		instanceID:        uuid.NewString(),
 	}
 }
 
@@ -75,11 +81,11 @@ func (s *OpsCleanupService) Start() {
 		return
 	}
 	if s.cfg != nil && !s.cfg.Ops.Cleanup.Enabled {
-		log.Printf("[OpsCleanup] not started (disabled)")
+		logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] not started (disabled)")
 		return
 	}
 	if s.opsRepo == nil || s.db == nil {
-		log.Printf("[OpsCleanup] not started (missing deps)")
+		logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] not started (missing deps)")
 		return
 	}
 
@@ -99,12 +105,12 @@ func (s *OpsCleanupService) Start() {
 		c := cron.New(cron.WithParser(opsCleanupCronParser), cron.WithLocation(loc))
 		_, err := c.AddFunc(schedule, func() { s.runScheduled() })
 		if err != nil {
-			log.Printf("[OpsCleanup] not started (invalid schedule=%q): %v", schedule, err)
+			logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] not started (invalid schedule=%q): %v", schedule, err)
 			return
 		}
 		s.cron = c
 		s.cron.Start()
-		log.Printf("[OpsCleanup] started (schedule=%q tz=%s)", schedule, loc.String())
+		logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] started (schedule=%q tz=%s)", schedule, loc.String())
 	})
 }
 
@@ -118,7 +124,7 @@ func (s *OpsCleanupService) Stop() {
 			select {
 			case <-ctx.Done():
 			case <-time.After(3 * time.Second):
-				log.Printf("[OpsCleanup] cron stop timed out")
+				logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] cron stop timed out")
 			}
 		}
 	})
@@ -146,17 +152,19 @@ func (s *OpsCleanupService) runScheduled() {
 	counts, err := s.runCleanupOnce(ctx)
 	if err != nil {
 		s.recordHeartbeatError(runAt, time.Since(startedAt), err)
-		log.Printf("[OpsCleanup] cleanup failed: %v", err)
+		logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] cleanup failed: %v", err)
 		return
 	}
 	s.recordHeartbeatSuccess(runAt, time.Since(startedAt), counts)
-	log.Printf("[OpsCleanup] cleanup complete: %s", counts)
+	logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] cleanup complete: %s", counts)
 }
 
 type opsCleanupDeletedCounts struct {
 	errorLogs     int64
 	retryAttempts int64
 	alertEvents   int64
+	systemLogs    int64
+	logAudits     int64
 	systemMetrics int64
 	hourlyPreagg  int64
 	dailyPreagg   int64
@@ -164,14 +172,35 @@ type opsCleanupDeletedCounts struct {
 
 func (c opsCleanupDeletedCounts) String() string {
 	return fmt.Sprintf(
-		"error_logs=%d retry_attempts=%d alert_events=%d system_metrics=%d hourly_preagg=%d daily_preagg=%d",
+		"error_logs=%d retry_attempts=%d alert_events=%d system_logs=%d log_audits=%d system_metrics=%d hourly_preagg=%d daily_preagg=%d",
 		c.errorLogs,
 		c.retryAttempts,
 		c.alertEvents,
+		c.systemLogs,
+		c.logAudits,
 		c.systemMetrics,
 		c.hourlyPreagg,
 		c.dailyPreagg,
 	)
+}
+
+// opsCleanupPlan 把"保留天数"翻译成具体的清理动作。
+//   - days < 0  → 跳过该项清理（ok=false），保留兼容老数据
+//   - days == 0 → TRUNCATE TABLE（O(1) 全清），truncate=true
+//   - days > 0  → 批量 DELETE 早于 now-N天 的行，cutoff = now - N 天
+//
+// 之所以 days==0 走 TRUNCATE 而非"now+24h cutoff + DELETE"：
+//   - 速度从 O(N) 降到 O(1)，对百万行级表毫秒完成
+//   - 无 WAL 写入、无后续 VACUUM 压力
+//   - 这些 ops 表只有 cleanup 任务自己写，TRUNCATE 的 ACCESS EXCLUSIVE 锁影响可忽略
+func opsCleanupPlan(now time.Time, days int) (cutoff time.Time, truncate, ok bool) {
+	if days < 0 {
+		return time.Time{}, false, false
+	}
+	if days == 0 {
+		return time.Time{}, true, true
+	}
+	return now.AddDate(0, 0, -days), false, true
 }
 
 func (s *OpsCleanupService) runCleanupOnce(ctx context.Context) (opsCleanupDeletedCounts, error) {
@@ -184,32 +213,51 @@ func (s *OpsCleanupService) runCleanupOnce(ctx context.Context) (opsCleanupDelet
 
 	now := time.Now().UTC()
 
-	// Error-like tables: error logs / retry attempts / alert events.
-	if days := s.cfg.Ops.Cleanup.ErrorLogRetentionDays; days > 0 {
-		cutoff := now.AddDate(0, 0, -days)
-		n, err := deleteOldRowsByID(ctx, s.db, "ops_error_logs", "created_at", cutoff, batchSize, false)
+	// runOne 把"truncate? cutoff? batched delete?"封装到一处，
+	// 让三组清理（错误日志类 / 分钟指标 / 小时+日预聚合）调用方只关心表名和列名。
+	runOne := func(truncate bool, cutoff time.Time, table, timeCol string, castDate bool) (int64, error) {
+		if truncate {
+			return truncateOpsTable(ctx, s.db, table)
+		}
+		return deleteOldRowsByID(ctx, s.db, table, timeCol, cutoff, batchSize, castDate)
+	}
+
+	// Error-like tables: error logs / retry attempts / alert events / system logs / cleanup audits.
+	if cutoff, truncate, ok := opsCleanupPlan(now, s.cfg.Ops.Cleanup.ErrorLogRetentionDays); ok {
+		n, err := runOne(truncate, cutoff, "ops_error_logs", "created_at", false)
 		if err != nil {
 			return out, err
 		}
 		out.errorLogs = n
 
-		n, err = deleteOldRowsByID(ctx, s.db, "ops_retry_attempts", "created_at", cutoff, batchSize, false)
+		n, err = runOne(truncate, cutoff, "ops_retry_attempts", "created_at", false)
 		if err != nil {
 			return out, err
 		}
 		out.retryAttempts = n
 
-		n, err = deleteOldRowsByID(ctx, s.db, "ops_alert_events", "created_at", cutoff, batchSize, false)
+		n, err = runOne(truncate, cutoff, "ops_alert_events", "created_at", false)
 		if err != nil {
 			return out, err
 		}
 		out.alertEvents = n
+
+		n, err = runOne(truncate, cutoff, "ops_system_logs", "created_at", false)
+		if err != nil {
+			return out, err
+		}
+		out.systemLogs = n
+
+		n, err = runOne(truncate, cutoff, "ops_system_log_cleanup_audits", "created_at", false)
+		if err != nil {
+			return out, err
+		}
+		out.logAudits = n
 	}
 
 	// Minute-level metrics snapshots.
-	if days := s.cfg.Ops.Cleanup.MinuteMetricsRetentionDays; days > 0 {
-		cutoff := now.AddDate(0, 0, -days)
-		n, err := deleteOldRowsByID(ctx, s.db, "ops_system_metrics", "created_at", cutoff, batchSize, false)
+	if cutoff, truncate, ok := opsCleanupPlan(now, s.cfg.Ops.Cleanup.MinuteMetricsRetentionDays); ok {
+		n, err := runOne(truncate, cutoff, "ops_system_metrics", "created_at", false)
 		if err != nil {
 			return out, err
 		}
@@ -217,19 +265,27 @@ func (s *OpsCleanupService) runCleanupOnce(ctx context.Context) (opsCleanupDelet
 	}
 
 	// Pre-aggregation tables (hourly/daily).
-	if days := s.cfg.Ops.Cleanup.HourlyMetricsRetentionDays; days > 0 {
-		cutoff := now.AddDate(0, 0, -days)
-		n, err := deleteOldRowsByID(ctx, s.db, "ops_metrics_hourly", "bucket_start", cutoff, batchSize, false)
+	if cutoff, truncate, ok := opsCleanupPlan(now, s.cfg.Ops.Cleanup.HourlyMetricsRetentionDays); ok {
+		n, err := runOne(truncate, cutoff, "ops_metrics_hourly", "bucket_start", false)
 		if err != nil {
 			return out, err
 		}
 		out.hourlyPreagg = n
 
-		n, err = deleteOldRowsByID(ctx, s.db, "ops_metrics_daily", "bucket_date", cutoff, batchSize, true)
+		n, err = runOne(truncate, cutoff, "ops_metrics_daily", "bucket_date", true)
 		if err != nil {
 			return out, err
 		}
 		out.dailyPreagg = n
+	}
+
+	// Channel monitor 每日维护（聚合昨日明细 + 软删过期明细/聚合）。
+	// 失败只记日志，不影响 ops 清理的成功状态（与 ops 各步骤风格一致）；
+	// 维护本身已经把每步错误打到 slog，heartbeat result 不再分项记录。
+	if s.channelMonitorSvc != nil {
+		if err := s.channelMonitorSvc.RunDailyMaintenance(ctx); err != nil {
+			logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] channel monitor maintenance failed: %v", err)
+		}
 	}
 
 	return out, nil
@@ -272,7 +328,7 @@ WHERE id IN (SELECT id FROM batch)
 		res, err := db.ExecContext(ctx, q, cutoff, batchSize)
 		if err != nil {
 			// If ops tables aren't present yet (partial deployments), treat as no-op.
-			if strings.Contains(strings.ToLower(err.Error()), "does not exist") && strings.Contains(strings.ToLower(err.Error()), "relation") {
+			if isMissingRelationError(err) {
 				return total, nil
 			}
 			return total, err
@@ -287,6 +343,46 @@ WHERE id IN (SELECT id FROM batch)
 		}
 	}
 	return total, nil
+}
+
+// truncateOpsTable 用 TRUNCATE TABLE 清空指定表，先 SELECT COUNT(*) 取得清空前行数用于 heartbeat。
+//
+// 与 deleteOldRowsByID 的差异：
+//   - 不可指定 WHERE 条件，仅用于 days==0 的"清空全部"语义
+//   - O(1) 释放表的物理存储页，毫秒级完成，无 WAL 写入、无 VACUUM 压力
+//   - 需要 ACCESS EXCLUSIVE 锁，但 ops 表只有清理任务自己写入，瞬间锁影响可忽略
+//
+// 表不存在（部分部署）静默返回 0，与 deleteOldRowsByID 保持一致。
+func truncateOpsTable(ctx context.Context, db *sql.DB, table string) (int64, error) {
+	if db == nil {
+		return 0, nil
+	}
+	var count int64
+	if err := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)).Scan(&count); err != nil {
+		if isMissingRelationError(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("count %s: %w", table, err)
+	}
+	if count == 0 {
+		return 0, nil
+	}
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("TRUNCATE TABLE %s", table)); err != nil {
+		if isMissingRelationError(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("truncate %s: %w", table, err)
+	}
+	return count, nil
+}
+
+// isMissingRelationError 判断 PG 报错是否为"表不存在"，用于让清理任务在部分部署场景静默跳过。
+func isMissingRelationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "does not exist") && strings.Contains(s, "relation")
 }
 
 func (s *OpsCleanupService) tryAcquireLeaderLock(ctx context.Context) (func(), bool) {
@@ -315,11 +411,11 @@ func (s *OpsCleanupService) tryAcquireLeaderLock(ctx context.Context) (func(), b
 		}
 		// Redis error: fall back to DB advisory lock.
 		s.warnNoRedisOnce.Do(func() {
-			log.Printf("[OpsCleanup] leader lock SetNX failed; falling back to DB advisory lock: %v", err)
+			logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] leader lock SetNX failed; falling back to DB advisory lock: %v", err)
 		})
 	} else {
 		s.warnNoRedisOnce.Do(func() {
-			log.Printf("[OpsCleanup] redis not configured; using DB advisory lock")
+			logger.LegacyPrintf("service.ops_cleanup", "[OpsCleanup] redis not configured; using DB advisory lock")
 		})
 	}
 

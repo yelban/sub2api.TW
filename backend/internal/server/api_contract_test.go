@@ -50,14 +50,138 @@ func TestAPIContracts(t *testing.T) {
 				"data": {
 					"id": 1,
 					"email": "alice@example.com",
+					"email_bound": true,
 					"username": "alice",
 					"role": "user",
 					"balance": 12.5,
 					"concurrency": 5,
+					"rpm_limit": 0,
 					"status": "active",
 					"allowed_groups": null,
 					"created_at": "2025-01-02T03:04:05Z",
 					"updated_at": "2025-01-02T03:04:05Z",
+					"balance_notify_enabled": false,
+					"balance_notify_threshold_type": "",
+					"balance_notify_threshold": null,
+					"balance_notify_extra_emails": null,
+					"total_recharged": 0,
+					"linuxdo_bound": false,
+					"oidc_bound": false,
+					"wechat_bound": false,
+					"identities": {
+						"email": {
+							"provider": "email",
+							"provider_key": "email",
+							"bound": true,
+							"bound_count": 1,
+							"can_bind": false,
+							"can_unbind": false,
+							"display_name": "alice@example.com",
+							"subject_hint": "a***e@example.com",
+							"note_key": "profile.authBindings.notes.emailManagedFromProfile",
+							"note": "Primary account email is managed from the profile form."
+						},
+						"linuxdo": {
+							"provider": "linuxdo",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/linuxdo/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"oidc": {
+							"provider": "oidc",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/oidc/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"wechat": {
+							"provider": "wechat",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						}
+					},
+					"identity_bindings": {
+						"email": {
+							"provider": "email",
+							"provider_key": "email",
+							"bound": true,
+							"bound_count": 1,
+							"can_bind": false,
+							"can_unbind": false,
+							"display_name": "alice@example.com",
+							"subject_hint": "a***e@example.com",
+							"note_key": "profile.authBindings.notes.emailManagedFromProfile",
+							"note": "Primary account email is managed from the profile form."
+						},
+						"linuxdo": {
+							"provider": "linuxdo",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/linuxdo/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"oidc": {
+							"provider": "oidc",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/oidc/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"wechat": {
+							"provider": "wechat",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						}
+					},
+					"auth_bindings": {
+						"email": {
+							"provider": "email",
+							"provider_key": "email",
+							"bound": true,
+							"bound_count": 1,
+							"can_bind": false,
+							"can_unbind": false,
+							"display_name": "alice@example.com",
+							"subject_hint": "a***e@example.com",
+							"note_key": "profile.authBindings.notes.emailManagedFromProfile",
+							"note": "Primary account email is managed from the profile form."
+						},
+						"linuxdo": {
+							"provider": "linuxdo",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/linuxdo/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"oidc": {
+							"provider": "oidc",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/oidc/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						},
+						"wechat": {
+							"provider": "wechat",
+							"bound": false,
+							"bound_count": 0,
+							"can_bind": true,
+							"can_unbind": false,
+							"bind_start_path": "/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile"
+						}
+					},
 					"run_mode": "standard"
 				}
 			}`,
@@ -83,6 +207,19 @@ func TestAPIContracts(t *testing.T) {
 					"status": "active",
 					"ip_whitelist": null,
 					"ip_blacklist": null,
+					"last_used_at": null,
+					"quota": 0,
+					"quota_used": 0,
+					"rate_limit_5h": 0,
+					"rate_limit_1d": 0,
+					"rate_limit_7d": 0,
+					"usage_5h": 0,
+					"usage_1d": 0,
+					"usage_7d": 0,
+					"window_5h_start": null,
+					"window_1d_start": null,
+					"window_7d_start": null,
+					"expires_at": null,
 					"created_at": "2025-01-02T03:04:05Z",
 					"updated_at": "2025-01-02T03:04:05Z"
 				}
@@ -119,6 +256,19 @@ func TestAPIContracts(t *testing.T) {
 							"status": "active",
 							"ip_whitelist": null,
 							"ip_blacklist": null,
+							"last_used_at": null,
+							"quota": 0,
+							"quota_used": 0,
+							"rate_limit_5h": 0,
+							"rate_limit_1d": 0,
+							"rate_limit_7d": 0,
+							"usage_5h": 0,
+							"usage_1d": 0,
+							"usage_7d": 0,
+							"window_5h_start": null,
+							"window_1d_start": null,
+							"window_7d_start": null,
+							"expires_at": null,
 							"created_at": "2025-01-02T03:04:05Z",
 							"updated_at": "2025-01-02T03:04:05Z"
 						}
@@ -179,7 +329,12 @@ func TestAPIContracts(t *testing.T) {
 						"image_price_2k": null,
 						"image_price_4k": null,
 						"claude_code_only": false,
+						"allow_messages_dispatch": false,
 						"fallback_group_id": null,
+						"fallback_group_id_on_invalid_request": null,
+						"require_oauth_only": false,
+						"require_privacy_set": false,
+						"rpm_limit": 0,
 						"created_at": "2025-01-02T03:04:05Z",
 						"updated_at": "2025-01-02T03:04:05Z"
 					}
@@ -193,20 +348,20 @@ func TestAPIContracts(t *testing.T) {
 				// 普通用户订阅接口不应包含 assigned_* / notes 等管理员字段。
 				deps.userSubRepo.SetByUserID(1, []service.UserSubscription{
 					{
-						ID:           501,
-						UserID:       1,
-						GroupID:      10,
-						StartsAt:     deps.now,
-						ExpiresAt:    deps.now.Add(24 * time.Hour),
-						Status:       service.SubscriptionStatusActive,
+						ID:              501,
+						UserID:          1,
+						GroupID:         10,
+						StartsAt:        deps.now,
+						ExpiresAt:       time.Date(2099, 1, 2, 3, 4, 5, 0, time.UTC), // 使用未来日期避免 normalizeSubscriptionStatus 标记为过期
+						Status:          service.SubscriptionStatusActive,
 						DailyUsageUSD:   1.23,
 						WeeklyUsageUSD:  2.34,
 						MonthlyUsageUSD: 3.45,
-						AssignedBy:    ptr(int64(999)),
-						AssignedAt:    deps.now,
-						Notes:         "admin-note",
-						CreatedAt:     deps.now,
-						UpdatedAt:     deps.now,
+						AssignedBy:      ptr(int64(999)),
+						AssignedAt:      deps.now,
+						Notes:           "admin-note",
+						CreatedAt:       deps.now,
+						UpdatedAt:       deps.now,
 					},
 				})
 			},
@@ -222,7 +377,7 @@ func TestAPIContracts(t *testing.T) {
 						"user_id": 1,
 						"group_id": 10,
 						"starts_at": "2025-01-02T03:04:05Z",
-						"expires_at": "2025-01-03T03:04:05Z",
+						"expires_at": "2099-01-02T03:04:05Z",
 						"status": "active",
 						"daily_window_start": null,
 						"weekly_window_start": null,
@@ -371,10 +526,12 @@ func TestAPIContracts(t *testing.T) {
 							"user_id": 1,
 							"api_key_id": 100,
 							"account_id": 200,
-							"request_id": "req_123",
-							"model": "claude-3",
-							"group_id": null,
-							"subscription_id": null,
+								"request_id": "req_123",
+								"model": "claude-3",
+								"request_type": "stream",
+								"openai_ws_mode": false,
+								"group_id": null,
+								"subscription_id": null,
 							"input_tokens": 10,
 							"output_tokens": 20,
 							"cache_creation_tokens": 1,
@@ -394,6 +551,8 @@ func TestAPIContracts(t *testing.T) {
 							"first_token_ms": 50,
 							"image_count": 0,
 							"image_size": null,
+							"media_type": null,
+							"cache_ttl_overridden": false,
 							"created_at": "2025-01-02T03:04:05Z",
 							"user_agent": null
 						}
@@ -410,9 +569,10 @@ func TestAPIContracts(t *testing.T) {
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
-					service.SettingKeyRegistrationEnabled: "true",
-					service.SettingKeyEmailVerifyEnabled:  "false",
-					service.SettingKeyPromoCodeEnabled:    "true",
+					service.SettingKeyRegistrationEnabled:              "true",
+					service.SettingKeyEmailVerifyEnabled:               "false",
+					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
+					service.SettingKeyPromoCodeEnabled:                 "true",
 
 					service.SettingKeySMTPHost:     "smtp.example.com",
 					service.SettingKeySMTPPort:     "587",
@@ -426,6 +586,28 @@ func TestAPIContracts(t *testing.T) {
 					service.SettingKeyTurnstileSiteKey:   "site-key",
 					service.SettingKeyTurnstileSecretKey: "secret-key",
 
+					service.SettingKeyOIDCConnectEnabled:              "false",
+					service.SettingKeyOIDCConnectProviderName:         "OIDC",
+					service.SettingKeyOIDCConnectClientID:             "",
+					service.SettingKeyOIDCConnectIssuerURL:            "",
+					service.SettingKeyOIDCConnectDiscoveryURL:         "",
+					service.SettingKeyOIDCConnectAuthorizeURL:         "",
+					service.SettingKeyOIDCConnectTokenURL:             "",
+					service.SettingKeyOIDCConnectUserInfoURL:          "",
+					service.SettingKeyOIDCConnectJWKSURL:              "",
+					service.SettingKeyOIDCConnectScopes:               "openid email profile",
+					service.SettingKeyOIDCConnectRedirectURL:          "",
+					service.SettingKeyOIDCConnectFrontendRedirectURL:  "/auth/oidc/callback",
+					service.SettingKeyOIDCConnectTokenAuthMethod:      "client_secret_post",
+					service.SettingKeyOIDCConnectUsePKCE:              "true",
+					service.SettingKeyOIDCConnectValidateIDToken:      "true",
+					service.SettingKeyOIDCConnectAllowedSigningAlgs:   "RS256,ES256,PS256",
+					service.SettingKeyOIDCConnectClockSkewSeconds:     "120",
+					service.SettingKeyOIDCConnectRequireEmailVerified: "false",
+					service.SettingKeyOIDCConnectUserInfoEmailPath:    "",
+					service.SettingKeyOIDCConnectUserInfoIDPath:       "",
+					service.SettingKeyOIDCConnectUserInfoUsernamePath: "",
+
 					service.SettingKeySiteName:     "Sub2API",
 					service.SettingKeySiteLogo:     "",
 					service.SettingKeySiteSubtitle: "Subtitle",
@@ -433,13 +615,20 @@ func TestAPIContracts(t *testing.T) {
 					service.SettingKeyContactInfo:  "support",
 					service.SettingKeyDocURL:       "https://docs.example.com",
 
-					service.SettingKeyDefaultConcurrency: "5",
-					service.SettingKeyDefaultBalance:     "1.25",
+					service.SettingKeyDefaultConcurrency:   "5",
+					service.SettingKeyDefaultBalance:       "1.25",
+					service.SettingKeyTableDefaultPageSize: "20",
+					service.SettingKeyTablePageSizeOptions: "[10,20,50,100]",
 
-					service.SettingKeyOpsMonitoringEnabled:         "false",
-					service.SettingKeyOpsRealtimeMonitoringEnabled: "true",
-					service.SettingKeyOpsQueryModeDefault:          "auto",
-					service.SettingKeyOpsMetricsIntervalSeconds:    "60",
+					service.SettingKeyOpsMonitoringEnabled:           "false",
+					service.SettingKeyOpsRealtimeMonitoringEnabled:   "true",
+					service.SettingKeyOpsQueryModeDefault:            "auto",
+					service.SettingKeyOpsMetricsIntervalSeconds:      "60",
+					service.SettingPaymentVisibleMethodAlipaySource:  service.VisibleMethodSourceEasyPayAlipay,
+					service.SettingPaymentVisibleMethodWxpaySource:   service.VisibleMethodSourceOfficialWechat,
+					service.SettingPaymentVisibleMethodAlipayEnabled: "true",
+					service.SettingPaymentVisibleMethodWxpayEnabled:  "false",
+					"openai_advanced_scheduler_enabled":              "true",
 				})
 			},
 			method:     http.MethodGet,
@@ -451,7 +640,12 @@ func TestAPIContracts(t *testing.T) {
 				"data": {
 					"registration_enabled": true,
 					"email_verify_enabled": false,
+					"registration_email_suffix_whitelist": [],
 					"promo_code_enabled": true,
+					"password_reset_enabled": false,
+					"frontend_url": "",
+					"totp_enabled": false,
+					"totp_encryption_key_configured": false,
 					"smtp_host": "smtp.example.com",
 					"smtp_port": 587,
 					"smtp_username": "user",
@@ -462,10 +656,32 @@ func TestAPIContracts(t *testing.T) {
 					"turnstile_enabled": true,
 					"turnstile_site_key": "site-key",
 					"turnstile_secret_key_configured": true,
-					"linuxdo_connect_enabled": false,
+						"linuxdo_connect_enabled": false,
 						"linuxdo_connect_client_id": "",
 						"linuxdo_connect_client_secret_configured": false,
 						"linuxdo_connect_redirect_url": "",
+						"oidc_connect_enabled": false,
+						"oidc_connect_provider_name": "OIDC",
+						"oidc_connect_client_id": "",
+						"oidc_connect_client_secret_configured": false,
+						"oidc_connect_issuer_url": "",
+						"oidc_connect_discovery_url": "",
+						"oidc_connect_authorize_url": "",
+						"oidc_connect_token_url": "",
+						"oidc_connect_userinfo_url": "",
+						"oidc_connect_jwks_url": "",
+						"oidc_connect_scopes": "openid email profile",
+						"oidc_connect_redirect_url": "",
+						"oidc_connect_frontend_redirect_url": "/auth/oidc/callback",
+						"oidc_connect_token_auth_method": "client_secret_post",
+						"oidc_connect_use_pkce": true,
+						"oidc_connect_validate_id_token": true,
+						"oidc_connect_allowed_signing_algs": "RS256,ES256,PS256",
+						"oidc_connect_clock_skew_seconds": 120,
+						"oidc_connect_require_email_verified": false,
+						"oidc_connect_userinfo_email_path": "",
+						"oidc_connect_userinfo_id_path": "",
+						"oidc_connect_userinfo_username_path": "",
 						"ops_monitoring_enabled": false,
 						"ops_realtime_monitoring_enabled": true,
 						"ops_query_mode_default": "auto",
@@ -476,17 +692,330 @@ func TestAPIContracts(t *testing.T) {
 						"api_base_url": "https://api.example.com",
 					"contact_info": "support",
 					"doc_url": "https://docs.example.com",
+					"auth_source_default_email_balance": 0,
+					"auth_source_default_email_concurrency": 5,
+					"auth_source_default_email_subscriptions": [],
+					"auth_source_default_email_grant_on_signup": false,
+					"auth_source_default_email_grant_on_first_bind": false,
+					"auth_source_default_linuxdo_balance": 0,
+					"auth_source_default_linuxdo_concurrency": 5,
+					"auth_source_default_linuxdo_subscriptions": [],
+					"auth_source_default_linuxdo_grant_on_signup": false,
+					"auth_source_default_linuxdo_grant_on_first_bind": false,
+					"auth_source_default_oidc_balance": 0,
+					"auth_source_default_oidc_concurrency": 5,
+					"auth_source_default_oidc_subscriptions": [],
+					"auth_source_default_oidc_grant_on_signup": false,
+					"auth_source_default_oidc_grant_on_first_bind": false,
+					"auth_source_default_wechat_balance": 0,
+					"auth_source_default_wechat_concurrency": 5,
+					"auth_source_default_wechat_subscriptions": [],
+					"auth_source_default_wechat_grant_on_signup": false,
+					"auth_source_default_wechat_grant_on_first_bind": false,
+					"force_email_on_third_party_signup": false,
 					"default_concurrency": 5,
 					"default_balance": 1.25,
+					"affiliate_rebate_rate": 20,
+					"affiliate_rebate_freeze_hours": 0,
+					"affiliate_rebate_duration_days": 0,
+					"affiliate_rebate_per_invitee_cap": 0,
+					"default_user_rpm_limit": 0,
+					"default_subscriptions": [],
 					"enable_model_fallback": false,
 					"fallback_model_anthropic": "claude-3-5-sonnet-20241022",
 					"fallback_model_antigravity": "gemini-2.5-pro",
 					"fallback_model_gemini": "gemini-2.5-pro",
+						"fallback_model_openai": "gpt-4o",
+						"enable_identity_patch": true,
+						"identity_patch_prompt": "",
+						"invitation_code_enabled": false,
+						"home_content": "",
+					"hide_ccs_import_button": false,
+					"purchase_subscription_enabled": false,
+					"purchase_subscription_url": "",
+					"table_default_page_size": 20,
+						"table_page_size_options": [10, 20, 50, 100],
+					"min_claude_code_version": "",
+					"max_claude_code_version": "",
+					"allow_ungrouped_key_scheduling": false,
+					"backend_mode_enabled": false,
+					"enable_cch_signing": false,
+					"enable_fingerprint_unification": true,
+					"enable_metadata_passthrough": false,
+					"web_search_emulation_enabled": false,
+					"payment_visible_method_alipay_source": "easypay_alipay",
+					"payment_visible_method_wxpay_source": "official_wxpay",
+					"payment_visible_method_alipay_enabled": true,
+					"payment_visible_method_wxpay_enabled": false,
+					"openai_advanced_scheduler_enabled": true,
+					"openai_fast_policy_settings": {
+						"rules": [
+							{
+								"service_tier": "priority",
+								"action": "filter",
+								"scope": "all",
+								"fallback_action": "pass"
+							}
+						]
+					},
+					"custom_menu_items": [],
+					"custom_endpoints": [],
+					"payment_enabled": false,
+					"payment_min_amount": 0,
+					"payment_max_amount": 0,
+					"payment_daily_limit": 0,
+					"payment_order_timeout_minutes": 0,
+					"payment_max_pending_orders": 0,
+					"payment_balance_disabled": false,
+					"payment_balance_recharge_multiplier": 0,
+					"payment_recharge_fee_rate": 0,
+					"payment_load_balance_strategy": "",
+					"payment_product_name_prefix": "",
+					"payment_product_name_suffix": "",
+					"payment_help_image_url": "",
+					"payment_help_text": "",
+					"payment_enabled_types": null,
+					"payment_cancel_rate_limit_enabled": false,
+					"payment_cancel_rate_limit_max": 0,
+					"payment_cancel_rate_limit_window": 0,
+					"payment_cancel_rate_limit_unit": "",
+					"payment_cancel_rate_limit_window_mode": "",
+					"balance_low_notify_enabled": false,
+					"account_quota_notify_enabled": false,
+					"balance_low_notify_threshold": 0,
+					"balance_low_notify_recharge_url": "",
+					"account_quota_notify_emails": [],
+					"channel_monitor_enabled": true,
+					"channel_monitor_default_interval_seconds": 60,
+					"available_channels_enabled": false,
+					"affiliate_enabled": false,
+					"wechat_connect_enabled": false,
+					"wechat_connect_app_id": "",
+					"wechat_connect_app_secret_configured": false,
+					"wechat_connect_mode": "open",
+					"wechat_connect_open_enabled": false,
+					"wechat_connect_open_app_id": "",
+					"wechat_connect_open_app_secret_configured": false,
+					"wechat_connect_mp_enabled": false,
+					"wechat_connect_mp_app_id": "",
+					"wechat_connect_mp_app_secret_configured": false,
+					"wechat_connect_mobile_enabled": false,
+					"wechat_connect_mobile_app_id": "",
+					"wechat_connect_mobile_app_secret_configured": false,
+					"wechat_connect_redirect_url": "",
+					"wechat_connect_frontend_redirect_url": "/auth/wechat/callback",
+					"wechat_connect_scopes": "snsapi_login"
+				}
+			}`,
+		},
+		{
+			name: "GET /api/v1/admin/settings falls back to config oauth defaults",
+			setup: func(t *testing.T, deps *contractDeps) {
+				t.Helper()
+				deps.cfg.OIDC = config.OIDCConnectConfig{
+					Enabled:             true,
+					ProviderName:        "ConfigOIDC",
+					ClientID:            "oidc-config-client",
+					ClientSecret:        "oidc-config-secret",
+					IssuerURL:           "https://issuer.example.com",
+					RedirectURL:         "https://api.example.com/api/v1/auth/oauth/oidc/callback",
+					FrontendRedirectURL: "/auth/oidc/callback",
+					Scopes:              "openid email profile",
+					TokenAuthMethod:     "client_secret_post",
+					UsePKCE:             true,
+					ValidateIDToken:     true,
+					AllowedSigningAlgs:  "RS256,ES256,PS256",
+					ClockSkewSeconds:    120,
+				}
+				deps.cfg.WeChat = config.WeChatConnectConfig{
+					Enabled:             true,
+					OpenEnabled:         true,
+					OpenAppID:           "wx-open-config",
+					OpenAppSecret:       "wx-open-secret",
+					Mode:                "open",
+					Scopes:              "snsapi_login",
+					FrontendRedirectURL: "/auth/wechat/callback",
+				}
+				deps.settingRepo.SetAll(map[string]string{
+					service.SettingKeyRegistrationEnabled:              "true",
+					service.SettingKeyEmailVerifyEnabled:               "false",
+					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
+				})
+			},
+			method:     http.MethodGet,
+			path:       "/api/v1/admin/settings",
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": {
+					"registration_enabled": true,
+					"email_verify_enabled": false,
+					"registration_email_suffix_whitelist": [],
+					"promo_code_enabled": true,
+					"password_reset_enabled": false,
+					"frontend_url": "",
+					"invitation_code_enabled": false,
+					"totp_enabled": false,
+					"totp_encryption_key_configured": false,
+					"smtp_host": "",
+					"smtp_port": 587,
+					"smtp_username": "",
+					"smtp_password_configured": false,
+					"smtp_from_email": "",
+					"smtp_from_name": "",
+					"smtp_use_tls": false,
+					"turnstile_enabled": false,
+					"turnstile_site_key": "",
+					"turnstile_secret_key_configured": false,
+					"linuxdo_connect_enabled": false,
+					"linuxdo_connect_client_id": "",
+					"linuxdo_connect_client_secret_configured": false,
+					"linuxdo_connect_redirect_url": "",
+					"oidc_connect_enabled": true,
+					"oidc_connect_provider_name": "ConfigOIDC",
+					"oidc_connect_client_id": "oidc-config-client",
+					"oidc_connect_client_secret_configured": true,
+					"oidc_connect_issuer_url": "https://issuer.example.com",
+					"oidc_connect_discovery_url": "",
+					"oidc_connect_authorize_url": "",
+					"oidc_connect_token_url": "",
+					"oidc_connect_userinfo_url": "",
+					"oidc_connect_jwks_url": "",
+					"oidc_connect_scopes": "openid email profile",
+					"oidc_connect_redirect_url": "https://api.example.com/api/v1/auth/oauth/oidc/callback",
+					"oidc_connect_frontend_redirect_url": "/auth/oidc/callback",
+					"oidc_connect_token_auth_method": "client_secret_post",
+					"oidc_connect_use_pkce": true,
+					"oidc_connect_validate_id_token": true,
+					"oidc_connect_allowed_signing_algs": "RS256,ES256,PS256",
+					"oidc_connect_clock_skew_seconds": 120,
+					"oidc_connect_require_email_verified": false,
+					"oidc_connect_userinfo_email_path": "",
+					"oidc_connect_userinfo_id_path": "",
+					"oidc_connect_userinfo_username_path": "",
+					"site_name": "Sub2API",
+					"site_logo": "",
+					"site_subtitle": "Subscription to API Conversion Platform",
+					"api_base_url": "",
+					"contact_info": "",
+					"doc_url": "",
+					"home_content": "",
+					"hide_ccs_import_button": false,
+					"purchase_subscription_enabled": false,
+					"purchase_subscription_url": "",
+					"table_default_page_size": 20,
+					"table_page_size_options": [10, 20, 50],
+					"custom_menu_items": [],
+					"custom_endpoints": [],
+					"default_concurrency": 0,
+					"default_balance": 0,
+					"affiliate_rebate_rate": 20,
+					"affiliate_rebate_freeze_hours": 0,
+					"affiliate_rebate_duration_days": 0,
+					"affiliate_rebate_per_invitee_cap": 0,
+					"default_user_rpm_limit": 0,
+					"default_subscriptions": [],
+					"enable_model_fallback": false,
+					"fallback_model_anthropic": "claude-3-5-sonnet-20241022",
 					"fallback_model_openai": "gpt-4o",
+					"fallback_model_gemini": "gemini-2.5-pro",
+					"fallback_model_antigravity": "gemini-2.5-pro",
 					"enable_identity_patch": true,
 					"identity_patch_prompt": "",
-					"home_content": "",
-					"hide_ccs_import_button": false
+					"ops_monitoring_enabled": false,
+					"ops_realtime_monitoring_enabled": true,
+					"ops_query_mode_default": "auto",
+					"ops_metrics_interval_seconds": 60,
+					"min_claude_code_version": "",
+					"max_claude_code_version": "",
+					"allow_ungrouped_key_scheduling": false,
+					"backend_mode_enabled": false,
+					"enable_fingerprint_unification": true,
+					"enable_metadata_passthrough": false,
+					"enable_cch_signing": false,
+					"web_search_emulation_enabled": false,
+					"payment_visible_method_alipay_source": "",
+					"payment_visible_method_wxpay_source": "",
+					"payment_visible_method_alipay_enabled": false,
+					"payment_visible_method_wxpay_enabled": false,
+					"openai_advanced_scheduler_enabled": false,
+					"openai_fast_policy_settings": {
+						"rules": [
+							{
+								"service_tier": "priority",
+								"action": "filter",
+								"scope": "all",
+								"fallback_action": "pass"
+							}
+						]
+					},
+					"payment_enabled": false,
+					"payment_min_amount": 0,
+					"payment_max_amount": 0,
+					"payment_daily_limit": 0,
+					"payment_order_timeout_minutes": 0,
+					"payment_max_pending_orders": 0,
+					"payment_enabled_types": null,
+					"payment_balance_disabled": false,
+					"payment_balance_recharge_multiplier": 0,
+					"payment_recharge_fee_rate": 0,
+					"payment_load_balance_strategy": "",
+					"payment_product_name_prefix": "",
+					"payment_product_name_suffix": "",
+					"payment_help_image_url": "",
+					"payment_help_text": "",
+					"payment_cancel_rate_limit_enabled": false,
+					"payment_cancel_rate_limit_max": 0,
+					"payment_cancel_rate_limit_window": 0,
+					"payment_cancel_rate_limit_unit": "",
+					"payment_cancel_rate_limit_window_mode": "",
+					"balance_low_notify_enabled": false,
+					"account_quota_notify_enabled": false,
+					"balance_low_notify_threshold": 0,
+					"balance_low_notify_recharge_url": "",
+					"account_quota_notify_emails": [],
+					"channel_monitor_enabled": true,
+					"channel_monitor_default_interval_seconds": 60,
+					"available_channels_enabled": false,
+					"affiliate_enabled": false,
+					"wechat_connect_enabled": true,
+					"wechat_connect_app_id": "wx-open-config",
+					"wechat_connect_app_secret_configured": true,
+					"wechat_connect_mode": "open",
+					"wechat_connect_open_enabled": true,
+					"wechat_connect_open_app_id": "wx-open-config",
+					"wechat_connect_open_app_secret_configured": true,
+					"wechat_connect_mp_enabled": false,
+					"wechat_connect_mp_app_id": "wx-open-config",
+					"wechat_connect_mp_app_secret_configured": true,
+					"wechat_connect_mobile_enabled": false,
+					"wechat_connect_mobile_app_id": "wx-open-config",
+					"wechat_connect_mobile_app_secret_configured": true,
+					"wechat_connect_redirect_url": "",
+					"wechat_connect_frontend_redirect_url": "/auth/wechat/callback",
+					"wechat_connect_scopes": "snsapi_login",
+					"auth_source_default_email_balance": 0,
+					"auth_source_default_email_concurrency": 5,
+					"auth_source_default_email_subscriptions": [],
+					"auth_source_default_email_grant_on_signup": false,
+					"auth_source_default_email_grant_on_first_bind": false,
+					"auth_source_default_linuxdo_balance": 0,
+					"auth_source_default_linuxdo_concurrency": 5,
+					"auth_source_default_linuxdo_subscriptions": [],
+					"auth_source_default_linuxdo_grant_on_signup": false,
+					"auth_source_default_linuxdo_grant_on_first_bind": false,
+					"auth_source_default_oidc_balance": 0,
+					"auth_source_default_oidc_concurrency": 5,
+					"auth_source_default_oidc_subscriptions": [],
+					"auth_source_default_oidc_grant_on_signup": false,
+					"auth_source_default_oidc_grant_on_first_bind": false,
+					"auth_source_default_wechat_balance": 0,
+					"auth_source_default_wechat_concurrency": 5,
+					"auth_source_default_wechat_subscriptions": [],
+					"auth_source_default_wechat_grant_on_signup": false,
+					"auth_source_default_wechat_grant_on_first_bind": false,
+					"force_email_on_third_party_signup": false
 				}
 			}`,
 		},
@@ -533,6 +1062,7 @@ func TestAPIContracts(t *testing.T) {
 type contractDeps struct {
 	now         time.Time
 	router      http.Handler
+	cfg         *config.Config
 	apiKeyRepo  *stubApiKeyRepo
 	groupRepo   *stubGroupRepo
 	userSubRepo *stubUserSubscriptionRepo
@@ -579,13 +1109,13 @@ func newContractDeps(t *testing.T) *contractDeps {
 		RunMode: config.RunModeStandard,
 	}
 
-	userService := service.NewUserService(userRepo, nil)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, apiKeyCache, cfg)
+	userService := service.NewUserService(userRepo, nil, nil, nil)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, nil, apiKeyCache, cfg)
 
 	usageRepo := newStubUsageLogRepo()
 	usageService := service.NewUsageService(usageRepo, userRepo, nil, nil)
 
-	subscriptionService := service.NewSubscriptionService(groupRepo, userSubRepo, nil)
+	subscriptionService := service.NewSubscriptionService(groupRepo, userSubRepo, nil, nil, cfg)
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
 
 	redeemService := service.NewRedeemService(redeemRepo, userRepo, subscriptionService, nil, nil, nil, nil)
@@ -594,12 +1124,12 @@ func newContractDeps(t *testing.T) *contractDeps {
 	settingRepo := newStubSettingRepo()
 	settingService := service.NewSettingService(settingRepo, cfg)
 
-	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil)
-	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil)
+	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService)
-	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil)
-	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil)
+	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	jwtAuth := func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{
@@ -653,6 +1183,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	return &contractDeps{
 		now:         now,
 		router:      r,
+		cfg:         cfg,
 		apiKeyRepo:  apiKeyRepo,
 		groupRepo:   groupRepo,
 		userSubRepo: userSubRepo,
@@ -726,6 +1257,18 @@ func (r *stubUserRepo) Delete(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }
 
+func (r *stubUserRepo) GetUserAvatar(ctx context.Context, userID int64) (*service.UserAvatar, error) {
+	return nil, nil
+}
+
+func (r *stubUserRepo) UpsertUserAvatar(ctx context.Context, userID int64, input service.UpsertUserAvatarInput) (*service.UserAvatar, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUserRepo) DeleteUserAvatar(ctx context.Context, userID int64) error {
+	return errors.New("not implemented")
+}
+
 func (r *stubUserRepo) List(ctx context.Context, params pagination.PaginationParams) ([]service.User, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
@@ -752,6 +1295,46 @@ func (r *stubUserRepo) ExistsByEmail(ctx context.Context, email string) (bool, e
 
 func (r *stubUserRepo) RemoveGroupFromAllowedGroups(ctx context.Context, groupID int64) (int64, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (r *stubUserRepo) RemoveGroupFromUserAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) AddGroupToAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) ListUserAuthIdentities(ctx context.Context, userID int64) ([]service.UserAuthIdentityRecord, error) {
+	return nil, nil
+}
+
+func (r *stubUserRepo) UnbindUserAuthProvider(context.Context, int64, string) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) GetLatestUsedAtByUserIDs(ctx context.Context, userIDs []int64) (map[int64]*time.Time, error) {
+	return map[int64]*time.Time{}, nil
+}
+
+func (r *stubUserRepo) GetLatestUsedAtByUserID(ctx context.Context, userID int64) (*time.Time, error) {
+	return nil, nil
+}
+
+func (r *stubUserRepo) UpdateUserLastActiveAt(ctx context.Context, userID int64, activeAt time.Time) error {
+	return nil
+}
+
+func (r *stubUserRepo) UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) EnableTotp(ctx context.Context, userID int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubUserRepo) DisableTotp(ctx context.Context, userID int64) error {
+	return errors.New("not implemented")
 }
 
 type stubApiKeyCache struct{}
@@ -855,12 +1438,24 @@ func (stubGroupRepo) ExistsByName(ctx context.Context, name string) (bool, error
 	return false, errors.New("not implemented")
 }
 
-func (stubGroupRepo) GetAccountCount(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
+func (stubGroupRepo) GetAccountCount(ctx context.Context, groupID int64) (int64, int64, error) {
+	return 0, 0, errors.New("not implemented")
 }
 
 func (stubGroupRepo) DeleteAccountGroupsByGroupID(ctx context.Context, groupID int64) (int64, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (stubGroupRepo) BindAccountsToGroup(ctx context.Context, groupID int64, accountIDs []int64) error {
+	return errors.New("not implemented")
+}
+
+func (stubGroupRepo) GetAccountIDsByGroupIDs(ctx context.Context, groupIDs []int64) ([]int64, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (stubGroupRepo) UpdateSortOrders(ctx context.Context, updates []service.GroupSortOrderUpdate) error {
+	return nil
 }
 
 type stubAccountRepo struct {
@@ -887,6 +1482,10 @@ func (s *stubAccountRepo) GetByCRSAccountID(ctx context.Context, crsAccountID st
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) FindByExtraField(ctx context.Context, key string, value any) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (s *stubAccountRepo) Update(ctx context.Context, account *service.Account) error {
 	return errors.New("not implemented")
 }
@@ -899,7 +1498,7 @@ func (s *stubAccountRepo) List(ctx context.Context, params pagination.Pagination
 	return nil, nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string) ([]service.Account, *pagination.PaginationResult, error) {
+func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
 
@@ -967,11 +1566,15 @@ func (s *stubAccountRepo) ListSchedulableByGroupIDAndPlatforms(ctx context.Conte
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {
-	return errors.New("not implemented")
+func (s *stubAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) SetAntigravityQuotaScopeLimit(ctx context.Context, id int64, scope service.AntigravityQuotaScope, resetAt time.Time) error {
+func (s *stubAccountRepo) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {
 	return errors.New("not implemented")
 }
 
@@ -1011,9 +1614,21 @@ func (s *stubAccountRepo) UpdateExtra(ctx context.Context, id int64, updates map
 	return errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) IncrementQuotaUsed(ctx context.Context, id int64, amount float64) error {
+	return errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) ResetQuotaUsed(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
+}
+
 func (s *stubAccountRepo) BulkUpdate(ctx context.Context, ids []int64, updates service.AccountBulkUpdate) (int64, error) {
 	s.bulkUpdateIDs = append([]int64{}, ids...)
 	return int64(len(ids)), nil
+}
+
+func (s *stubAccountRepo) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
+	return nil, errors.New("not implemented")
 }
 
 type stubProxyRepo struct{}
@@ -1024,6 +1639,10 @@ func (stubProxyRepo) Create(ctx context.Context, proxy *service.Proxy) error {
 
 func (stubProxyRepo) GetByID(ctx context.Context, id int64) (*service.Proxy, error) {
 	return nil, service.ErrProxyNotFound
+}
+
+func (stubProxyRepo) ListByIDs(ctx context.Context, ids []int64) ([]service.Proxy, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (stubProxyRepo) Update(ctx context.Context, proxy *service.Proxy) error {
@@ -1124,6 +1743,14 @@ func (r *stubRedeemCodeRepo) ListByUser(ctx context.Context, userID int64, limit
 	return append([]service.RedeemCode(nil), codes...), nil
 }
 
+func (stubRedeemCodeRepo) ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]service.RedeemCode, *pagination.PaginationResult, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (stubRedeemCodeRepo) SumPositiveBalanceByUser(ctx context.Context, userID int64) (float64, error) {
+	return 0, errors.New("not implemented")
+}
+
 type stubUserSubscriptionRepo struct {
 	byUser       map[int64][]service.UserSubscription
 	activeByUser map[int64][]service.UserSubscription
@@ -1176,7 +1803,7 @@ func (r *stubUserSubscriptionRepo) ListActiveByUserID(ctx context.Context, userI
 func (stubUserSubscriptionRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
-func (stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
 func (stubUserSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
@@ -1312,7 +1939,7 @@ func (r *stubApiKeyRepo) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (r *stubApiKeyRepo) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
+func (r *stubApiKeyRepo) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, _ service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
 	ids := make([]int64, 0, len(r.byID))
 	for id := range r.byID {
 		if r.byID[id].UserID == userID {
@@ -1396,6 +2023,22 @@ func (r *stubApiKeyRepo) ClearGroupIDByGroupID(ctx context.Context, groupID int6
 	return 0, errors.New("not implemented")
 }
 
+func (r *stubApiKeyRepo) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
+	var updated int64
+	for id, key := range r.byID {
+		if key.UserID != userID || key.GroupID == nil || *key.GroupID != oldGroupID {
+			continue
+		}
+		clone := *key
+		gid := newGroupID
+		clone.GroupID = &gid
+		r.byID[id] = &clone
+		r.byKey[clone.Key] = &clone
+		updated++
+	}
+	return updated, nil
+}
+
 func (r *stubApiKeyRepo) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
 	return 0, errors.New("not implemented")
 }
@@ -1406,6 +2049,34 @@ func (r *stubApiKeyRepo) ListKeysByUserID(ctx context.Context, userID int64) ([]
 
 func (r *stubApiKeyRepo) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (r *stubApiKeyRepo) IncrementQuotaUsed(ctx context.Context, id int64, amount float64) (float64, error) {
+	return 0, errors.New("not implemented")
+}
+
+func (r *stubApiKeyRepo) UpdateLastUsed(ctx context.Context, id int64, usedAt time.Time) error {
+	key, ok := r.byID[id]
+	if !ok {
+		return service.ErrAPIKeyNotFound
+	}
+	ts := usedAt
+	key.LastUsedAt = &ts
+	key.UpdatedAt = usedAt
+	clone := *key
+	r.byID[id] = &clone
+	r.byKey[clone.Key] = &clone
+	return nil
+}
+
+func (r *stubApiKeyRepo) IncrementRateLimitUsage(ctx context.Context, id int64, cost float64) error {
+	return nil
+}
+func (r *stubApiKeyRepo) ResetRateLimitWindows(ctx context.Context, id int64) error {
+	return nil
+}
+func (r *stubApiKeyRepo) GetRateLimitData(ctx context.Context, id int64) (*service.APIKeyRateLimitData, error) {
+	return nil, nil
 }
 
 type stubUsageLogRepo struct {
@@ -1476,11 +2147,27 @@ func (r *stubUsageLogRepo) GetDashboardStats(ctx context.Context) (*usagestats.D
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID, groupID int64, model string, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
+func (r *stubUsageLogRepo) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
+func (r *stubUsageLogRepo) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetUpstreamEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetGroupStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.GroupStat, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetUserBreakdownStats(ctx context.Context, startTime, endTime time.Time, dim usagestats.UserBreakdownDimension, limit int) ([]usagestats.UserBreakdownItem, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1489,6 +2176,10 @@ func (r *stubUsageLogRepo) GetAPIKeyUsageTrend(ctx context.Context, startTime, e
 }
 
 func (r *stubUsageLogRepo) GetUserUsageTrend(ctx context.Context, startTime, endTime time.Time, granularity string, limit int) ([]usagestats.UserUsageTrendPoint, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetUserSpendingRanking(ctx context.Context, startTime, endTime time.Time, limit int) (*usagestats.UserSpendingRankingResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1553,15 +2244,19 @@ func (r *stubUsageLogRepo) GetDailyStatsAggregated(ctx context.Context, userID i
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetBatchUserUsageStats(ctx context.Context, userIDs []int64) (map[int64]*usagestats.BatchUserUsageStats, error) {
+func (r *stubUsageLogRepo) GetBatchUserUsageStats(ctx context.Context, userIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.BatchUserUsageStats, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetBatchAPIKeyUsageStats(ctx context.Context, apiKeyIDs []int64) (map[int64]*usagestats.BatchAPIKeyUsageStats, error) {
+func (r *stubUsageLogRepo) GetBatchAPIKeyUsageStats(ctx context.Context, apiKeyIDs []int64, startTime, endTime time.Time) (map[int64]*usagestats.BatchAPIKeyUsageStats, error) {
 	return nil, errors.New("not implemented")
 }
 
 func (r *stubUsageLogRepo) GetUserDashboardStats(ctx context.Context, userID int64) (*usagestats.UserDashboardStats, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUsageLogRepo) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int64) (*usagestats.UserDashboardStats, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1619,6 +2314,9 @@ func (r *stubUsageLogRepo) GetAccountUsageStats(ctx context.Context, accountID i
 }
 
 func (r *stubUsageLogRepo) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
+	return nil, errors.New("not implemented")
+}
+func (r *stubUsageLogRepo) GetAllGroupUsageSummary(ctx context.Context, todayStart time.Time) ([]usagestats.GroupUsageSummary, error) {
 	return nil, errors.New("not implemented")
 }
 

@@ -70,7 +70,7 @@ type GeminiGenerationConfig struct {
 	ImageConfig     *GeminiImageConfig    `json:"imageConfig,omitempty"`
 }
 
-// GeminiImageConfig Gemini 图片生成配置（仅 gemini-3-pro-image 支持）
+// GeminiImageConfig Gemini 图片生成配置（gemini-3-pro-image / gemini-3.1-flash-image 等图片模型支持）
 type GeminiImageConfig struct {
 	AspectRatio string `json:"aspectRatio,omitempty"` // "1:1", "16:9", "9:16", "4:3", "3:4"
 	ImageSize   string `json:"imageSize,omitempty"`   // "1K", "2K", "4K"
@@ -149,12 +149,31 @@ type GeminiCandidate struct {
 	GroundingMetadata *GeminiGroundingMetadata `json:"groundingMetadata,omitempty"`
 }
 
+// GeminiTokenDetail Gemini token 详情（按模态分类）
+type GeminiTokenDetail struct {
+	Modality   string `json:"modality"`
+	TokenCount int    `json:"tokenCount"`
+}
+
 // GeminiUsageMetadata Gemini 用量元数据
 type GeminiUsageMetadata struct {
-	PromptTokenCount        int `json:"promptTokenCount,omitempty"`
-	CandidatesTokenCount    int `json:"candidatesTokenCount,omitempty"`
-	CachedContentTokenCount int `json:"cachedContentTokenCount,omitempty"`
-	TotalTokenCount         int `json:"totalTokenCount,omitempty"`
+	PromptTokenCount        int                 `json:"promptTokenCount,omitempty"`
+	CandidatesTokenCount    int                 `json:"candidatesTokenCount,omitempty"`
+	CachedContentTokenCount int                 `json:"cachedContentTokenCount,omitempty"`
+	TotalTokenCount         int                 `json:"totalTokenCount,omitempty"`
+	ThoughtsTokenCount      int                 `json:"thoughtsTokenCount,omitempty"` // thinking tokens（按输出价格计费）
+	CandidatesTokensDetails []GeminiTokenDetail `json:"candidatesTokensDetails,omitempty"`
+	PromptTokensDetails     []GeminiTokenDetail `json:"promptTokensDetails,omitempty"`
+}
+
+// ImageOutputTokens 从 CandidatesTokensDetails 中提取 IMAGE 模态的 token 数
+func (m *GeminiUsageMetadata) ImageOutputTokens() int {
+	for _, d := range m.CandidatesTokensDetails {
+		if d.Modality == "IMAGE" {
+			return d.TokenCount
+		}
+	}
+	return 0
 }
 
 // GeminiGroundingMetadata Gemini grounding 元数据（Web Search）
@@ -188,6 +207,5 @@ var DefaultStopSequences = []string{
 	"<|user|>",
 	"<|endoftext|>",
 	"<|end_of_turn|>",
-	"[DONE]",
 	"\n\nHuman:",
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -387,7 +388,7 @@ func (s *OpsService) executeRetry(ctx context.Context, errorLog *OpsErrorLogDeta
 func detectOpsRetryType(path string) opsRetryRequestType {
 	p := strings.ToLower(strings.TrimSpace(path))
 	switch {
-	case strings.Contains(p, "/responses"):
+	case strings.Contains(p, "/responses"), strings.Contains(p, "/images/"):
 		return opsRetryTypeOpenAI
 	case strings.Contains(p, "/v1beta/"):
 		return opsRetryTypeGeminiV1B
@@ -466,7 +467,7 @@ func (s *OpsService) executeClientRetry(ctx context.Context, reqType opsRetryReq
 			return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: selErr.Error()}
 		}
 		if selection == nil || selection.Account == nil {
-			return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: "no available accounts"}
+			return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: ErrNoAvailableAccounts.Error()}
 		}
 
 		account := selection.Account
@@ -476,9 +477,13 @@ func (s *OpsService) executeClientRetry(ctx context.Context, reqType opsRetryReq
 			continue
 		}
 
+		attemptCtx := ctx
+		if switches > 0 {
+			attemptCtx = WithAccountSwitchCount(attemptCtx, switches, false)
+		}
 		exec := func() *opsRetryExecution {
 			defer selection.ReleaseFunc()
-			return s.executeWithAccount(ctx, reqType, errorLog, body, account)
+			return s.executeWithAccount(attemptCtx, reqType, errorLog, body, account)
 		}()
 
 		if exec != nil {
@@ -514,7 +519,7 @@ func (s *OpsService) selectAccountForRetry(ctx context.Context, reqType opsRetry
 		if s.gatewayService == nil {
 			return nil, fmt.Errorf("gateway service not available")
 		}
-		return s.gatewayService.SelectAccountWithLoadAwareness(ctx, groupID, "", model, excludedIDs, "") // 重试不使用会话限制
+		return s.gatewayService.SelectAccountWithLoadAwareness(ctx, groupID, "", model, excludedIDs, "", int64(0)) // 重试不使用会话限制
 	default:
 		return nil, fmt.Errorf("unsupported retry type: %s", reqType)
 	}
@@ -523,7 +528,7 @@ func (s *OpsService) selectAccountForRetry(ctx context.Context, reqType opsRetry
 func extractRetryModelAndStream(reqType opsRetryRequestType, errorLog *OpsErrorLogDetail, body []byte) (model string, stream bool, err error) {
 	switch reqType {
 	case opsRetryTypeMessages:
-		parsed, parseErr := ParseGatewayRequest(body)
+		parsed, parseErr := ParseGatewayRequest(body, domain.PlatformAnthropic)
 		if parseErr != nil {
 			return "", false, fmt.Errorf("failed to parse messages request body: %w", parseErr)
 		}
@@ -571,7 +576,7 @@ func (s *OpsService) executeWithAccount(ctx context.Context, reqType opsRetryReq
 			action = "streamGenerateContent"
 		}
 		if account.Platform == PlatformAntigravity {
-			_, err = s.antigravityGatewayService.ForwardGemini(ctx, c, account, modelName, action, errorLog.Stream, body)
+			_, err = s.antigravityGatewayService.ForwardGemini(ctx, c, account, modelName, action, errorLog.Stream, body, false)
 		} else {
 			_, err = s.geminiCompatService.ForwardNative(ctx, c, account, modelName, action, errorLog.Stream, body)
 		}
@@ -581,7 +586,7 @@ func (s *OpsService) executeWithAccount(ctx context.Context, reqType opsRetryReq
 			if s.antigravityGatewayService == nil {
 				return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: "antigravity gateway service not available"}
 			}
-			_, err = s.antigravityGatewayService.Forward(ctx, c, account, body)
+			_, err = s.antigravityGatewayService.Forward(ctx, c, account, body, false)
 		case PlatformGemini:
 			if s.geminiCompatService == nil {
 				return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: "gemini gateway service not available"}
@@ -591,7 +596,7 @@ func (s *OpsService) executeWithAccount(ctx context.Context, reqType opsRetryReq
 			if s.gatewayService == nil {
 				return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: "gateway service not available"}
 			}
-			parsedReq, parseErr := ParseGatewayRequest(body)
+			parsedReq, parseErr := ParseGatewayRequest(body, domain.PlatformAnthropic)
 			if parseErr != nil {
 				return &opsRetryExecution{status: opsRetryStatusFailed, errorMessage: "failed to parse request body"}
 			}
@@ -669,6 +674,7 @@ func newOpsRetryContext(ctx context.Context, errorLog *OpsErrorLogDetail) (*gin.
 	}
 
 	c.Request = req
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 	return c, w
 }
 

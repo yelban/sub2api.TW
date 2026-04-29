@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -190,7 +191,7 @@ func (r *userSubscriptionRepository) ListByGroupID(ctx context.Context, groupID 
 	return userSubscriptionEntitiesToService(subs), paginationResultFromTotal(int64(total), params), nil
 }
 
-func (r *userSubscriptionRepository) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (r *userSubscriptionRepository) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	client := clientFromContext(ctx, r.client)
 	q := client.UserSubscription.Query()
 	if userID != nil {
@@ -199,7 +200,34 @@ func (r *userSubscriptionRepository) List(ctx context.Context, params pagination
 	if groupID != nil {
 		q = q.Where(usersubscription.GroupIDEQ(*groupID))
 	}
-	if status != "" {
+	if platform != "" {
+		q = q.Where(usersubscription.HasGroupWith(group.PlatformEQ(platform)))
+	}
+
+	// Status filtering with real-time expiration check
+	now := time.Now()
+	switch status {
+	case service.SubscriptionStatusActive:
+		// Active: status is active AND not yet expired
+		q = q.Where(
+			usersubscription.StatusEQ(service.SubscriptionStatusActive),
+			usersubscription.ExpiresAtGT(now),
+		)
+	case service.SubscriptionStatusExpired:
+		// Expired: status is expired OR (status is active but already expired)
+		q = q.Where(
+			usersubscription.Or(
+				usersubscription.StatusEQ(service.SubscriptionStatusExpired),
+				usersubscription.And(
+					usersubscription.StatusEQ(service.SubscriptionStatusActive),
+					usersubscription.ExpiresAtLTE(now),
+				),
+			),
+		)
+	case "":
+		// No filter
+	default:
+		// Other status (e.g., revoked)
 		q = q.Where(usersubscription.StatusEQ(status))
 	}
 
@@ -208,11 +236,28 @@ func (r *userSubscriptionRepository) List(ctx context.Context, params pagination
 		return nil, nil, err
 	}
 
+	// Apply sorting
+	q = q.WithUser().WithGroup().WithAssignedByUser()
+
+	// Determine sort field
+	var field string
+	switch sortBy {
+	case "expires_at":
+		field = usersubscription.FieldExpiresAt
+	case "status":
+		field = usersubscription.FieldStatus
+	default:
+		field = usersubscription.FieldCreatedAt
+	}
+
+	// Determine sort order (default: desc)
+	if sortOrder == "asc" && sortBy != "" {
+		q = q.Order(dbent.Asc(field))
+	} else {
+		q = q.Order(dbent.Desc(field))
+	}
+
 	subs, err := q.
-		WithUser().
-		WithGroup().
-		WithAssignedByUser().
-		Order(dbent.Desc(usersubscription.FieldCreatedAt)).
 		Offset(params.Offset()).
 		Limit(params.Limit()).
 		All(ctx)

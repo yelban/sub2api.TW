@@ -3,9 +3,9 @@
     <TablePageLayout>
       <!-- Single Row: Search, Filters, and Actions -->
       <template #filters>
-        <div class="flex w-full flex-col gap-3 md:flex-row md:flex-wrap-reverse md:items-center md:justify-between md:gap-4">
+        <div class="flex flex-wrap items-center gap-3">
           <!-- Left: Search + Active Filters -->
-          <div class="flex min-w-[280px] flex-1 flex-wrap content-start items-center gap-3 md:order-1">
+          <div class="flex flex-1 flex-wrap items-center gap-3">
             <!-- Search Box -->
             <div class="relative w-full md:w-64">
               <Icon
@@ -44,6 +44,19 @@
                   { value: 'active', label: t('common.active') },
                   { value: 'disabled', label: t('admin.users.disabled') }
                 ]"
+                @change="applyFilter"
+              />
+            </div>
+
+            <!-- Group Filter (visible when enabled) -->
+            <div v-if="visibleFilters.has('group')" class="w-full sm:w-44">
+              <Select
+                v-model="filters.group"
+                :options="groupFilterOptions"
+                searchable
+                creatable
+                :creatable-prefix="t('admin.users.fuzzySearch')"
+                :search-placeholder="t('admin.users.searchGroups')"
                 @change="applyFilter"
               />
             </div>
@@ -100,7 +113,7 @@
           </div>
 
           <!-- Right: Actions and Settings -->
-          <div class="flex w-full items-center justify-between gap-2 md:order-2 md:ml-auto md:max-w-full md:flex-wrap md:justify-end md:gap-3">
+          <div class="flex flex-wrap items-center justify-end gap-2">
             <!-- Mobile: Secondary buttons (icon only) -->
             <div class="flex items-center gap-2 md:contents">
               <!-- Refresh Button -->
@@ -222,7 +235,17 @@
 
       <!-- Users Table -->
       <template #table>
-        <DataTable :columns="columns" :data="users" :loading="loading" :actions-count="7">
+        <DataTable
+          :columns="columns"
+          :data="users"
+          :loading="loading"
+          :actions-count="7"
+          :server-side-sort="true"
+          default-sort-key="created_at"
+          default-sort-order="desc"
+          :sort-storage-key="USER_SORT_STORAGE_KEY"
+          @sort="handleSort"
+        >
           <template #cell-email="{ value }">
             <div class="flex items-center gap-2">
               <div
@@ -275,6 +298,71 @@
             </span>
           </template>
 
+          <template #cell-groups="{ row }">
+            <div v-if="allGroups.length > 0" class="flex flex-col gap-1">
+              <!-- 专属分组行 -->
+              <span
+                v-if="getUserGroups(row).exclusive.length > 0"
+                class="group/ex relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs"
+                @click.stop="toggleExpandedGroup(row.id)"
+              >
+                <Icon name="shield" size="xs" class="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
+                <span class="font-medium text-purple-600 dark:text-purple-400">{{ getUserGroups(row).exclusive.length }}</span>
+                <span class="text-gray-500 dark:text-dark-400">{{ t('admin.users.exclusiveLabel') }}</span>
+                <!-- Hover tooltip（操作菜单未打开时显示） -->
+                <div
+                  v-if="expandedGroupUserId !== row.id"
+                  class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/ex:opacity-100 dark:bg-dark-600"
+                >
+                  <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
+                  <div class="flex flex-col gap-0.5 whitespace-nowrap">
+                    <span v-for="g in getUserGroups(row).exclusive" :key="g.id">{{ g.name }}</span>
+                  </div>
+                </div>
+                <!-- 点击展开分组操作菜单 -->
+                <div
+                  v-if="expandedGroupUserId === row.id"
+                  class="absolute left-0 top-full z-50 mt-1.5 min-w-[160px] overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-xs shadow-xl dark:border-dark-600 dark:bg-dark-700"
+                >
+                  <div class="border-b border-gray-100 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:border-dark-600 dark:text-dark-400">
+                    {{ t('admin.users.clickToReplace') }}
+                  </div>
+                  <div
+                    v-for="g in getUserGroups(row).exclusive"
+                    :key="g.id"
+                    class="flex cursor-pointer items-center gap-2 px-3 py-2 text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-600 dark:text-dark-200 dark:hover:bg-primary-900/30 dark:hover:text-primary-400"
+                    @click.stop="openGroupReplace(row, g)"
+                  >
+                    <Icon name="swap" size="xs" class="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
+                    <span class="flex-1">{{ g.name }}</span>
+                  </div>
+                </div>
+              </span>
+              <!-- 公开分组行 -->
+              <span
+                v-if="getUserGroups(row).publicGroups.length > 0"
+                class="group/pub relative inline-flex cursor-default items-center gap-1 whitespace-nowrap text-xs"
+              >
+                <Icon name="globe" size="xs" class="h-3.5 w-3.5 text-gray-400 dark:text-dark-500" />
+                <span class="font-medium text-gray-600 dark:text-dark-300">{{ getUserGroups(row).publicGroups.length }}</span>
+                <span class="text-gray-400 dark:text-dark-500">{{ t('admin.users.publicLabel') }}</span>
+                <!-- Tooltip: 向下弹出 -->
+                <div class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/pub:opacity-100 dark:bg-dark-600">
+                  <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
+                  <div class="flex flex-col gap-0.5 whitespace-nowrap">
+                    <span v-for="g in getUserGroups(row).publicGroups" :key="g.id">{{ g.name }}</span>
+                  </div>
+                </div>
+              </span>
+              <!-- 都没有 -->
+              <span
+                v-if="getUserGroups(row).exclusive.length === 0 && getUserGroups(row).publicGroups.length === 0"
+                class="text-xs text-gray-400 dark:text-dark-500"
+              >-</span>
+            </div>
+            <span v-else class="text-xs text-gray-400 dark:text-dark-500">-</span>
+          </template>
+
           <template #cell-subscriptions="{ row }">
             <div
               v-if="row.subscriptions && row.subscriptions.length > 0"
@@ -300,8 +388,29 @@
             </span>
           </template>
 
-          <template #cell-balance="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">${{ value.toFixed(2) }}</span>
+          <template #cell-balance="{ value, row }">
+            <div class="flex items-center gap-2">
+              <div class="group relative">
+                <button
+                  class="font-medium text-gray-900 underline decoration-dashed decoration-gray-300 underline-offset-4 transition-colors hover:text-primary-600 dark:text-white dark:decoration-dark-500 dark:hover:text-primary-400"
+                  @click="handleBalanceHistory(row)"
+                >
+                  ${{ value.toFixed(2) }}
+                </button>
+                <!-- Instant tooltip -->
+                <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover:opacity-100 dark:bg-dark-600">
+                  {{ t('admin.users.balanceHistoryTip') }}
+                  <div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-dark-600"></div>
+                </div>
+              </div>
+              <button
+                @click.stop="handleDeposit(row)"
+                class="rounded px-2 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                :title="t('admin.users.deposit')"
+              >
+                {{ t('admin.users.deposit') }}
+              </button>
+            </div>
           </template>
 
           <template #cell-usage="{ row }">
@@ -321,8 +430,11 @@
             </div>
           </template>
 
-          <template #cell-concurrency="{ value }">
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ value }}</span>
+          <template #cell-concurrency="{ row }">
+            <UserConcurrencyCell
+              :current="row.current_concurrency ?? 0"
+              :max="row.concurrency"
+            />
           </template>
 
           <template #cell-status="{ value }">
@@ -341,6 +453,18 @@
 
           <template #cell-created_at="{ value }">
             <span class="text-sm text-gray-500 dark:text-dark-400">{{ formatDateTime(value) }}</span>
+          </template>
+
+          <template #cell-last_used_at="{ value }">
+            <span class="text-sm text-gray-500 dark:text-dark-400">
+              {{ value ? formatDateTime(value) : '-' }}
+            </span>
+          </template>
+
+          <template #cell-last_active_at="{ value }">
+            <span class="text-sm text-gray-500 dark:text-dark-400">
+              {{ value ? formatDateTime(value) : '-' }}
+            </span>
           </template>
 
           <template #cell-actions="{ row }">
@@ -456,6 +580,15 @@
                 {{ t('admin.users.withdraw') }}
               </button>
 
+              <!-- Balance History -->
+              <button
+                @click="handleBalanceHistory(user); closeActionMenu()"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+              >
+                <Icon name="dollar" size="sm" class="text-gray-400" :stroke-width="2" />
+                {{ t('admin.users.balanceHistory') }}
+              </button>
+
               <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
               <!-- Delete (not for admin) -->
@@ -479,6 +612,8 @@
     <UserApiKeysModal :show="showApiKeysModal" :user="viewingUser" @close="closeApiKeysModal" />
     <UserAllowedGroupsModal :show="showAllowedGroupsModal" :user="allowedGroupsUser" @close="closeAllowedGroupsModal" @success="loadUsers" />
     <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="loadUsers" />
+    <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
+    <GroupReplaceModal :show="showGroupReplaceModal" :user="groupReplaceUser" :old-group="groupReplaceOldGroup" :all-groups="allGroups" @close="closeGroupReplaceModal" @success="loadUsers" />
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
   </AppLayout>
 </template>
@@ -487,12 +622,13 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatDateTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
-import type { AdminUser, UserAttributeDefinition } from '@/types'
+import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -504,11 +640,14 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import Select from '@/components/common/Select.vue'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
+import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
 import UserCreateModal from '@/components/admin/user/UserCreateModal.vue'
 import UserEditModal from '@/components/admin/user/UserEditModal.vue'
 import UserApiKeysModal from '@/components/admin/user/UserApiKeysModal.vue'
 import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsModal.vue'
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
+import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
+import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
 
 const appStore = useAppStore()
 
@@ -561,17 +700,20 @@ const getAttributeValue = (userId: number, attrId: number): string => {
 // All possible columns (for column settings)
 const allColumns = computed<Column[]>(() => [
   { key: 'email', label: t('admin.users.columns.user'), sortable: true },
-  { key: 'id', label: 'ID', sortable: true },
+  { key: 'id', label: t('admin.users.columns.id'), sortable: true },
   { key: 'username', label: t('admin.users.columns.username'), sortable: true },
   { key: 'notes', label: t('admin.users.columns.notes'), sortable: false },
   // Dynamic attribute columns
   ...attributeColumns.value,
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
+  { key: 'groups', label: t('admin.users.columns.groups'), sortable: false },
   { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
   { key: 'usage', label: t('admin.users.columns.usage'), sortable: false },
   { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
+  { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
+  { key: 'last_used_at', label: t('admin.users.columns.lastUsed'), sortable: true },
   { key: 'created_at', label: t('admin.users.columns.created'), sortable: true },
   { key: 'actions', label: t('admin.users.columns.actions'), sortable: false }
 ])
@@ -586,7 +728,9 @@ const toggleableColumns = computed(() =>
 const hiddenColumns = reactive<Set<string>>(new Set())
 
 // Default hidden columns (columns hidden by default on first load)
-const DEFAULT_HIDDEN_COLUMNS = ['notes', 'subscriptions', 'usage', 'concurrency']
+const DEFAULT_HIDDEN_COLUMNS = ['notes', 'groups', 'subscriptions', 'usage', 'concurrency']
+const REMOVED_COLUMNS = new Set(['last_login_at'])
+const FORCED_VISIBLE_COLUMNS = new Set(['last_active_at'])
 
 // localStorage key for column settings
 const HIDDEN_COLUMNS_KEY = 'user-hidden-columns'
@@ -597,7 +741,9 @@ const loadSavedColumns = () => {
     const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
     if (saved) {
       const parsed = JSON.parse(saved) as string[]
-      parsed.forEach(key => hiddenColumns.add(key))
+      parsed
+        .filter(key => !REMOVED_COLUMNS.has(key) && !FORCED_VISIBLE_COLUMNS.has(key))
+        .forEach(key => hiddenColumns.add(key))
     } else {
       // Use default hidden columns on first load
       DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
@@ -619,16 +765,32 @@ const saveColumnsToStorage = () => {
 
 // Toggle column visibility
 const toggleColumn = (key: string) => {
+  const wasHidden = hiddenColumns.has(key)
   if (hiddenColumns.has(key)) {
     hiddenColumns.delete(key)
   } else {
     hiddenColumns.add(key)
   }
   saveColumnsToStorage()
+  if (wasHidden && (key === 'usage' || key.startsWith('attr_'))) {
+    refreshCurrentPageSecondaryData()
+  }
+  if (key === 'subscriptions') {
+    loadUsers()
+  }
+  if (wasHidden && key === 'groups') {
+    loadAllGroups()
+  }
 }
 
 // Check if column is visible (not in hidden set)
 const isColumnVisible = (key: string) => !hiddenColumns.has(key)
+const hasVisibleUsageColumn = computed(() => !hiddenColumns.has('usage'))
+const hasVisibleSubscriptionsColumn = computed(() => !hiddenColumns.has('subscriptions'))
+const hasVisibleGroupsColumn = computed(() => !hiddenColumns.has('groups'))
+const hasVisibleAttributeColumns = computed(() =>
+  attributeDefinitions.value.some((def) => def.enabled && !hiddenColumns.has(`attr_${def.id}`))
+)
 
 // Filtered columns based on visibility
 const columns = computed<Column[]>(() =>
@@ -640,11 +802,70 @@ const columns = computed<Column[]>(() =>
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
 const searchQuery = ref('')
+const USER_SORT_STORAGE_KEY = 'admin-users-table-sort'
+const loadInitialSortState = (): { sort_by: string; sort_order: 'asc' | 'desc' } => {
+  const fallback = { sort_by: 'created_at', sort_order: 'desc' as 'asc' | 'desc' }
+  const sortable = new Set(['email', 'id', 'username', 'role', 'balance', 'concurrency', 'status', 'last_used_at', 'last_active_at', 'created_at'])
+  try {
+    const raw = localStorage.getItem(USER_SORT_STORAGE_KEY)
+    if (!raw) return fallback
+    const parsed = JSON.parse(raw) as { key?: string; order?: string }
+    const key = typeof parsed.key === 'string' ? parsed.key : ''
+    if (!sortable.has(key)) return fallback
+    return {
+      sort_by: key,
+      sort_order: parsed.order === 'asc' ? 'asc' : 'desc'
+    }
+  } catch {
+    return fallback
+  }
+}
+const sortState = reactive(loadInitialSortState())
+
+// Groups data for the groups column
+const allGroups = ref<AdminGroup[]>([])
+const loadAllGroups = async () => {
+  if (allGroups.value.length > 0) return
+  try {
+    allGroups.value = await adminAPI.groups.getAll()
+  } catch (e) {
+    console.error('Failed to load groups:', e)
+  }
+}
+// Resolve user's accessible groups: exclusive groups first, then public groups
+const getUserGroups = (user: AdminUser) => {
+  const exclusive: AdminGroup[] = []
+  const publicGroups: AdminGroup[] = []
+  for (const g of allGroups.value) {
+    if (g.status !== 'active' || g.subscription_type !== 'standard') continue
+    if (g.is_exclusive) {
+      if (user.allowed_groups?.includes(g.id)) {
+        exclusive.push(g)
+      }
+    } else {
+      publicGroups.push(g)
+    }
+  }
+  return { exclusive, publicGroups }
+}
+
+// Group filter options: "All Groups" + active exclusive groups (value = group name for fuzzy match)
+const groupFilterOptions = computed(() => {
+  const options: { value: string; label: string }[] = [
+    { value: '', label: t('admin.users.allGroups') }
+  ]
+  for (const g of allGroups.value) {
+    if (g.status !== 'active' || !g.is_exclusive || g.subscription_type !== 'standard') continue
+    options.push({ value: g.name, label: g.name })
+  }
+  return options
+})
 
 // Filter values (role, status, and custom attributes)
 const filters = reactive({
   role: '',
-  status: ''
+  status: '',
+  group: ''  // group name for fuzzy match, '' = all
 })
 const activeAttributeFilters = reactive<Record<number, string>>({})
 
@@ -672,7 +893,8 @@ const filterableAttributes = computed(() =>
 // Built-in filter definitions
 const builtInFilters = computed(() => [
   { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
-  { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const }
+  { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const },
+  { key: 'group', name: t('admin.users.columns.groups'), type: 'select' as const }
 ])
 
 // Load saved filters from localStorage
@@ -690,6 +912,7 @@ const loadSavedFilters = () => {
       const parsed = JSON.parse(savedValues)
       if (parsed.role) filters.role = parsed.role
       if (parsed.status) filters.status = parsed.status
+      if (parsed.group) filters.group = parsed.group
       if (parsed.attributes) {
         Object.assign(activeAttributeFilters, parsed.attributes)
       }
@@ -708,6 +931,7 @@ const saveFiltersToStorage = () => {
     const values = {
       role: filters.role,
       status: filters.status,
+      group: filters.group,
       attributes: activeAttributeFilters
     }
     localStorage.setItem(FILTER_VALUES_KEY, JSON.stringify(values))
@@ -726,7 +950,7 @@ const attributeDefinitions = ref<UserAttributeDefinition[]>([])
 const userAttributeValues = ref<Record<number, Record<number, string>>>({})
 const pagination = reactive({
   page: 1,
-  page_size: 20,
+  page_size: getPersistedPageSize(),
   total: 0,
   pages: 0
 })
@@ -740,6 +964,60 @@ const editingUser = ref<AdminUser | null>(null)
 const deletingUser = ref<AdminUser | null>(null)
 const viewingUser = ref<AdminUser | null>(null)
 let abortController: AbortController | null = null
+let secondaryDataSeq = 0
+
+const loadUsersSecondaryData = async (
+  userIds: number[],
+  signal?: AbortSignal,
+  expectedSeq?: number
+) => {
+  if (userIds.length === 0) return
+
+  const tasks: Promise<void>[] = []
+
+  if (hasVisibleUsageColumn.value) {
+    tasks.push(
+      (async () => {
+        try {
+          const usageResponse = await adminAPI.dashboard.getBatchUsersUsage(userIds)
+          if (signal?.aborted) return
+          if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
+          usageStats.value = usageResponse.stats
+        } catch (e) {
+          if (signal?.aborted) return
+          console.error('Failed to load usage stats:', e)
+        }
+      })()
+    )
+  }
+
+  if (attributeDefinitions.value.length > 0 && hasVisibleAttributeColumns.value) {
+    tasks.push(
+      (async () => {
+        try {
+          const attrResponse = await adminAPI.userAttributes.getBatchUserAttributes(userIds)
+          if (signal?.aborted) return
+          if (typeof expectedSeq === 'number' && expectedSeq !== secondaryDataSeq) return
+          userAttributeValues.value = attrResponse.attributes
+        } catch (e) {
+          if (signal?.aborted) return
+          console.error('Failed to load user attribute values:', e)
+        }
+      })()
+    )
+  }
+
+  if (tasks.length > 0) {
+    await Promise.allSettled(tasks)
+  }
+}
+
+const refreshCurrentPageSecondaryData = () => {
+  const userIds = users.value.map((u) => u.id)
+  if (userIds.length === 0) return
+  const seq = ++secondaryDataSeq
+  void loadUsersSecondaryData(userIds, undefined, seq)
+}
 
 // Action Menu State
 const activeMenuId = ref<number | null>(null)
@@ -817,16 +1095,35 @@ const handleClickOutside = (event: MouseEvent) => {
   if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
     showColumnDropdown.value = false
   }
+  // Close expanded group dropdown when clicking outside
+  if (expandedGroupUserId.value !== null) {
+    expandedGroupUserId.value = null
+  }
 }
 
 // Allowed groups modal state
 const showAllowedGroupsModal = ref(false)
 const allowedGroupsUser = ref<AdminUser | null>(null)
 
+// Expanded group dropdown state (click to show exclusive groups list)
+const expandedGroupUserId = ref<number | null>(null)
+const toggleExpandedGroup = (userId: number) => {
+  expandedGroupUserId.value = expandedGroupUserId.value === userId ? null : userId
+}
+
+// Group replace modal state
+const showGroupReplaceModal = ref(false)
+const groupReplaceUser = ref<AdminUser | null>(null)
+const groupReplaceOldGroup = ref<{ id: number; name: string } | null>(null)
+
 // Balance (Deposit/Withdraw) modal state
 const showBalanceModal = ref(false)
 const balanceUser = ref<AdminUser | null>(null)
 const balanceOperation = ref<'add' | 'subtract'>('add')
+
+// Balance History modal state
+const showBalanceHistoryModal = ref(false)
+const balanceHistoryUser = ref<AdminUser | null>(null)
 
 // 计算剩余天数
 const getDaysRemaining = (expiresAt: string): number => {
@@ -873,7 +1170,11 @@ const loadUsers = async () => {
         role: filters.role as any,
         status: filters.status as any,
         search: searchQuery.value || undefined,
-        attributes: Object.keys(attrFilters).length > 0 ? attrFilters : undefined
+        group_name: filters.group || undefined,
+        attributes: Object.keys(attrFilters).length > 0 ? attrFilters : undefined,
+        include_subscriptions: hasVisibleSubscriptionsColumn.value,
+        sort_by: sortState.sort_by,
+        sort_order: sortState.sort_order
       },
       { signal }
     )
@@ -883,38 +1184,17 @@ const loadUsers = async () => {
     users.value = response.items
     pagination.total = response.total
     pagination.pages = response.pages
+    usageStats.value = {}
+    userAttributeValues.value = {}
 
-    // Load usage stats and attribute values for all users in the list
+    // Defer heavy secondary data so table can render first.
     if (response.items.length > 0) {
       const userIds = response.items.map((u) => u.id)
-      // Load usage stats
-      try {
-        const usageResponse = await adminAPI.dashboard.getBatchUsersUsage(userIds)
-        if (signal.aborted) {
-          return
-        }
-        usageStats.value = usageResponse.stats
-      } catch (e) {
-        if (signal.aborted) {
-          return
-        }
-        console.error('Failed to load usage stats:', e)
-      }
-      // Load attribute values
-      if (attributeDefinitions.value.length > 0) {
-        try {
-          const attrResponse = await adminAPI.userAttributes.getBatchUserAttributes(userIds)
-          if (signal.aborted) {
-            return
-          }
-          userAttributeValues.value = attrResponse.attributes
-        } catch (e) {
-          if (signal.aborted) {
-            return
-          }
-          console.error('Failed to load user attribute values:', e)
-        }
-      }
+      const seq = ++secondaryDataSeq
+      window.setTimeout(() => {
+        if (signal.aborted || seq !== secondaryDataSeq) return
+        void loadUsersSecondaryData(userIds, signal, seq)
+      }, 50)
     }
   } catch (error: any) {
     const errorInfo = error as { name?: string; code?: string }
@@ -953,6 +1233,13 @@ const handlePageSizeChange = (pageSize: number) => {
   loadUsers()
 }
 
+const handleSort = (key: string, order: 'asc' | 'desc') => {
+  sortState.sort_by = key
+  sortState.sort_order = order
+  pagination.page = 1
+  loadUsers()
+}
+
 // Filter helpers
 const getAttributeDefinitionName = (attrId: number): string => {
   const def = attributeDefinitions.value.find(d => d.id === attrId)
@@ -965,8 +1252,10 @@ const toggleBuiltInFilter = (key: string) => {
     visibleFilters.delete(key)
     if (key === 'role') filters.role = ''
     if (key === 'status') filters.status = ''
+    if (key === 'group') filters.group = ''
   } else {
     visibleFilters.add(key)
+    if (key === 'group') loadAllGroups()
   }
   saveFiltersToStorage()
   pagination.page = 1
@@ -1042,6 +1331,19 @@ const closeAllowedGroupsModal = () => {
   allowedGroupsUser.value = null
 }
 
+const openGroupReplace = (user: AdminUser, group: { id: number; name: string }) => {
+  expandedGroupUserId.value = null
+  groupReplaceUser.value = user
+  groupReplaceOldGroup.value = group
+  showGroupReplaceModal.value = true
+}
+
+const closeGroupReplaceModal = () => {
+  showGroupReplaceModal.value = false
+  groupReplaceUser.value = null
+  groupReplaceOldGroup.value = null
+}
+
 const handleDelete = (user: AdminUser) => {
   deletingUser.value = user
   showDeleteDialog.value = true
@@ -1078,6 +1380,30 @@ const closeBalanceModal = () => {
   balanceUser.value = null
 }
 
+const handleBalanceHistory = (user: AdminUser) => {
+  balanceHistoryUser.value = user
+  showBalanceHistoryModal.value = true
+}
+
+const closeBalanceHistoryModal = () => {
+  showBalanceHistoryModal.value = false
+  balanceHistoryUser.value = null
+}
+
+// Handle deposit from balance history modal
+const handleDepositFromHistory = () => {
+  if (balanceHistoryUser.value) {
+    handleDeposit(balanceHistoryUser.value)
+  }
+}
+
+// Handle withdraw from balance history modal
+const handleWithdrawFromHistory = () => {
+  if (balanceHistoryUser.value) {
+    handleWithdraw(balanceHistoryUser.value)
+  }
+}
+
 // 滚动时关闭菜单
 const handleScroll = () => {
   closeActionMenu()
@@ -1088,6 +1414,9 @@ onMounted(async () => {
   loadSavedFilters()
   loadSavedColumns()
   loadUsers()
+  if (hasVisibleGroupsColumn.value || visibleFilters.has('group')) {
+    loadAllGroups()
+  }
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('scroll', handleScroll, true)
 })

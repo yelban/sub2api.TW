@@ -1,10 +1,13 @@
+//go:build unit
+
 // Package tlsfingerprint provides TLS fingerprint simulation for HTTP clients.
 //
-// Integration tests for verifying TLS fingerprint correctness.
-// These tests make actual network requests and should be run manually.
+// Unit tests for TLS fingerprint dialer.
+// Integration tests that require external network are in dialer_integration_test.go
+// and require the 'integration' build tag.
 //
-// Run with: go test -v ./internal/pkg/tlsfingerprint/...
-// Run integration tests: go test -v -run TestJA3 ./internal/pkg/tlsfingerprint/...
+// Run unit tests: go test -v ./internal/pkg/tlsfingerprint/...
+// Run integration tests: go test -v -tags=integration ./internal/pkg/tlsfingerprint/...
 package tlsfingerprint
 
 import (
@@ -13,34 +16,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-// FingerprintResponse represents the response from tls.peet.ws/api/all.
-type FingerprintResponse struct {
-	IP    string  `json:"ip"`
-	TLS   TLSInfo `json:"tls"`
-	HTTP2 any     `json:"http2"`
-}
-
-// TLSInfo contains TLS fingerprint details.
-type TLSInfo struct {
-	JA3           string `json:"ja3"`
-	JA3Hash       string `json:"ja3_hash"`
-	JA4           string `json:"ja4"`
-	PeetPrint     string `json:"peetprint"`
-	PeetPrintHash string `json:"peetprint_hash"`
-	ClientRandom  string `json:"client_random"`
-	SessionID     string `json:"session_id"`
-}
-
 // TestDialerBasicConnection tests that the dialer can establish TLS connections.
 func TestDialerBasicConnection(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping network test in short mode")
-	}
+	skipNetworkTest(t)
 
 	// Create a dialer with default profile
 	profile := &Profile{
@@ -71,16 +55,13 @@ func TestDialerBasicConnection(t *testing.T) {
 
 // TestJA3Fingerprint verifies the JA3/JA4 fingerprint matches expected value.
 // This test uses tls.peet.ws to verify the fingerprint.
-// Expected JA3 hash: 1a28e69016765d92e3b381168d68922c (Claude CLI / Node.js 20.x)
-// Expected JA4: t13d5911h1_a33745022dd6_1f22a2ca17c4 (d=domain) or t13i5911h1_... (i=IP)
+// Expected JA3 hash: 44f88fca027f27bab4bb08d4af15f23e (Node.js 24.x)
+// Expected JA4: t13d1714h1_5b57614c22b0_7baf387fc6ff
 func TestJA3Fingerprint(t *testing.T) {
-	// Skip if network is unavailable or if running in short mode
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipNetworkTest(t)
 
 	profile := &Profile{
-		Name:         "Claude CLI Test",
+		Name:         "Default Profile Test",
 		EnableGREASE: false,
 	}
 	dialer := NewDialer(profile, nil)
@@ -100,7 +81,7 @@ func TestJA3Fingerprint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
-	req.Header.Set("User-Agent", "Claude Code/2.0.0 Node.js/20.0.0")
+	req.Header.Set("User-Agent", "Claude Code/2.0.0 Node.js/24.3.0")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -126,34 +107,28 @@ func TestJA3Fingerprint(t *testing.T) {
 	t.Logf("PeetPrint: %s", fpResp.TLS.PeetPrint)
 	t.Logf("PeetPrint Hash: %s", fpResp.TLS.PeetPrintHash)
 
-	// Verify JA3 hash matches expected value
-	expectedJA3Hash := "1a28e69016765d92e3b381168d68922c"
+	// Verify JA3 hash matches expected value (Node.js 24.x default)
+	expectedJA3Hash := "44f88fca027f27bab4bb08d4af15f23e"
 	if fpResp.TLS.JA3Hash == expectedJA3Hash {
 		t.Logf("✓ JA3 hash matches expected value: %s", expectedJA3Hash)
 	} else {
 		t.Errorf("✗ JA3 hash mismatch: got %s, expected %s", fpResp.TLS.JA3Hash, expectedJA3Hash)
 	}
 
-	// Verify JA4 fingerprint
-	// JA4 format: t[version][sni][cipher_count][ext_count][alpn]_[cipher_hash]_[ext_hash]
-	// Expected: t13d5910h1 (d=domain) or t13i5910h1 (i=IP)
-	// The suffix _a33745022dd6_1f22a2ca17c4 should match
-	expectedJA4Suffix := "_a33745022dd6_1f22a2ca17c4"
-	if strings.HasSuffix(fpResp.TLS.JA4, expectedJA4Suffix) {
-		t.Logf("✓ JA4 suffix matches expected value: %s", expectedJA4Suffix)
+	// Verify JA4 cipher hash (stable middle part)
+	expectedJA4CipherHash := "_5b57614c22b0_"
+	if strings.Contains(fpResp.TLS.JA4, expectedJA4CipherHash) {
+		t.Logf("✓ JA4 cipher hash matches: %s", expectedJA4CipherHash)
 	} else {
-		t.Errorf("✗ JA4 suffix mismatch: got %s, expected suffix %s", fpResp.TLS.JA4, expectedJA4Suffix)
+		t.Errorf("✗ JA4 cipher hash mismatch: got %s, expected containing %s", fpResp.TLS.JA4, expectedJA4CipherHash)
 	}
 
-	// Verify JA4 prefix (t13d5911h1 or t13i5911h1)
-	// d = domain (SNI present), i = IP (no SNI)
-	// Since we connect to tls.peet.ws (domain), we expect 'd'
-	expectedJA4Prefix := "t13d5911h1"
+	// Verify JA4 prefix (t13d1714h1 or t13i1714h1)
+	expectedJA4Prefix := "t13d1714h1"
 	if strings.HasPrefix(fpResp.TLS.JA4, expectedJA4Prefix) {
-		t.Logf("✓ JA4 prefix matches: %s (t13=TLS1.3, d=domain, 59=ciphers, 11=extensions, h1=HTTP/1.1)", expectedJA4Prefix)
+		t.Logf("✓ JA4 prefix matches: %s (t13=TLS1.3, d=domain, 17=ciphers, 14=extensions, h1=HTTP/1.1)", expectedJA4Prefix)
 	} else {
-		// Also accept 'i' variant for IP connections
-		altPrefix := "t13i5911h1"
+		altPrefix := "t13i1714h1"
 		if strings.HasPrefix(fpResp.TLS.JA4, altPrefix) {
 			t.Logf("✓ JA4 prefix matches (IP variant): %s", altPrefix)
 		} else {
@@ -161,20 +136,28 @@ func TestJA3Fingerprint(t *testing.T) {
 		}
 	}
 
-	// Verify JA3 contains expected cipher suites (TLS 1.3 ciphers at the beginning)
-	if strings.Contains(fpResp.TLS.JA3, "4866-4867-4865") {
+	// Verify JA3 contains expected TLS 1.3 cipher suites
+	if strings.Contains(fpResp.TLS.JA3, "4865-4866-4867") {
 		t.Logf("✓ JA3 contains expected TLS 1.3 cipher suites")
 	} else {
 		t.Logf("Warning: JA3 does not contain expected TLS 1.3 cipher suites")
 	}
 
-	// Verify extension list (should be 11 extensions including SNI)
-	// Expected: 0-11-10-35-16-22-23-13-43-45-51
-	expectedExtensions := "0-11-10-35-16-22-23-13-43-45-51"
+	// Verify extension list (14 extensions, Node.js 24.x order)
+	expectedExtensions := "0-65037-23-65281-10-11-35-16-5-13-18-51-45-43"
 	if strings.Contains(fpResp.TLS.JA3, expectedExtensions) {
 		t.Logf("✓ JA3 contains expected extension list: %s", expectedExtensions)
 	} else {
 		t.Logf("Warning: JA3 extension list may differ")
+	}
+}
+
+func skipNetworkTest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("跳过网络测试（short 模式）")
+	}
+	if os.Getenv("TLSFINGERPRINT_NETWORK_TESTS") != "1" {
+		t.Skip("跳过网络测试（需要设置 TLSFINGERPRINT_NETWORK_TESTS=1）")
 	}
 }
 
@@ -196,8 +179,8 @@ func TestDialerWithProfile(t *testing.T) {
 	// Build specs and compare
 	// Note: We can't directly compare JA3 without making network requests
 	// but we can verify the specs are different
-	spec1 := dialer1.buildClientHelloSpec()
-	spec2 := dialer2.buildClientHelloSpec()
+	spec1 := buildClientHelloSpecFromProfile(dialer1.profile)
+	spec2 := buildClientHelloSpecFromProfile(dialer2.profile)
 
 	// Profile with GREASE should have more extensions
 	if len(spec2.Extensions) <= len(spec1.Extensions) {
@@ -306,49 +289,33 @@ func mustParseURL(rawURL string) *url.URL {
 	return u
 }
 
-// TestProfileExpectation defines expected fingerprint values for a profile.
-type TestProfileExpectation struct {
-	Profile       *Profile
-	ExpectedJA3   string // Expected JA3 hash (empty = don't check)
-	ExpectedJA4   string // Expected full JA4 (empty = don't check)
-	JA4CipherHash string // Expected JA4 cipher hash - the stable middle part (empty = don't check)
-}
-
 // TestAllProfiles tests multiple TLS fingerprint profiles against tls.peet.ws.
 // Run with: go test -v -run TestAllProfiles ./internal/pkg/tlsfingerprint/...
 func TestAllProfiles(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test in short mode")
-	}
+	skipNetworkTest(t)
 
-	// Define all profiles to test with their expected fingerprints
-	// These profiles are from config.yaml gateway.tls_fingerprint.profiles
 	profiles := []TestProfileExpectation{
 		{
-			// Linux x64 Node.js v22.17.1
-			// Expected JA3 Hash: 1a28e69016765d92e3b381168d68922c
-			// Expected JA4: t13d5911h1_a33745022dd6_1f22a2ca17c4
+			// Default profile (Node.js 24.x)
+			// JA3 Hash: 44f88fca027f27bab4bb08d4af15f23e
+			// JA4: t13d1714h1_5b57614c22b0_7baf387fc6ff
+			Profile: &Profile{
+				Name:         "default_node_v24",
+				EnableGREASE: false,
+			},
+			JA4CipherHash: "5b57614c22b0",
+		},
+		{
+			// Linux x64 Node.js v22.17.1 (explicit profile)
 			Profile: &Profile{
 				Name:         "linux_x64_node_v22171",
 				EnableGREASE: false,
 				CipherSuites: []uint16{4866, 4867, 4865, 49199, 49195, 49200, 49196, 158, 49191, 103, 49192, 107, 163, 159, 52393, 52392, 52394, 49327, 49325, 49315, 49311, 49245, 49249, 49239, 49235, 162, 49326, 49324, 49314, 49310, 49244, 49248, 49238, 49234, 49188, 106, 49187, 64, 49162, 49172, 57, 56, 49161, 49171, 51, 50, 157, 49313, 49309, 49233, 156, 49312, 49308, 49232, 61, 60, 53, 47, 255},
 				Curves:       []uint16{29, 23, 30, 25, 24, 256, 257, 258, 259, 260},
-				PointFormats: []uint8{0, 1, 2},
+				PointFormats: []uint16{0, 1, 2},
+				Extensions:   []uint16{0, 11, 10, 35, 16, 22, 23, 13, 43, 45, 51},
 			},
-			JA4CipherHash: "a33745022dd6", // stable part
-		},
-		{
-			// MacOS arm64 Node.js v22.18.0
-			// Expected JA3 Hash: 70cb5ca646080902703ffda87036a5ea
-			// Expected JA4: t13d5912h1_a33745022dd6_dbd39dd1d406
-			Profile: &Profile{
-				Name:         "macos_arm64_node_v22180",
-				EnableGREASE: false,
-				CipherSuites: []uint16{4866, 4867, 4865, 49199, 49195, 49200, 49196, 158, 49191, 103, 49192, 107, 163, 159, 52393, 52392, 52394, 49327, 49325, 49315, 49311, 49245, 49249, 49239, 49235, 162, 49326, 49324, 49314, 49310, 49244, 49248, 49238, 49234, 49188, 106, 49187, 64, 49162, 49172, 57, 56, 49161, 49171, 51, 50, 157, 49313, 49309, 49233, 156, 49312, 49308, 49232, 61, 60, 53, 47, 255},
-				Curves:       []uint16{29, 23, 30, 25, 24, 256, 257, 258, 259, 260},
-				PointFormats: []uint8{0, 1, 2},
-			},
-			JA4CipherHash: "a33745022dd6", // stable part (same cipher suites)
+			JA4CipherHash: "a33745022dd6",
 		},
 	}
 

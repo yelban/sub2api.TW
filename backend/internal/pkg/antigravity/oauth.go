@@ -6,10 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 const (
@@ -19,8 +23,10 @@ const (
 	UserInfoURL  = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 	// Antigravity OAuth 客户端凭证
-	ClientID     = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-	ClientSecret = "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"
+	ClientID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+
+	// AntigravityOAuthClientSecretEnv 是 Antigravity OAuth client_secret 的环境变量名。
+	AntigravityOAuthClientSecretEnv = "ANTIGRAVITY_OAUTH_CLIENT_SECRET"
 
 	// 固定的 redirect_uri（用户需手动复制 code）
 	RedirectURI = "http://localhost:8085/callback"
@@ -32,24 +38,81 @@ const (
 		"https://www.googleapis.com/auth/cclog " +
 		"https://www.googleapis.com/auth/experimentsandconfigs"
 
-	// User-Agent（与 Antigravity-Manager 保持一致）
-	UserAgent = "antigravity/1.11.9 windows/amd64"
-
 	// Session 过期时间
 	SessionTTL = 30 * time.Minute
 
 	// URL 可用性 TTL（不可用 URL 的恢复时间）
 	URLAvailabilityTTL = 5 * time.Minute
+
+	// Antigravity API 端点
+	antigravityProdBaseURL  = "https://cloudcode-pa.googleapis.com"
+	antigravityDailyBaseURL = "https://daily-cloudcode-pa.sandbox.googleapis.com"
 )
+
+// defaultUserAgentVersion 可通过环境变量 ANTIGRAVITY_USER_AGENT_VERSION 配置，默认 1.20.5
+var defaultUserAgentVersion = "1.21.9"
+
+// defaultClientSecret 可通过环境变量 ANTIGRAVITY_OAUTH_CLIENT_SECRET 配置
+var defaultClientSecret = "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"
+
+func init() {
+	// 从环境变量读取版本号，未设置则使用默认值
+	if version := os.Getenv("ANTIGRAVITY_USER_AGENT_VERSION"); version != "" {
+		defaultUserAgentVersion = version
+	}
+	// 从环境变量读取 client_secret，未设置则使用默认值
+	if secret := os.Getenv(AntigravityOAuthClientSecretEnv); secret != "" {
+		defaultClientSecret = secret
+	}
+}
+
+// GetUserAgent 返回当前配置的 User-Agent
+func GetUserAgent() string {
+	return fmt.Sprintf("antigravity/%s windows/amd64", defaultUserAgentVersion)
+}
+
+func getClientSecret() (string, error) {
+	if v := strings.TrimSpace(defaultClientSecret); v != "" {
+		return v, nil
+	}
+	return "", infraerrors.Newf(http.StatusBadRequest, "ANTIGRAVITY_OAUTH_CLIENT_SECRET_MISSING", "missing antigravity oauth client_secret; set %s", AntigravityOAuthClientSecretEnv)
+}
 
 // BaseURLs 定义 Antigravity API 端点（与 Antigravity-Manager 保持一致）
 var BaseURLs = []string{
-	"https://cloudcode-pa.googleapis.com",               // prod (优先)
-	"https://daily-cloudcode-pa.sandbox.googleapis.com", // daily sandbox (备用)
+	antigravityProdBaseURL,  // prod (优先)
+	antigravityDailyBaseURL, // daily sandbox (备用)
 }
 
 // BaseURL 默认 URL（保持向后兼容）
 var BaseURL = BaseURLs[0]
+
+// ForwardBaseURLs 返回 API 转发用的 URL 顺序（daily 优先）
+func ForwardBaseURLs() []string {
+	if len(BaseURLs) == 0 {
+		return nil
+	}
+	urls := append([]string(nil), BaseURLs...)
+	dailyIndex := -1
+	for i, url := range urls {
+		if url == antigravityDailyBaseURL {
+			dailyIndex = i
+			break
+		}
+	}
+	if dailyIndex <= 0 {
+		return urls
+	}
+	reordered := make([]string, 0, len(urls))
+	reordered = append(reordered, urls[dailyIndex])
+	for i, url := range urls {
+		if i == dailyIndex {
+			continue
+		}
+		reordered = append(reordered, url)
+	}
+	return reordered
+}
 
 // URLAvailability 管理 URL 可用性状态（带 TTL 自动恢复和动态优先级）
 type URLAvailability struct {
@@ -100,22 +163,37 @@ func (u *URLAvailability) IsAvailable(url string) bool {
 // GetAvailableURLs 返回可用的 URL 列表
 // 最近成功的 URL 优先，其他按默认顺序
 func (u *URLAvailability) GetAvailableURLs() []string {
+	return u.GetAvailableURLsWithBase(BaseURLs)
+}
+
+// GetAvailableURLsWithBase 返回可用的 URL 列表（使用自定义顺序）
+// 最近成功的 URL 优先，其他按传入顺序
+func (u *URLAvailability) GetAvailableURLsWithBase(baseURLs []string) []string {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 
 	now := time.Now()
-	result := make([]string, 0, len(BaseURLs))
+	result := make([]string, 0, len(baseURLs))
 
 	// 如果有最近成功的 URL 且可用，放在最前面
 	if u.lastSuccess != "" {
-		expiry, exists := u.unavailable[u.lastSuccess]
-		if !exists || now.After(expiry) {
-			result = append(result, u.lastSuccess)
+		found := false
+		for _, url := range baseURLs {
+			if url == u.lastSuccess {
+				found = true
+				break
+			}
+		}
+		if found {
+			expiry, exists := u.unavailable[u.lastSuccess]
+			if !exists || now.After(expiry) {
+				result = append(result, u.lastSuccess)
+			}
 		}
 	}
 
-	// 添加其他可用的 URL（按默认顺序）
-	for _, url := range BaseURLs {
+	// 添加其他可用的 URL（按传入顺序）
+	for _, url := range baseURLs {
 		// 跳过已添加的 lastSuccess
 		if url == u.lastSuccess {
 			continue

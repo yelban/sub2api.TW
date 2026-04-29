@@ -5,6 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -24,10 +27,22 @@ var (
 	ErrAPIKeyInvalidChars = infraerrors.BadRequest("API_KEY_INVALID_CHARS", "api key can only contain letters, numbers, underscores, and hyphens")
 	ErrAPIKeyRateLimited  = infraerrors.TooManyRequests("API_KEY_RATE_LIMITED", "too many failed attempts, please try again later")
 	ErrInvalidIPPattern   = infraerrors.BadRequest("INVALID_IP_PATTERN", "invalid IP or CIDR pattern")
+	// ErrAPIKeyExpired        = infraerrors.Forbidden("API_KEY_EXPIRED", "api key has expired")
+	ErrAPIKeyExpired = infraerrors.Forbidden("API_KEY_EXPIRED", "api key 已过期")
+	// ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key quota exhausted")
+	ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key 额度已用完")
+
+	// Rate limit errors
+	ErrAPIKeyRateLimit5hExceeded = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
+	ErrAPIKeyRateLimit1dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
+	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
 )
 
 const (
 	apiKeyMaxErrorsPerHour = 20
+	apiKeyLastUsedMinTouch = 30 * time.Second
+	// DB 写失败后的短退避，避免请求路径持续同步重试造成写风暴与高延迟。
+	apiKeyLastUsedFailBackoff = 5 * time.Second
 )
 
 type APIKeyRepository interface {
@@ -41,16 +56,70 @@ type APIKeyRepository interface {
 	Update(ctx context.Context, key *APIKey) error
 	Delete(ctx context.Context, id int64) error
 
-	ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams) ([]APIKey, *pagination.PaginationResult, error)
+	ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error)
 	VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error)
 	CountByUserID(ctx context.Context, userID int64) (int64, error)
 	ExistsByKey(ctx context.Context, key string) (bool, error)
 	ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]APIKey, *pagination.PaginationResult, error)
 	SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]APIKey, error)
 	ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error)
+	// UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
+	UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error)
 	CountByGroupID(ctx context.Context, groupID int64) (int64, error)
 	ListKeysByUserID(ctx context.Context, userID int64) ([]string, error)
 	ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error)
+
+	// Quota methods
+	IncrementQuotaUsed(ctx context.Context, id int64, amount float64) (float64, error)
+	UpdateLastUsed(ctx context.Context, id int64, usedAt time.Time) error
+
+	// Rate limit methods
+	IncrementRateLimitUsage(ctx context.Context, id int64, cost float64) error
+	ResetRateLimitWindows(ctx context.Context, id int64) error
+	GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error)
+}
+
+// APIKeyRateLimitData holds rate limit usage and window state for an API key.
+type APIKeyRateLimitData struct {
+	Usage5h       float64
+	Usage1d       float64
+	Usage7d       float64
+	Window5hStart *time.Time
+	Window1dStart *time.Time
+	Window7dStart *time.Time
+}
+
+// EffectiveUsage5h returns the 5h window usage, or 0 if the window has expired.
+func (d *APIKeyRateLimitData) EffectiveUsage5h() float64 {
+	if IsWindowExpired(d.Window5hStart, RateLimitWindow5h) {
+		return 0
+	}
+	return d.Usage5h
+}
+
+// EffectiveUsage1d returns the 1d window usage, or 0 if the window has expired.
+func (d *APIKeyRateLimitData) EffectiveUsage1d() float64 {
+	if IsWindowExpired(d.Window1dStart, RateLimitWindow1d) {
+		return 0
+	}
+	return d.Usage1d
+}
+
+// EffectiveUsage7d returns the 7d window usage, or 0 if the window has expired.
+func (d *APIKeyRateLimitData) EffectiveUsage7d() float64 {
+	if IsWindowExpired(d.Window7dStart, RateLimitWindow7d) {
+		return 0
+	}
+	return d.Usage7d
+}
+
+// APIKeyQuotaUsageState captures the latest quota fields after an atomic quota update.
+// It is intentionally small so repositories can return it from a single SQL statement.
+type APIKeyQuotaUsageState struct {
+	QuotaUsed float64
+	Quota     float64
+	Key       string
+	Status    string
 }
 
 // APIKeyCache defines cache operations for API key service
@@ -85,6 +154,15 @@ type CreateAPIKeyRequest struct {
 	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+
+	// Quota fields
+	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
+	ExpiresInDays *int    `json:"expires_in_days"` // Days until expiry (nil = never expires)
+
+	// Rate limit fields (0 = unlimited)
+	RateLimit5h float64 `json:"rate_limit_5h"`
+	RateLimit1d float64 `json:"rate_limit_1d"`
+	RateLimit7d float64 `json:"rate_limit_7d"`
 }
 
 // UpdateAPIKeyRequest 更新API Key请求
@@ -94,19 +172,40 @@ type UpdateAPIKeyRequest struct {
 	Status      *string  `json:"status"`
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+
+	// Quota fields
+	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
+	ExpiresAt       *time.Time `json:"expires_at"`  // Expiration time (nil = no change)
+	ClearExpiration bool       `json:"-"`           // Clear expiration (internal use)
+	ResetQuota      *bool      `json:"reset_quota"` // Reset quota_used to 0
+
+	// Rate limit fields (nil = no change, 0 = unlimited)
+	RateLimit5h         *float64 `json:"rate_limit_5h"`
+	RateLimit1d         *float64 `json:"rate_limit_1d"`
+	RateLimit7d         *float64 `json:"rate_limit_7d"`
+	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // Reset all usage counters to 0
 }
 
 // APIKeyService API Key服务
+// RateLimitCacheInvalidator invalidates rate limit cache entries on manual reset.
+type RateLimitCacheInvalidator interface {
+	InvalidateAPIKeyRateLimit(ctx context.Context, keyID int64) error
+}
+
 type APIKeyService struct {
-	apiKeyRepo  APIKeyRepository
-	userRepo    UserRepository
-	groupRepo   GroupRepository
-	userSubRepo UserSubscriptionRepository
-	cache       APIKeyCache
-	cfg         *config.Config
-	authCacheL1 *ristretto.Cache
-	authCfg     apiKeyAuthCacheConfig
-	authGroup   singleflight.Group
+	apiKeyRepo            APIKeyRepository
+	userRepo              UserRepository
+	groupRepo             GroupRepository
+	userSubRepo           UserSubscriptionRepository
+	userGroupRateRepo     UserGroupRateRepository
+	cache                 APIKeyCache
+	rateLimitCacheInvalid RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
+	cfg                   *config.Config
+	authCacheL1           *ristretto.Cache
+	authCfg               apiKeyAuthCacheConfig
+	authGroup             singleflight.Group
+	lastUsedTouchL1       sync.Map // keyID -> nextAllowedAt(time.Time)
+	lastUsedTouchSF       singleflight.Group
 }
 
 // NewAPIKeyService 创建API Key服务实例
@@ -115,19 +214,35 @@ func NewAPIKeyService(
 	userRepo UserRepository,
 	groupRepo GroupRepository,
 	userSubRepo UserSubscriptionRepository,
+	userGroupRateRepo UserGroupRateRepository,
 	cache APIKeyCache,
 	cfg *config.Config,
 ) *APIKeyService {
 	svc := &APIKeyService{
-		apiKeyRepo:  apiKeyRepo,
-		userRepo:    userRepo,
-		groupRepo:   groupRepo,
-		userSubRepo: userSubRepo,
-		cache:       cache,
-		cfg:         cfg,
+		apiKeyRepo:        apiKeyRepo,
+		userRepo:          userRepo,
+		groupRepo:         groupRepo,
+		userSubRepo:       userSubRepo,
+		userGroupRateRepo: userGroupRateRepo,
+		cache:             cache,
+		cfg:               cfg,
 	}
 	svc.initAuthCache(cfg)
 	return svc
+}
+
+// SetRateLimitCacheInvalidator sets the optional rate limit cache invalidator.
+// Called after construction (e.g. in wire) to avoid circular dependencies.
+func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidator) {
+	s.rateLimitCacheInvalid = inv
+}
+
+func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
+	if apiKey == nil {
+		return
+	}
+	apiKey.CompiledIPWhitelist = ip.CompileIPRules(apiKey.IPWhitelist)
+	apiKey.CompiledIPBlacklist = ip.CompileIPRules(apiKey.IPBlacklist)
 }
 
 // GenerateKey 生成随机API Key
@@ -289,6 +404,17 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		Status:      StatusActive,
 		IPWhitelist: req.IPWhitelist,
 		IPBlacklist: req.IPBlacklist,
+		Quota:       req.Quota,
+		QuotaUsed:   0,
+		RateLimit5h: req.RateLimit5h,
+		RateLimit1d: req.RateLimit1d,
+		RateLimit7d: req.RateLimit7d,
+	}
+
+	// Set expiration time if specified
+	if req.ExpiresInDays != nil && *req.ExpiresInDays > 0 {
+		expiresAt := time.Now().AddDate(0, 0, *req.ExpiresInDays)
+		apiKey.ExpiresAt = &expiresAt
 	}
 
 	if err := s.apiKeyRepo.Create(ctx, apiKey); err != nil {
@@ -296,13 +422,14 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	}
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
+	s.compileAPIKeyIPRules(apiKey)
 
 	return apiKey, nil
 }
 
 // List 获取用户的API Key列表
-func (s *APIKeyService) List(ctx context.Context, userID int64, params pagination.PaginationParams) ([]APIKey, *pagination.PaginationResult, error) {
-	keys, pagination, err := s.apiKeyRepo.ListByUserID(ctx, userID, params)
+func (s *APIKeyService) List(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
+	keys, pagination, err := s.apiKeyRepo.ListByUserID(ctx, userID, params, filters)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
@@ -327,6 +454,7 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 	if err != nil {
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
+	s.compileAPIKeyIPRules(apiKey)
 	return apiKey, nil
 }
 
@@ -339,6 +467,7 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
+			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	}
@@ -355,6 +484,7 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
+			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	} else {
@@ -366,6 +496,7 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 			if err != nil {
 				return nil, fmt.Errorf("get api key: %w", err)
 			}
+			s.compileAPIKeyIPRules(apiKey)
 			return apiKey, nil
 		}
 	}
@@ -375,6 +506,7 @@ func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, erro
 		return nil, fmt.Errorf("get api key: %w", err)
 	}
 	apiKey.Key = key
+	s.compileAPIKeyIPRules(apiKey)
 	return apiKey, nil
 }
 
@@ -436,15 +568,70 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 	}
 
+	// Update quota fields
+	if req.Quota != nil {
+		apiKey.Quota = *req.Quota
+		// If quota is increased and status was quota_exhausted, reactivate
+		if apiKey.Status == StatusAPIKeyQuotaExhausted && *req.Quota > apiKey.QuotaUsed {
+			apiKey.Status = StatusActive
+		}
+	}
+	if req.ResetQuota != nil && *req.ResetQuota {
+		apiKey.QuotaUsed = 0
+		// If resetting quota and status was quota_exhausted, reactivate
+		if apiKey.Status == StatusAPIKeyQuotaExhausted {
+			apiKey.Status = StatusActive
+		}
+	}
+	if req.ClearExpiration {
+		apiKey.ExpiresAt = nil
+		// If clearing expiry and status was expired, reactivate
+		if apiKey.Status == StatusAPIKeyExpired {
+			apiKey.Status = StatusActive
+		}
+	} else if req.ExpiresAt != nil {
+		apiKey.ExpiresAt = req.ExpiresAt
+		// If extending expiry and status was expired, reactivate
+		if apiKey.Status == StatusAPIKeyExpired && time.Now().Before(*req.ExpiresAt) {
+			apiKey.Status = StatusActive
+		}
+	}
+
 	// 更新 IP 限制（空数组会清空设置）
 	apiKey.IPWhitelist = req.IPWhitelist
 	apiKey.IPBlacklist = req.IPBlacklist
+
+	// Update rate limit configuration
+	if req.RateLimit5h != nil {
+		apiKey.RateLimit5h = *req.RateLimit5h
+	}
+	if req.RateLimit1d != nil {
+		apiKey.RateLimit1d = *req.RateLimit1d
+	}
+	if req.RateLimit7d != nil {
+		apiKey.RateLimit7d = *req.RateLimit7d
+	}
+	resetRateLimit := req.ResetRateLimitUsage != nil && *req.ResetRateLimitUsage
+	if resetRateLimit {
+		apiKey.Usage5h = 0
+		apiKey.Usage1d = 0
+		apiKey.Usage7d = 0
+		apiKey.Window5hStart = nil
+		apiKey.Window1dStart = nil
+		apiKey.Window7dStart = nil
+	}
 
 	if err := s.apiKeyRepo.Update(ctx, apiKey); err != nil {
 		return nil, fmt.Errorf("update api key: %w", err)
 	}
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
+	s.compileAPIKeyIPRules(apiKey)
+
+	// Invalidate Redis rate limit cache so reset takes effect immediately
+	if resetRateLimit && s.rateLimitCacheInvalid != nil {
+		_ = s.rateLimitCacheInvalid.InvalidateAPIKeyRateLimit(ctx, apiKey.ID)
+	}
 
 	return apiKey, nil
 }
@@ -470,6 +657,7 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	if err := s.apiKeyRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete api key: %w", err)
 	}
+	s.lastUsedTouchL1.Delete(id)
 
 	return nil
 }
@@ -499,6 +687,38 @@ func (s *APIKeyService) ValidateKey(ctx context.Context, key string) (*APIKey, *
 	}
 
 	return apiKey, user, nil
+}
+
+// TouchLastUsed 通过防抖更新 api_keys.last_used_at，减少高频写放大。
+// 该操作为尽力而为，不应阻塞主请求链路。
+func (s *APIKeyService) TouchLastUsed(ctx context.Context, keyID int64) error {
+	if keyID <= 0 {
+		return nil
+	}
+
+	now := time.Now()
+	if v, ok := s.lastUsedTouchL1.Load(keyID); ok {
+		if nextAllowedAt, ok := v.(time.Time); ok && now.Before(nextAllowedAt) {
+			return nil
+		}
+	}
+
+	_, err, _ := s.lastUsedTouchSF.Do(strconv.FormatInt(keyID, 10), func() (any, error) {
+		latest := time.Now()
+		if v, ok := s.lastUsedTouchL1.Load(keyID); ok {
+			if nextAllowedAt, ok := v.(time.Time); ok && latest.Before(nextAllowedAt) {
+				return nil, nil
+			}
+		}
+
+		if err := s.apiKeyRepo.UpdateLastUsed(ctx, keyID, latest); err != nil {
+			s.lastUsedTouchL1.Store(keyID, latest.Add(apiKeyLastUsedFailBackoff))
+			return nil, fmt.Errorf("touch api key last used: %w", err)
+		}
+		s.lastUsedTouchL1.Store(keyID, latest.Add(apiKeyLastUsedMinTouch))
+		return nil, nil
+	})
+	return err
 }
 
 // IncrementUsage 增加API Key使用次数（可选：用于统计）
@@ -571,4 +791,93 @@ func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword
 		return nil, fmt.Errorf("search api keys: %w", err)
 	}
 	return keys, nil
+}
+
+// GetUserGroupRates 获取用户的专属分组倍率配置
+// 返回 map[groupID]rateMultiplier
+func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (map[int64]float64, error) {
+	if s.userGroupRateRepo == nil {
+		return nil, nil
+	}
+	rates, err := s.userGroupRateRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user group rates: %w", err)
+	}
+	return rates, nil
+}
+
+// CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)
+// Returns nil if valid, error if invalid
+func (s *APIKeyService) CheckAPIKeyQuotaAndExpiry(apiKey *APIKey) error {
+	// Check expiration
+	if apiKey.IsExpired() {
+		return ErrAPIKeyExpired
+	}
+
+	// Check quota
+	if apiKey.IsQuotaExhausted() {
+		return ErrAPIKeyQuotaExhausted
+	}
+
+	return nil
+}
+
+// UpdateQuotaUsed updates the quota_used field after a request
+// Also checks if quota is exhausted and updates status accordingly
+func (s *APIKeyService) UpdateQuotaUsed(ctx context.Context, apiKeyID int64, cost float64) error {
+	if cost <= 0 {
+		return nil
+	}
+
+	type quotaStateReader interface {
+		IncrementQuotaUsedAndGetState(ctx context.Context, id int64, amount float64) (*APIKeyQuotaUsageState, error)
+	}
+
+	if repo, ok := s.apiKeyRepo.(quotaStateReader); ok {
+		state, err := repo.IncrementQuotaUsedAndGetState(ctx, apiKeyID, cost)
+		if err != nil {
+			return fmt.Errorf("increment quota used: %w", err)
+		}
+		if state != nil && state.Status == StatusAPIKeyQuotaExhausted && strings.TrimSpace(state.Key) != "" {
+			s.InvalidateAuthCacheByKey(ctx, state.Key)
+		}
+		return nil
+	}
+
+	// Use repository to atomically increment quota_used
+	newQuotaUsed, err := s.apiKeyRepo.IncrementQuotaUsed(ctx, apiKeyID, cost)
+	if err != nil {
+		return fmt.Errorf("increment quota used: %w", err)
+	}
+
+	// Check if quota is now exhausted and update status if needed
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, apiKeyID)
+	if err != nil {
+		return nil // Don't fail the request, just log
+	}
+
+	// If quota is set and now exhausted, update status
+	if apiKey.Quota > 0 && newQuotaUsed >= apiKey.Quota {
+		apiKey.Status = StatusAPIKeyQuotaExhausted
+		if err := s.apiKeyRepo.Update(ctx, apiKey); err != nil {
+			return nil // Don't fail the request
+		}
+		// Invalidate cache so next request sees the new status
+		s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
+	}
+
+	return nil
+}
+
+// GetRateLimitData returns rate limit usage and window state for an API key.
+func (s *APIKeyService) GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error) {
+	return s.apiKeyRepo.GetRateLimitData(ctx, id)
+}
+
+// UpdateRateLimitUsage atomically increments rate limit usage counters in the DB.
+func (s *APIKeyService) UpdateRateLimitUsage(ctx context.Context, apiKeyID int64, cost float64) error {
+	if cost <= 0 {
+		return nil
+	}
+	return s.apiKeyRepo.IncrementRateLimitUsage(ctx, apiKeyID, cost)
 }

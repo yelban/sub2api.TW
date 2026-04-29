@@ -53,7 +53,7 @@ func (s *authRepoStub) Delete(ctx context.Context, id int64) error {
 	panic("unexpected Delete call")
 }
 
-func (s *authRepoStub) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams) ([]APIKey, *pagination.PaginationResult, error) {
+func (s *authRepoStub) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
 	panic("unexpected ListByUserID call")
 }
 
@@ -80,6 +80,9 @@ func (s *authRepoStub) SearchAPIKeys(ctx context.Context, userID int64, keyword 
 func (s *authRepoStub) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
 	panic("unexpected ClearGroupIDByGroupID call")
 }
+func (s *authRepoStub) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
+	panic("unexpected UpdateGroupIDByUserAndGroup call")
+}
 
 func (s *authRepoStub) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
 	panic("unexpected CountByGroupID call")
@@ -97,6 +100,23 @@ func (s *authRepoStub) ListKeysByGroupID(ctx context.Context, groupID int64) ([]
 		panic("unexpected ListKeysByGroupID call")
 	}
 	return s.listKeysByGroupID(ctx, groupID)
+}
+
+func (s *authRepoStub) IncrementQuotaUsed(ctx context.Context, id int64, amount float64) (float64, error) {
+	panic("unexpected IncrementQuotaUsed call")
+}
+
+func (s *authRepoStub) UpdateLastUsed(ctx context.Context, id int64, usedAt time.Time) error {
+	panic("unexpected UpdateLastUsed call")
+}
+func (s *authRepoStub) IncrementRateLimitUsage(ctx context.Context, id int64, cost float64) error {
+	panic("unexpected IncrementRateLimitUsage call")
+}
+func (s *authRepoStub) ResetRateLimitWindows(ctx context.Context, id int64) error {
+	panic("unexpected ResetRateLimitWindows call")
+}
+func (s *authRepoStub) GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error) {
+	panic("unexpected GetRateLimitData call")
 }
 
 type authCacheStub struct {
@@ -163,11 +183,12 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 
 	groupID := int64(9)
 	cacheEntry := &APIKeyAuthCacheEntry{
 		Snapshot: &APIKeyAuthSnapshot{
+			Version:  apiKeyAuthSnapshotVersion,
 			APIKeyID: 1,
 			UserID:   2,
 			GroupID:  &groupID,
@@ -206,6 +227,129 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	require.Equal(t, map[string][]int64{"claude-opus-*": {1, 2}}, apiKey.Group.ModelRouting)
 }
 
+func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t *testing.T) {
+	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+	groupID := int64(9)
+	apiKey := &APIKey{
+		ID:      1,
+		UserID:  2,
+		GroupID: &groupID,
+		Key:     "k-roundtrip",
+		Status:  StatusActive,
+		User: &User{
+			ID:          2,
+			Status:      StatusActive,
+			Role:        RoleUser,
+			Balance:     10,
+			Concurrency: 3,
+		},
+		Group: &Group{
+			ID:                    groupID,
+			Name:                  "openai",
+			Platform:              PlatformOpenAI,
+			Status:                StatusActive,
+			SubscriptionType:      SubscriptionTypeStandard,
+			RateMultiplier:        1,
+			AllowMessagesDispatch: true,
+			DefaultMappedModel:    "gpt-5.4",
+			MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
+				OpusMappedModel:   "gpt-5.4-nano",
+				SonnetMappedModel: "gpt-5.3-codex",
+				HaikuMappedModel:  "gpt-5.4-mini",
+				ExactModelMappings: map[string]string{
+					"claude-sonnet-4.5": "gpt-5.4-nano",
+				},
+			},
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+
+	require.NotNil(t, roundTrip)
+	require.NotNil(t, roundTrip.Group)
+	require.Equal(t, apiKey.Group.MessagesDispatchModelConfig, roundTrip.Group.MessagesDispatchModelConfig)
+}
+
+func TestAPIKeyService_GetByKey_IgnoresLegacyAuthCacheSnapshotWithoutMessagesDispatchConfig(t *testing.T) {
+	cache := &authCacheStub{}
+	var repoCalls int32
+	repo := &authRepoStub{
+		getByKeyForAuth: func(ctx context.Context, key string) (*APIKey, error) {
+			atomic.AddInt32(&repoCalls, 1)
+			groupID := int64(9)
+			return &APIKey{
+				ID:      1,
+				UserID:  2,
+				GroupID: &groupID,
+				Status:  StatusActive,
+				User: &User{
+					ID:          2,
+					Status:      StatusActive,
+					Role:        RoleUser,
+					Balance:     10,
+					Concurrency: 3,
+				},
+				Group: &Group{
+					ID:                    groupID,
+					Name:                  "openai",
+					Platform:              PlatformOpenAI,
+					Status:                StatusActive,
+					Hydrated:              true,
+					SubscriptionType:      SubscriptionTypeStandard,
+					RateMultiplier:        1,
+					AllowMessagesDispatch: true,
+					DefaultMappedModel:    "gpt-5.4",
+					MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
+						OpusMappedModel: "gpt-5.4-nano",
+					},
+				},
+			}, nil
+		},
+	}
+	cfg := &config.Config{
+		APIKeyAuth: config.APIKeyAuthCacheConfig{
+			L2TTLSeconds: 60,
+		},
+	}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
+
+	groupID := int64(9)
+	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
+		return &APIKeyAuthCacheEntry{
+			Snapshot: &APIKeyAuthSnapshot{
+				APIKeyID: 1,
+				UserID:   2,
+				GroupID:  &groupID,
+				Status:   StatusActive,
+				User: APIKeyAuthUserSnapshot{
+					ID:          2,
+					Status:      StatusActive,
+					Role:        RoleUser,
+					Balance:     10,
+					Concurrency: 3,
+				},
+				Group: &APIKeyAuthGroupSnapshot{
+					ID:                    groupID,
+					Name:                  "openai",
+					Platform:              PlatformOpenAI,
+					Status:                StatusActive,
+					SubscriptionType:      SubscriptionTypeStandard,
+					RateMultiplier:        1,
+					AllowMessagesDispatch: true,
+					DefaultMappedModel:    "gpt-5.4",
+				},
+			},
+		}, nil
+	}
+
+	apiKey, err := svc.GetByKey(context.Background(), "k-legacy")
+	require.NoError(t, err)
+	require.Equal(t, int32(1), atomic.LoadInt32(&repoCalls))
+	require.NotNil(t, apiKey.Group)
+	require.Equal(t, "gpt-5.4-nano", apiKey.Group.MessagesDispatchModelConfig.OpusMappedModel)
+}
+
 func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {
 	cache := &authCacheStub{}
 	repo := &authRepoStub{
@@ -219,7 +363,7 @@ func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return &APIKeyAuthCacheEntry{NotFound: true}, nil
 	}
@@ -252,7 +396,7 @@ func TestAPIKeyService_GetByKey_CacheMissStoresL2(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return nil, redis.Nil
 	}
@@ -289,7 +433,7 @@ func TestAPIKeyService_GetByKey_UsesL1Cache(t *testing.T) {
 			L1TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 	require.NotNil(t, svc.authCacheL1)
 
 	_, err := svc.GetByKey(context.Background(), "k-l1")
@@ -316,7 +460,7 @@ func TestAPIKeyService_InvalidateAuthCacheByUserID(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByUserID(context.Background(), 7)
 	require.Len(t, cache.deleteAuthKeys, 2)
@@ -334,7 +478,7 @@ func TestAPIKeyService_InvalidateAuthCacheByGroupID(t *testing.T) {
 			L2TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByGroupID(context.Background(), 9)
 	require.Len(t, cache.deleteAuthKeys, 2)
@@ -352,7 +496,7 @@ func TestAPIKeyService_InvalidateAuthCacheByKey(t *testing.T) {
 			L2TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByKey(context.Background(), "k1")
 	require.Len(t, cache.deleteAuthKeys, 1)
@@ -371,7 +515,7 @@ func TestAPIKeyService_GetByKey_CachesNegativeOnRepoMiss(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return nil, redis.Nil
 	}
@@ -407,7 +551,7 @@ func TestAPIKeyService_GetByKey_SingleflightCollapses(t *testing.T) {
 			Singleflight: true,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, cache, cfg)
 
 	start := make(chan struct{})
 	wg := sync.WaitGroup{}

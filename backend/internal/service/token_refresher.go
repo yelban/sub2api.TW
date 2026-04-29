@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strconv"
 	"time"
 )
 
@@ -32,6 +31,11 @@ func NewClaudeTokenRefresher(oauthService *OAuthService) *ClaudeTokenRefresher {
 	}
 }
 
+// CacheKey 返回用于分布式锁的缓存键
+func (r *ClaudeTokenRefresher) CacheKey(account *Account) string {
+	return ClaudeTokenCacheKey(account)
+}
+
 // CanRefresh 检查是否能处理此账号
 // 只处理 anthropic 平台的 oauth 类型账号
 // setup-token 虽然也是OAuth，但有效期1年，不需要频繁刷新
@@ -58,24 +62,8 @@ func (r *ClaudeTokenRefresher) Refresh(ctx context.Context, account *Account) (m
 		return nil, err
 	}
 
-	// 保留现有credentials中的所有字段
-	newCredentials := make(map[string]any)
-	for k, v := range account.Credentials {
-		newCredentials[k] = v
-	}
-
-	// 只更新token相关字段
-	// 注意：expires_at 和 expires_in 必须存为字符串，因为 GetCredential 只返回 string 类型
-	newCredentials["access_token"] = tokenInfo.AccessToken
-	newCredentials["token_type"] = tokenInfo.TokenType
-	newCredentials["expires_in"] = strconv.FormatInt(tokenInfo.ExpiresIn, 10)
-	newCredentials["expires_at"] = strconv.FormatInt(tokenInfo.ExpiresAt, 10)
-	if tokenInfo.RefreshToken != "" {
-		newCredentials["refresh_token"] = tokenInfo.RefreshToken
-	}
-	if tokenInfo.Scope != "" {
-		newCredentials["scope"] = tokenInfo.Scope
-	}
+	newCredentials := BuildClaudeAccountCredentials(tokenInfo)
+	newCredentials = MergeCredentials(account.Credentials, newCredentials)
 
 	return newCredentials, nil
 }
@@ -83,28 +71,33 @@ func (r *ClaudeTokenRefresher) Refresh(ctx context.Context, account *Account) (m
 // OpenAITokenRefresher 处理 OpenAI OAuth token刷新
 type OpenAITokenRefresher struct {
 	openaiOAuthService *OpenAIOAuthService
+	accountRepo        AccountRepository
 }
 
 // NewOpenAITokenRefresher 创建 OpenAI token刷新器
-func NewOpenAITokenRefresher(openaiOAuthService *OpenAIOAuthService) *OpenAITokenRefresher {
+func NewOpenAITokenRefresher(openaiOAuthService *OpenAIOAuthService, accountRepo AccountRepository) *OpenAITokenRefresher {
 	return &OpenAITokenRefresher{
 		openaiOAuthService: openaiOAuthService,
+		accountRepo:        accountRepo,
 	}
 }
 
+// CacheKey 返回用于分布式锁的缓存键
+func (r *OpenAITokenRefresher) CacheKey(account *Account) string {
+	return OpenAITokenCacheKey(account)
+}
+
 // CanRefresh 检查是否能处理此账号
-// 只处理 openai 平台的 oauth 类型账号
 func (r *OpenAITokenRefresher) CanRefresh(account *Account) bool {
-	return account.Platform == PlatformOpenAI &&
-		account.Type == AccountTypeOAuth
+	return account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth
 }
 
 // NeedsRefresh 检查token是否需要刷新
-// 基于 expires_at 字段判断是否在刷新窗口内
+// expires_at 缺失且处于限流状态时需要刷新，防止限流期间 token 静默过期
 func (r *OpenAITokenRefresher) NeedsRefresh(account *Account, refreshWindow time.Duration) bool {
-	expiresAt := account.GetOpenAITokenExpiresAt()
+	expiresAt := account.GetCredentialAsTime("expires_at")
 	if expiresAt == nil {
-		return false
+		return account.IsRateLimited()
 	}
 
 	return time.Until(*expiresAt) < refreshWindow
@@ -120,13 +113,7 @@ func (r *OpenAITokenRefresher) Refresh(ctx context.Context, account *Account) (m
 
 	// 使用服务提供的方法构建新凭证，并保留原有字段
 	newCredentials := r.openaiOAuthService.BuildAccountCredentials(tokenInfo)
-
-	// 保留原有credentials中非token相关字段
-	for k, v := range account.Credentials {
-		if _, exists := newCredentials[k]; !exists {
-			newCredentials[k] = v
-		}
-	}
+	newCredentials = MergeCredentials(account.Credentials, newCredentials)
 
 	return newCredentials, nil
 }

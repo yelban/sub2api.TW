@@ -17,7 +17,7 @@ import type {
  * List all subscriptions with pagination
  * @param page - Page number (default: 1)
  * @param pageSize - Items per page (default: 20)
- * @param filters - Optional filters (status, user_id, group_id)
+ * @param filters - Optional filters (status, user_id, group_id, sort_by, sort_order)
  * @returns Paginated list of subscriptions
  */
 export async function list(
@@ -27,6 +27,9 @@ export async function list(
     status?: 'active' | 'expired' | 'revoked'
     user_id?: number
     group_id?: number
+    platform?: string
+    sort_by?: string
+    sort_order?: 'asc' | 'desc'
   },
   options?: {
     signal?: AbortSignal
@@ -119,6 +122,23 @@ export async function revoke(id: number): Promise<{ message: string }> {
 }
 
 /**
+ * Reset daily, weekly, and/or monthly usage quota for a subscription
+ * @param id - Subscription ID
+ * @param options - Which windows to reset
+ * @returns Updated subscription
+ */
+export async function resetQuota(
+  id: number,
+  options: { daily: boolean; weekly: boolean; monthly: boolean }
+): Promise<UserSubscription> {
+  const { data } = await apiClient.post<UserSubscription>(
+    `/admin/subscriptions/${id}/reset-quota`,
+    options
+  )
+  return data
+}
+
+/**
  * List subscriptions by group
  * @param groupId - Group ID
  * @param page - Page number
@@ -168,6 +188,7 @@ export const subscriptionsAPI = {
   bulkAssign,
   extend,
   revoke,
+  resetQuota,
   listByGroup,
   listByUser
 }

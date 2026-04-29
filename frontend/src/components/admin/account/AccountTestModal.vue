@@ -55,6 +55,17 @@
         />
       </div>
 
+      <div v-if="supportsImageTest" class="space-y-1.5">
+        <TextArea
+          v-model="testPrompt"
+          :label="t('admin.accounts.imagePromptLabel')"
+          :placeholder="t('admin.accounts.imagePromptPlaceholder')"
+          :hint="t('admin.accounts.imageTestHint')"
+          :disabled="status === 'connecting'"
+          rows="3"
+        />
+      </div>
+
       <!-- Terminal Output -->
       <div class="group relative">
         <div
@@ -109,6 +120,51 @@
         </button>
       </div>
 
+      <div v-if="generatedImages.length > 0" class="space-y-2">
+        <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+          {{ t('admin.accounts.imagePreview') }}
+        </div>
+        <div class="flex flex-wrap justify-center gap-3">
+          <div
+            v-for="(image, index) in generatedImages"
+            :key="`${image.url}-${index}`"
+            class="group/img relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-dark-500 dark:bg-dark-700"
+            @click="previewImageUrl = image.url"
+          >
+            <img :src="image.url" :alt="`test-image-${index + 1}`" class="max-h-[360px] w-full object-contain" />
+            <div class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/img:bg-black/20">
+              <Icon name="eye" size="lg" class="text-white opacity-0 drop-shadow-lg transition-opacity group-hover/img:opacity-100" :stroke-width="2" />
+            </div>
+            <div class="border-t border-gray-100 px-3 py-1.5 text-xs text-gray-500 dark:border-dark-500 dark:text-gray-300">
+              {{ image.mimeType || 'image/*' }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Lightbox -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="previewImageUrl"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+            @click.self="previewImageUrl = ''"
+          >
+            <button
+              class="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+              @click="previewImageUrl = ''"
+            >
+              <Icon name="x" size="lg" :stroke-width="2" />
+            </button>
+            <img
+              :src="previewImageUrl"
+              alt="preview"
+              class="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            />
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- Test Info -->
       <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
         <div class="flex items-center gap-3">
@@ -119,7 +175,11 @@
         </div>
         <span class="flex items-center gap-1">
           <Icon name="chat" size="sm" :stroke-width="2" />
-          {{ t('admin.accounts.testPrompt') }}
+          {{
+            supportsImageTest
+              ? t('admin.accounts.imageTestMode')
+              : t('admin.accounts.testPrompt')
+          }}
         </span>
       </div>
     </div>
@@ -129,7 +189,6 @@
         <button
           @click="handleClose"
           class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
-          :disabled="status === 'connecting'"
         >
           {{ t('common.close') }}
         </button>
@@ -172,10 +231,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
+import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { adminAPI } from '@/api/admin'
@@ -187,6 +247,11 @@ const { copyToClipboard } = useClipboard()
 interface OutputLine {
   text: string
   class: string
+}
+
+interface PreviewImage {
+  url: string
+  mimeType?: string
 }
 
 const props = defineProps<{
@@ -205,21 +270,57 @@ const streamingContent = ref('')
 const errorMessage = ref('')
 const availableModels = ref<ClaudeModel[]>([])
 const selectedModelId = ref('')
+const testPrompt = ref('')
 const loadingModels = ref(false)
-let eventSource: EventSource | null = null
+let abortController: AbortController | null = null
+const generatedImages = ref<PreviewImage[]>([])
+const previewImageUrl = ref('')
+const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
+const supportsGeminiImageTest = computed(() => {
+  const modelID = selectedModelId.value.toLowerCase()
+  if (!modelID.startsWith('gemini-') || !modelID.includes('-image')) return false
+
+  return props.account?.platform === 'gemini' || (props.account?.platform === 'antigravity' && props.account?.type === 'apikey')
+})
+
+const supportsOpenAIImageTest = computed(() => {
+  const modelID = selectedModelId.value.toLowerCase()
+  if (!modelID.startsWith('gpt-image-')) return false
+  return props.account?.platform === 'openai'
+})
+
+const supportsImageTest = computed(() => supportsGeminiImageTest.value || supportsOpenAIImageTest.value)
+
+const sortTestModels = (models: ClaudeModel[]) => {
+  const priorityMap = new Map(prioritizedGeminiModels.map((id, index) => [id, index]))
+
+  return [...models].sort((a, b) => {
+    const aPriority = priorityMap.get(a.id) ?? Number.MAX_SAFE_INTEGER
+    const bPriority = priorityMap.get(b.id) ?? Number.MAX_SAFE_INTEGER
+    if (aPriority !== bPriority) return aPriority - bPriority
+    return 0
+  })
+}
 
 // Load available models when modal opens
 watch(
   () => props.show,
   async (newVal) => {
     if (newVal && props.account) {
+      testPrompt.value = ''
       resetState()
       await loadAvailableModels()
     } else {
-      closeEventSource()
+      abortStream()
     }
   }
 )
+
+watch(selectedModelId, () => {
+  if (supportsImageTest.value && !testPrompt.value.trim()) {
+    testPrompt.value = t('admin.accounts.imagePromptDefault')
+  }
+})
 
 const loadAvailableModels = async () => {
   if (!props.account) return
@@ -227,17 +328,14 @@ const loadAvailableModels = async () => {
   loadingModels.value = true
   selectedModelId.value = '' // Reset selection before loading
   try {
-    availableModels.value = await adminAPI.accounts.getAvailableModels(props.account.id)
+    const models = await adminAPI.accounts.getAvailableModels(props.account.id)
+    availableModels.value = props.account.platform === 'gemini' || props.account.platform === 'antigravity'
+      ? sortTestModels(models)
+      : models
     // Default selection by platform
     if (availableModels.value.length > 0) {
       if (props.account.platform === 'gemini') {
-        const preferred =
-          availableModels.value.find((m) => m.id === 'gemini-2.0-flash') ||
-          availableModels.value.find((m) => m.id === 'gemini-2.5-flash') ||
-          availableModels.value.find((m) => m.id === 'gemini-2.5-pro') ||
-          availableModels.value.find((m) => m.id === 'gemini-3-flash-preview') ||
-          availableModels.value.find((m) => m.id === 'gemini-3-pro-preview')
-        selectedModelId.value = preferred?.id || availableModels.value[0].id
+        selectedModelId.value = availableModels.value[0].id
       } else {
         // Try to select Sonnet as default, otherwise use first model
         const sonnetModel = availableModels.value.find((m) => m.id.includes('sonnet'))
@@ -259,21 +357,19 @@ const resetState = () => {
   outputLines.value = []
   streamingContent.value = ''
   errorMessage.value = ''
+  generatedImages.value = []
+  previewImageUrl.value = ''
 }
 
 const handleClose = () => {
-  // 防止在连接测试进行中关闭对话框
-  if (status.value === 'connecting') {
-    return
-  }
-  closeEventSource()
+  abortStream()
   emit('close')
 }
 
-const closeEventSource = () => {
-  if (eventSource) {
-    eventSource.close()
-    eventSource = null
+const abortStream = () => {
+  if (abortController) {
+    abortController.abort()
+    abortController = null
   }
 }
 
@@ -298,7 +394,9 @@ const startTest = async () => {
   addLine(t('admin.accounts.testAccountTypeLabel', { type: props.account.type }), 'text-gray-400')
   addLine('', 'text-gray-300')
 
-  closeEventSource()
+  abortStream()
+
+  abortController = new AbortController()
 
   try {
     // Create EventSource for SSE
@@ -311,7 +409,11 @@ const startTest = async () => {
         Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ model_id: selectedModelId.value })
+      body: JSON.stringify({
+              model_id: selectedModelId.value,
+              prompt: supportsImageTest.value ? testPrompt.value.trim() : ''
+            }),
+      signal: abortController.signal
     })
 
     if (!response.ok) {
@@ -348,10 +450,15 @@ const startTest = async () => {
         }
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      status.value = 'idle'
+      return
+    }
     status.value = 'error'
-    errorMessage.value = error.message || 'Unknown error'
-    addLine(`Error: ${errorMessage.value}`, 'text-red-400')
+    const msg = error instanceof Error ? error.message : 'Unknown error'
+    errorMessage.value = msg
+    addLine(`Error: ${msg}`, 'text-red-400')
   }
 }
 
@@ -361,6 +468,8 @@ const handleEvent = (event: {
   model?: string
   success?: boolean
   error?: string
+  image_url?: string
+  mime_type?: string
 }) => {
   switch (event.type) {
     case 'test_start':
@@ -368,7 +477,12 @@ const handleEvent = (event: {
       if (event.model) {
         addLine(t('admin.accounts.usingModel', { model: event.model }), 'text-cyan-400')
       }
-      addLine(t('admin.accounts.sendingTestMessage'), 'text-gray-400')
+      addLine(
+        supportsImageTest.value
+            ? t('admin.accounts.sendingImageRequest')
+            : t('admin.accounts.sendingTestMessage'),
+        'text-gray-400'
+      )
       addLine('', 'text-gray-300')
       addLine(t('admin.accounts.response'), 'text-yellow-400')
       break
@@ -377,6 +491,16 @@ const handleEvent = (event: {
       if (event.text) {
         streamingContent.value += event.text
         scrollToBottom()
+      }
+      break
+
+    case 'image':
+      if (event.image_url) {
+        generatedImages.value.push({
+          url: event.image_url,
+          mimeType: event.mime_type
+        })
+        addLine(t('admin.accounts.imageReceived', { count: generatedImages.value.length }), 'text-purple-300')
       }
       break
 
@@ -410,3 +534,14 @@ const copyOutput = () => {
   copyToClipboard(text, t('admin.accounts.outputCopied'))
 }
 </script>
+
+<style>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
