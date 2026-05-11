@@ -129,6 +129,7 @@ docs/*
 !docs/dependency-security.md
 !docs/i18n-traditional-chinese.md
 !docs/fork-sync-workflow.md
+!docs/antigravity-403-mitigation.md
 !docs/PAYMENT.md
 !docs/PAYMENT_CN.md
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md
