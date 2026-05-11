@@ -401,10 +401,16 @@ const isAdmin = computed(() => authStore.isAdmin)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
+// 去除版本號開頭可能多帶的 'v'，避免 template 加 'v' 後變 'vv'
+function stripVPrefix(v: string | undefined | null): string {
+  if (!v) return ''
+  return String(v).replace(/^v/i, '')
+}
+
 // Use store's cached version state
 const loading = computed(() => appStore.versionLoading)
-const currentVersion = computed(() => appStore.currentVersion || props.version || '')
-const latestVersion = computed(() => appStore.latestVersion)
+const currentVersion = computed(() => stripVPrefix(appStore.currentVersion || props.version))
+const latestVersion = computed(() => stripVPrefix(appStore.latestVersion))
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
 const buildType = computed(() => appStore.buildType)
