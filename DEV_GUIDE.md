@@ -1,6 +1,6 @@
 # sub2api 專案開發指南
 
-> 本文件記錄專案環境配置、常見坑點和注意事項，供 Claude Code 和團隊成員參考。
+> 本檔案記錄專案環境配置、常見坑點和注意事項，供 Claude Code 和團隊成員參考。
 
 ## 一、專案基本資訊
 
@@ -335,12 +335,12 @@ sub2api-bmai/
 │   ├── package.json         # 依賴配置
 │   └── pnpm-lock.yaml       # pnpm 鎖檔案（必須提交）
 └── .claude/
-    └── CLAUDE.md            # 本文件
+    └── CLAUDE.md            # 本檔案
 ```
 
 ## 七、參考資源
 
 - [上游倉庫](https://github.com/Wei-Shaw/sub2api)
-- [Ent 文件](https://entgo.io/docs/getting-started)
-- [Vue3 文件](https://vuejs.org/)
-- [pnpm 文件](https://pnpm.io/)
+- [Ent 檔案](https://entgo.io/docs/getting-started)
+- [Vue3 檔案](https://vuejs.org/)
+- [pnpm 檔案](https://pnpm.io/)

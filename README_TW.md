@@ -61,18 +61,23 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 </tr>
 
 <tr>
-<td width="180"><a href="https://poixe.com/i/sub2api"><img src="assets/partners/logos/poixe.png" alt="PoixeAI" width="150"></a></td>
-<td>感謝 Poixe AI 贊助了本專案！Poixe AI 提供可靠的 AI 模型介面服務，您可以使用平臺提供的 LLM API 介面輕鬆構建 AI 產品，同時也可以成為供應商，為平臺提供大模型資源以賺取收益。透過 <a href="https://poixe.com/i/sub2api">此連結</a> 專屬連結註冊，充值額外贈送 $5 美金</td>
-</tr>
-
-<tr>
 <td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
 <td>感謝 CTok.ai 贊助了本專案！CTok.ai 致力於打造一站式 AI 程式設計工具服務平臺。我們提供 Claude Code 專業套餐及技術社群服務，同時支援 Google Gemini 和 OpenAI Codex。透過精心設計的套餐方案和專業的技術社群，為開發者提供穩定的服務保障和持續的技術支援，讓 AI 輔助程式設計真正成為開發者的生產力工具。點選<a href="https://ctok.ai">這裡</a>註冊！</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://code.silkapi.com/"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
-<td>感謝 絲綢API 贊助了本專案！ <a href="https://code.silkapi.com/">絲綢API</a> 是基於 Sub2API 搭建的中轉服務，專注於提供 Codex 高速穩定API中轉。</td>
+<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
+<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
+<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。透過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受所有充值永久 95 折優惠。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://code.silkapi.com/register?aff=SUB2API"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
+<td>感謝 絲綢API 贊助了本專案！ <a href="https://code.silkapi.com/register?aff=SUB2API">絲綢API</a> 是基於 Sub2API 搭建的中轉服務，專注於提供 Codex 高速穩定API中轉。</td>
 </tr>
 
 <tr>
@@ -83,11 +88,6 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 <tr>
 <td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
 <td>感謝 AICodeMirror 贊助了本專案！AICodeMirror 提供 Claude Code / Codex / Gemini CLI 官方高穩定性中轉服務，企業級併發、快速開票、7×24 小時專屬技術支援。Claude Code / Codex / Gemini 官方通道低至原價 38% / 2% / 9%，充值更享額外折扣！AICodeMirror 為 sub2api 使用者提供專屬福利：透過<a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">此連結</a>註冊，首次充值立享 8 折優惠，企業客戶最高可享 75 折！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
 </tr>
 
 <tr>
@@ -107,6 +107,11 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 現在透過 <a href="https://pateway.ai/?ch=1tsfr51">此連結</a> 註冊即送 $3 試用額度，使用者充值低至 6 折，邀請好友雙向贈送，邀請獎勵可達 $150。</td>
 </tr>
 
+<tr>
+<td width="180"><a href="https://api.pptoken.org/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
+<td>感謝 PPToken.org 贊助本專案！ <a href="https://api.pptoken.org/register?promo=SUB2API">PPToken.org</a> 主打 GPT 系列模型 API 中轉服務，支援 Codex、Claude Code、OpenAI 相容客戶端及 Gemini CLI 等工具接入。充值 1:1，1 元=1 美元額度；GPT 模型最低 0.16 倍倍率，綜合成本約為官方價格的 0.22 折，最快首字 Token 約 1 秒，適合開發者低成本、高響應速度接入 GPT 模型能力。技術支援： 7×24 小時真人響應（不是機器人），群內@技術，10 分鐘內有回覆 。贊助商福利：前 200 名使用者透過 <a href="https://api.pptoken.org/register?promo=SUB2API">[專屬註冊連結]</a> 註冊，輸入優惠碼 `SUB2API`，可領取 Codex / Claude Code 免費試用額度，無門檻、不綁卡。
+</td>
+</tr>
 </table>
 
 ## 生態專案

@@ -114,7 +114,7 @@ export const availableLocales = [
 export default i18n
 ```
 
-### Step 2: 重新命名簡體中文件案
+### Step 2: 重新命名簡體中檔案案
 
 ```bash
 git mv frontend/src/i18n/locales/zh.ts frontend/src/i18n/locales/zh-Hans.ts

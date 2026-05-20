@@ -8,13 +8,13 @@
 
 ## TL;DR（先看結論）
 
-1. **TLS 指紋偽裝對 Antigravity 帳號完全無效**——sub2api 的 TLS 指紋實作在程式碼層面就排除了 Antigravity 平台（`backend/internal/service/account.go:1390`），且即使能套用也不會有幫助（理由見[第 4 節](#4-為什麼tls-指紋對-antigravity-無效詳細糾正)）。
+1. **TLS 指紋偽裝對 Antigravity 帳號完全無效**——sub2api 的 TLS 指紋實作在程式碼層面就排除了 Antigravity 平臺（`backend/internal/service/account.go:1390`），且即使能套用也不會有幫助（理由見[第 4 節](#4-為什麼tls-指紋對-antigravity-無效詳細糾正)）。
 2. **Antigravity 大規模封號是 Google 端風控設計，所有反代專案通用**，不是 sub2api 獨有問題。社群普遍認為 [#1453](https://github.com/Wei-Shaw/sub2api/issues/1453)、[#1433](https://github.com/Wei-Shaw/sub2api/issues/1433) 屬此類，「在哪都是秒封」。
 3. **真實有效的緩解只有四項**：
    - **保持 UA 版本最新**（已在 `ANTIGRAVITY_USER_AGENT_VERSION` env 處理）
    - **每帳號獨立乾淨 IP**（per-account proxy；sub2api 已支援 `account.ProxyID`）
    - **避開 Antigravity 走高風險模型路徑**（社群觀察 Opus 4.6 路由特別容易觸發）
-   - **降低單帳號併發 + 失敗冷卻**（目前 sub2api 對 403 validation 是直接永久禁用，沒有冷卻期）
+   - **降低單帳號併發 + 失敗冷卻**（目前 sub2api 對 403 validation 是直接永久停用，沒有冷卻期）
 4. **沒有真正的「徹底解決方案」**。Antigravity 客戶端會回報 IDE 行為遙測（滑鼠、鍵盤、視窗焦點），任何純 API 反代都無法偽造這些。
 
 ---
@@ -31,7 +31,7 @@ Validation required (403): Verify your account to continue. | validation_url: ht
 
 `backend/internal/service/antigravity_quota_fetcher.go:220` 的 `classifyForbiddenType()` 把 Antigravity 403 分成三類：
 
-| 類型 | 觸發條件（response body 包含） | sub2api 處置 |
+| 型別 | 觸發條件（response body 包含） | sub2api 處置 |
 |---|---|---|
 | `validation` | `validation_required` / `verify your account` / `validation_url` | **永久 SetError**，需人工去 Google 驗證後手動恢復 |
 | `violation` | `terms of service` / `violation` | **永久 SetError**，視同封號，需聯絡 Google |
@@ -44,7 +44,7 @@ func (s *RateLimitService) handleAntigravity403(...) (shouldDisable bool) {
     fbType := classifyForbiddenType(string(responseBody))
     switch fbType {
     case forbiddenTypeValidation:
-        // 永久禁用，需人工去 Google 验证后手动恢复
+        // 永久停用，需人工去 Google 驗證後手動恢復
         s.handleAuthError(ctx, account, msg)
         return true
     ...
@@ -52,7 +52,7 @@ func (s *RateLimitService) handleAntigravity403(...) (shouldDisable bool) {
 }
 ```
 
-**注意：sub2api 對 Antigravity 403 全部都是「永久禁用」，沒有指數退避也沒有冷卻期。** 一觸發就要人工去後台操作。
+**注意：sub2api 對 Antigravity 403 全部都是「永久停用」，沒有指數退避也沒有冷卻期。** 一觸發就要人工去後臺操作。
 
 ---
 
@@ -66,7 +66,7 @@ func (s *RateLimitService) handleAntigravity403(...) (shouldDisable bool) {
 
 **典型誤判案例**：
 
-[Issue #2076](https://github.com/Wei-Shaw/sub2api/issues/2076) 標題雖是「Antigravity 版本不支持」，但 liaoOyao 的留言：
+[Issue #2076](https://github.com/Wei-Shaw/sub2api/issues/2076) 標題雖是「Antigravity 版本不支援」，但 liaoOyao 的留言：
 
 > 「謝謝，cc 用上了。原來是我的管理員帳號沒有充值餘額，一直顯示餘額不夠」
 
@@ -76,7 +76,7 @@ func (s *RateLimitService) handleAntigravity403(...) (shouldDisable bool) {
 
 | 你看到的訊息（精確字串） | 真實原因 | 處理方向 |
 |---|---|---|
-| `Payment required (402): insufficient balance or billing issue` | **Sub2API 內部** — 使用者錢包餘額為 0 | 後台充值 |
+| `Payment required (402): insufficient balance or billing issue` | **Sub2API 內部** — 使用者錢包餘額為 0 | 後臺充值 |
 | `Credit balance exhausted (400): credit balance is too low` | **Anthropic 上游** — Anthropic API key 帳戶沒餘額 | Anthropic console 加值 |
 | `Unauthorized (401)` | API key 失效 / 過期 | 重發 API key |
 | `Validation required (403): ... validation_url: https://accounts.google.com/...` | **Google 真實風控** — Antigravity 帳號需驗證 | 見 §6 完整 SOP |
@@ -96,21 +96,21 @@ docker compose logs sub2api --since 10m 2>&1 \
 
 #    沒看到 cloudcode-pa.googleapis.com → sub2api 內部就擋掉了，根本沒打 Google
 
-# 3. 後台確認使用者餘額
+# 3. 後臺確認使用者餘額
 #    /admin/users → 找你自己 → 看「餘額」欄位
 ```
 
 #### 內部 402 / 401 處理
 
 ```
-1. 後台 /admin/users → 找你自己 → 「更多」→ 「充值」
+1. 後臺 /admin/users → 找你自己 → 「更多」→ 「充值」
    即使你是 admin 也要充值，admin 不等於有無限額度
 
 2. 訂閱模式：
-   後台 → 訂閱分配 → 把訂閱方案分配給你的帳號
+   後臺 → 訂閱分配 → 把訂閱方案分配給你的帳號
 
-3. 確認分組權限：
-   後台 → 分組 → 檢查你的分組有沒有對應平台帳號池
+3. 確認分組許可權：
+   後臺 → 分組 → 檢查你的分組有沒有對應平臺帳號池
    /admin/api-keys → 確認 API key 綁的分組正確
 ```
 
@@ -172,7 +172,7 @@ docker compose exec sub2api env | grep ANTIGRAVITY  # 驗證
 
 **緩解**：
 
-1. 用 sub2api 的 per-account proxy 功能：後台 → 帳號 → 編輯 → 設定 ProxyID
+1. 用 sub2api 的 per-account proxy 功能：後臺 → 帳號 → 編輯 → 設定 ProxyID
 2. 優先用**住宅 ISP Proxy**（cost 高但效果最好）
 3. 次選：自家寬頻 + WireGuard 出口（但要注意自家 IP 也可能被一起標記）
 
@@ -185,7 +185,7 @@ docker compose exec sub2api env | grep ANTIGRAVITY  # 驗證
 
 **社群觀察**：把 Opus 4.6 走 Antigravity 路徑特別容易導致連鎖封號。可能與 sub2api 對 thinking 模式的 request body 處理有關（被 Google 視為異常請求）。
 
-**緩解**：在後台 group 設定，把 Opus 4.6 路由排除 Antigravity 帳號池，只留 Anthropic 帳號處理。
+**緩解**：在後臺 group 設定，把 Opus 4.6 路由排除 Antigravity 帳號池，只留 Anthropic 帳號處理。
 
 ---
 
@@ -202,7 +202,7 @@ docker compose exec sub2api env | grep ANTIGRAVITY  # 驗證
 | Google 配置錯誤冷卻 | `backend/internal/service/antigravity_gateway_service.go:2489` | ✅ 1 分鐘 |
 | INTERNAL 500 漸進懲罰 | `backend/internal/service/antigravity_internal500_penalty.go` | ✅ |
 | 隱私模式設定 | `backend/internal/service/antigravity_privacy_service.go` | ✅ 建立帳號時 |
-| 模型映射（Opus 4.6→thinking） | `backend/migrations/051_*.sql` | ✅ |
+| 模型對映（Opus 4.6→thinking） | `backend/migrations/051_*.sql` | ✅ |
 
 ### 3.2 sub2api 沒做的（已知缺口）
 
@@ -242,7 +242,7 @@ reqBody.Metadata.IDEVersion = defaultUserAgentVersion  // 改成從 env 讀
 
 ```go
 func (a *Account) IsTLSFingerprintEnabled() bool {
-    // 仅支持 Anthropic OAuth/SetupToken 账号
+    // 僅支援 Anthropic OAuth/SetupToken 帳號
     if !a.IsAnthropicOAuthOrSetupToken() {
         return false
     }
@@ -298,7 +298,7 @@ docker compose exec sub2api env | grep ANTIGRAVITY_USER_AGENT_VERSION
 - ANTIGRAVITY_USER_AGENT_VERSION=${ANTIGRAVITY_USER_AGENT_VERSION:-}
 ```
 
-#### 1.3 設定關鍵的固定密鑰
+#### 1.3 設定關鍵的固定金鑰
 
 避免容器重啟後使用者要重新登入 / TOTP 失效：
 
@@ -312,15 +312,15 @@ TOTP_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 #### 2.1 把 Opus 4.6 路由排除 Antigravity
 
-後台 → 分組管理 → 編輯分組 → 限制 Opus 4.6 只能走 Anthropic 帳號池。
+後臺 → 分組管理 → 編輯分組 → 限制 Opus 4.6 只能走 Anthropic 帳號池。
 
 #### 2.2 Per-account proxy
 
 不要讓多個 Antigravity 帳號共用同一出口 IP。
 
 ```
-後台 → 代理管理 → 新增 Proxy（住宅 IP）
-後台 → 帳號管理 → 編輯帳號 → ProxyID 指定
+後臺 → 代理管理 → 新增 Proxy（住宅 IP）
+後臺 → 帳號管理 → 編輯帳號 → ProxyID 指定
 ```
 
 #### 2.3 帳號預熱 SOP
@@ -334,7 +334,7 @@ TOTP_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 #### 2.4 降低單帳號併發
 
-後台 → 帳號 → 編輯 → 併發數限制（建議 Antigravity 帳號設 1-2，不要設高）。
+後臺 → 帳號 → 編輯 → 併發數限制（建議 Antigravity 帳號設 1-2，不要設高）。
 
 ### Tier 3：架構層改進（fork 修改）
 
@@ -347,13 +347,13 @@ TOTP_ENCRYPTION_KEY=$(openssl rand -hex 32)
 reqBody.Metadata.IDEVersion = defaultUserAgentVersion
 ```
 
-#### 3.2 對 403 validation 加冷卻機制（不要一次永久禁用）
+#### 3.2 對 403 validation 加冷卻機制（不要一次永久停用）
 
 `backend/internal/service/ratelimit_service.go:769`：
 
 ```go
 case forbiddenTypeValidation:
-    // 改前：直接 SetError 永久禁用
+    // 改前：直接 SetError 永久停用
     // 改後：先標記 24h cooldown，3 次內未恢復才 SetError
     s.accountRepo.SetTempUnschedulable(ctx, account.ID, time.Now().Add(24*time.Hour), msg)
     s.incrementValidationCounter(account.ID)
@@ -385,7 +385,7 @@ case forbiddenTypeValidation:
 
 | 比較面向 | sub2api / 一般反代 | Antigravity-Tools-LS |
 |---|---|---|
-| 發出 gRPC 的程序 | 自己寫的 Go HTTP client | **官方 ls_core 二進位** |
+| 發出 gRPC 的程式 | 自己寫的 Go HTTP client | **官方 ls_core 二進位** |
 | TLS Client Hello 指紋 | Go `net/http` 預設 | 官方 ls_core（100% 一致） |
 | HTTP/2 frame settings | Go 預設 | 官方 ls_core（100% 一致） |
 | Connect-Proto / gRPC headers | 手動模擬，可能漏細節 | 官方 ls_core（無法不一致） |
@@ -446,7 +446,7 @@ Claude Code → 直接指向 Antigravity-Tools-LS（http://desktop:5188）
 sub2api 仍管理 Anthropic / OpenAI / Gemini 帳號
 ```
 
-最乾淨。後台移除所有 Antigravity 帳號，改在 Antigravity-Tools-LS 管理。
+最乾淨。後臺移除所有 Antigravity 帳號，改在 Antigravity-Tools-LS 管理。
 
 **方案 B：sub2api 透明轉發到 Antigravity-Tools-LS**
 
@@ -457,7 +457,7 @@ Claude Code → sub2api（保留統一管理 / 計費 / 路由）
                                       → ls_core → Google
 ```
 
-需要 fork sub2api 把 Antigravity 平台的 upstream URL 從 `cloudcode-pa.googleapis.com` 改成 `http://desktop:5188`，**並停用 sub2api 自己的 protocol transformation**（不然會雙重轉換打破請求）。工程量不小，且失去 sub2api 多帳號池效益（因為帳號池實際上在 Antigravity-Tools-LS 裡）。
+需要 fork sub2api 把 Antigravity 平臺的 upstream URL 從 `cloudcode-pa.googleapis.com` 改成 `http://desktop:5188`，**並停用 sub2api 自己的 protocol transformation**（不然會雙重轉換打破請求）。工程量不小，且失去 sub2api 多帳號池效益（因為帳號池實際上在 Antigravity-Tools-LS 裡）。
 
 **結論：除非你需要 sub2api 的計費系統，否則直接用方案 A。**
 
@@ -504,7 +504,7 @@ README 明文：
 | Issue | 標題 | 影響 |
 |---|---|---|
 | [#27](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/27) | 反代 4.6 opus 會報錯，反代 3.1 pro 正常 | **直接打 Opus 使用情境** |
-| [#20](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/20) | Claude Code 經常提示：內核返回內容為空 | 穩定度問題 |
+| [#20](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/20) | Claude Code 經常提示：核心返回內容為空 | 穩定度問題 |
 | [#18](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/18) | 不管讓它發什麼訊息都回復一個內容 | 可能 cache / state bug |
 | [#21](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/21) | 圖片輸入返回空 | 多模態不能用 |
 | [#23](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/23) | Same Pro account works with old switch-login, but hangs with Tools-LS v0.0.3 | 退步 bug |
@@ -529,7 +529,7 @@ README 明文：
 
 #### 5.4.8 多帳號管理：手動切換 ≠ 自動輪替
 
-Tools-LS 的多帳號是**「One-Click IDE Account Switching」**——人工觸發切換目前活躍帳號，**不是請求進來自動找可用帳號**的調度。
+Tools-LS 的多帳號是**「One-Click IDE Account Switching」**——人工觸發切換目前活躍帳號，**不是請求進來自動找可用帳號**的排程。
 
 | 機制 | Tools-LS | sub2api |
 |---|---|---|
@@ -537,14 +537,14 @@ Tools-LS 的多帳號是**「One-Click IDE Account Switching」**——人工觸
 | 手動 / 一鍵切換目前帳號 | ✅ 改 IDE state.vscdb | ✅ |
 | **請求進來自動選可用帳號** | ❌ 沒有 | ✅ scheduler |
 | **429 / 403 觸發自動切換** | ❌ 沒有 | ✅ |
-| **多帳號並行調度** | ❌ 沒有 | ✅ |
+| **多帳號並行排程** | ❌ 沒有 | ✅ |
 | **Quota 用完自動切下一個** | ❌ 沒有 | ✅ |
 
 如果你要真正的自動輪替，要看下面：
 
 ##### 替代 1：同作者的 [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager)（970+ stars）
 
-- ✅ 「智能帳號輪詢系統：自動負載均衡，觸發 429 或 400 錯誤時毫秒級切換到健康帳號」
+- ✅ 「智慧帳號輪詢系統：自動負載均衡，觸發 429 或 400 錯誤時毫秒級切換到健康帳號」
 - ✅ Tauri + React GUI，比 CLI 友善
 - ❌ **不重用 ls_core**——用自己的 HTTP client 模擬請求
 - ⚠️ 風控強度可能介於 sub2api 和 Tools-LS 中間
@@ -555,8 +555,8 @@ Tools-LS 的多帳號是**「One-Click IDE Account Switching」**——人工觸
 Claude Code
     ↓
 nginx / Caddy（你自己跑，本地）
-    ├─ 帳號 A 健康 → Tools-LS 實例 1（綁帳號 A）
-    ├─ 帳號 B 健康 → Tools-LS 實例 2（綁帳號 B）
+    ├─ 帳號 A 健康 → Tools-LS 例項 1（綁帳號 A）
+    ├─ 帳號 B 健康 → Tools-LS 例項 2（綁帳號 B）
     └─ ...
 ```
 
@@ -663,7 +663,7 @@ claude "1+1=?"
 
 #### 第 1 步：取出 validation_url
 
-**位置 A：後台 UI**
+**位置 A：後臺 UI**
 
 ```
 /admin/accounts → 找到該帳號 → 看「錯誤訊息」欄位
@@ -674,7 +674,7 @@ claude "1+1=?"
 複製 validation_url 後面整段（含所有 query string）
 ```
 
-**位置 B：API（如果後台被遮罩）**
+**位置 B：API（如果後臺被遮罩）**
 
 ```bash
 ADMIN_TOKEN="你的 admin JWT"
@@ -696,14 +696,14 @@ docker compose exec postgres \
 
 #### 第 2 步：準備乾淨驗證環境（最關鍵的一步）
 
-**為什麼乾淨環境很重要**：Google 看的是「驗證當下的環境特徵 vs 帳號平常使用的環境」。如果你 OAuth 帳號當初是用台灣 IP 註冊、平常在自家寬頻用，但你跑去美國 VPN 上做驗證——驗證會被標記為「環境異常」、即使完成驗證 24 小時內又會被風控。
+**為什麼乾淨環境很重要**：Google 看的是「驗證當下的環境特徵 vs 帳號平常使用的環境」。如果你 OAuth 帳號當初是用臺灣 IP 註冊、平常在自家寬頻用，但你跑去美國 VPN 上做驗證——驗證會被標記為「環境異常」、即使完成驗證 24 小時內又會被風控。
 
 | 必須做 | 為什麼 |
 |---|---|
 | 關掉所有 VPN / 代理 | 環境一致性 |
 | 用該 Google 帳號**註冊地理位置**的家用寬頻 IP | IP 信譽 + 地理一致性 |
 | 用**該帳號平常登入的瀏覽器**（含 cookies、登入狀態） | 瀏覽器指紋一致性 |
-| **同一台機器**先登入該 Google 帳號（gmail / drive） | 確認 session 健康 |
+| **同一臺機器**先登入該 Google 帳號（gmail / drive） | 確認 session 健康 |
 | 別開無痕模式 / 別清 cookies | 反常會更可疑 |
 | 別在公司 / 學校 / 公共 Wi-Fi 做 | IP 池信譽差 |
 
@@ -716,7 +716,7 @@ docker compose exec postgres \
 
 1. 把 validation_url 貼到瀏覽器網址列開啟
 2. Google 會跳出「Verify it's you」頁面，可能要求：
-   - **手機簡訊驗證碼**（最常見，需要綁定手機的 Google 帳號）
+   - **手機簡訊驗證碼**（最常見，需要繫結手機的 Google 帳號）
    - 回答安全題
    - 驗證備用 email
    - **新帳號可能要求補綁手機號**——必須做，否則一定再被擋
@@ -740,12 +740,12 @@ docker compose exec postgres \
 跑一次 IDE 後，原本 sub2api 裡儲存的 OAuth token 可能還是舊的（雖然 refresh token 會自動刷）。可以：
 
 ```
-sub2api 後台 → 帳號 → 編輯 → 重新 OAuth 授權 → 用同一個 Google 帳號重登
+sub2api 後臺 → 帳號 → 編輯 → 重新 OAuth 授權 → 用同一個 Google 帳號重登
 ```
 
 這樣 sub2api 拿到的就是**剛剛驗證後的全新 token**，最乾淨。
 
-#### 第 5 步：sub2api 後台手動恢復
+#### 第 5 步：sub2api 後臺手動恢復
 
 ```
 /admin/accounts → 找該帳號 → 「啟用」
@@ -762,10 +762,10 @@ sub2api 後台 → 帳號 → 編輯 → 重新 OAuth 授權 → 用同一個 Go
 |---|---|
 | 第 1-3 天 | 每天用真實 Antigravity IDE 跑 5-10 分鐘任務（聊天、agent run、開幾個檔案） |
 | 第 4-7 天 | sub2api 端用 1-2 次 / 天，每次只跑簡單請求 |
-| 第 8 天起 | 進入正常 sub2api 排程，但**併發限制 1**（後台 → 帳號 → 編輯 → 並發數） |
+| 第 8 天起 | 進入正常 sub2api 排程，但**併發限制 1**（後臺 → 帳號 → 編輯 → 並發數） |
 | 持續 | 每週至少 1 次真實 IDE 使用，建立持續行為遙測底 |
 
-如果跳過保活直接放回高頻使用，**通常 1-3 天內又會被擋**——這就是社群「驗證完又被擋」的循環來源。
+如果跳過保活直接放回高頻使用，**通常 1-3 天內又會被擋**——這就是社群「驗證完又被擋」的迴圈來源。
 
 #### 第 7 步：失敗後的判斷
 
@@ -793,9 +793,9 @@ docker compose logs sub2api --since 5m 2>&1 \
 
 常見原因與處理：
 
-- `User does not have access to project` → 帳號 Google Cloud project ID 沒設定（sub2api 後台 → 帳號編輯 → project_id）
+- `User does not have access to project` → 帳號 Google Cloud project ID 沒設定（sub2api 後臺 → 帳號編輯 → project_id）
 - `Quota exceeded` → 該帳號當日配額用完，等隔日 reset
-- `Method not allowed` → sub2api 模型映射問題，回報 issue
+- `Method not allowed` → sub2api 模型對映問題，回報 issue
 - 沒任何 upstream log → sub2api 內部問題，看 §2.1
 
 ---
@@ -842,7 +842,7 @@ docker compose logs sub2api --since 5m 2>&1 \
 建議加入定期監控：
 
 ```bash
-# 每小時檢查一次帳號可調度數
+# 每小時檢查一次帳號可排程數
 docker compose exec sub2api wget -qO- http://localhost:8080/health
 
 # 看最近 1 小時的 403 事件
@@ -862,7 +862,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 | 「TLS 指紋能緩解 Antigravity 403」 | ❌ 錯 | `account.go:1390` 直接排除；機制上也無意義 |
 | 「sub2api 用 Go net/http 預設 TLS 指紋會被 Google 識破」 | ⚠️ 半對 | 對 Anthropic 是真的（已偽裝），對 Antigravity 影響有限 |
 | 「需要套高品質住宅 Proxy」 | ✅ 對 | sub2api 已支援 per-account proxy |
-| 「需要 Exponential Backoff」 | ✅ 對 | sub2api 對 403 是直接禁用，無 backoff |
+| 「需要 Exponential Backoff」 | ✅ 對 | sub2api 對 403 是直接停用，無 backoff |
 | 「`Validation required` 都是 Google 風控」 | ✅ 對（精確版） | 該字串只會在 Google 上游 403 + body 含 validation_required 時出現（`ratelimit_service.go:772`）|
 | 「使用者餘額不足會回 `Validation required (403)`」 | ❌ 錯 | 餘額不足回 `Payment required (402)`（`ratelimit_service.go:249`），常被使用者誤認為 Google 風控 |
 | 「驗證完帳號就永久恢復」 | ❌ 錯 | 不做保活，1-3 天內又會被擋（見 §6.1 第 6 步）|
@@ -872,7 +872,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 | 「社群有人成功『注入 JS』繞過風控」 | ⚠️ 措辭錯但精神對 | 真實作法是重用官方 `ls_core` 二進位（[Antigravity-Tools-LS](https://github.com/lbjlaq/Antigravity-Tools-LS)），不是 JS 注入 |
 | 「`Futureppo/antigravity_bypass` 能解 403」 | ❌ 錯 | 那專案只解 MCP tool 數量限制（100→114514），跟 403 風控無關 |
 | 「Tools-LS 能完整跑 Opus 4.6-thinking」 | ⚠️ 半對 | 能拿到答案但 thinking 不會 stream（[#17](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/17)）；用 [buildin1 fork](https://github.com/buildin1/Antigravity-Tools-LS) 才完整 |
-| 「Tools-LS 多帳號自動輪替」 | ❌ 錯 | 只有手動切換目前活躍帳號，不是請求層調度。要自動輪替看 Antigravity-Manager 或自架分流 |
+| 「Tools-LS 多帳號自動輪替」 | ❌ 錯 | 只有手動切換目前活躍帳號，不是請求層排程。要自動輪替看 Antigravity-Manager 或自架分流 |
 | 「Tools-LS 已是穩定 production-ready 方案」 | ❌ 錯 | v0.0.3 / Early Experimental，多個關鍵 issue（#11、#17、#22、#27）未解 |
 
 ---
@@ -880,7 +880,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 ## 9. 參考資料
 
 ### Sub2API 程式碼
-- `backend/internal/service/account.go:1387-1429` — `IsTLSFingerprintEnabled()` 平台限制
+- `backend/internal/service/account.go:1387-1429` — `IsTLSFingerprintEnabled()` 平臺限制
 - `backend/internal/service/ratelimit_service.go:699-805` — 403 處理邏輯
 - `backend/internal/service/antigravity_quota_fetcher.go:219-272` — 403 分類與 URL 提取
 - `backend/internal/pkg/antigravity/oauth.go:52-72` — UA 版本管理
@@ -892,14 +892,14 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 - [#1233 antigravity 封號](https://github.com/Wei-Shaw/sub2api/issues/1233) — 行為遙測討論
 - [#1433 Antigravity 為什麼在這個專案裡面一用就封](https://github.com/Wei-Shaw/sub2api/issues/1433) — 反代封控本質
 - [#1453 反重力拉閘了呀](https://github.com/Wei-Shaw/sub2api/issues/1453) — 同上
-- [#2076 Antigravity 版本不支持](https://github.com/Wei-Shaw/sub2api/issues/2076) — UA 過舊
+- [#2076 Antigravity 版本不支援](https://github.com/Wei-Shaw/sub2api/issues/2076) — UA 過舊
 - [#563 Antigravity 違規封號](https://github.com/Wei-Shaw/sub2api/issues/563) — Opus 4.6 路由風險
 - [#203 403 Insufficient account balance](https://github.com/Wei-Shaw/sub2api/issues/203) — 假 403 案例
 
 ### Antigravity 官方
 - [Antigravity Changelog](https://antigravity.google/changelog) — 版本追蹤
 - [Antigravity Releases](https://antigravity.google/releases) — 下載
-- [社群 Changelog 鏡像](https://www.gradually.ai/en/changelogs/antigravity/) — 較完整時間線
+- [社群 Changelog 映象](https://www.gradually.ai/en/changelogs/antigravity/) — 較完整時間線
 
 ### 社群方案（§5.4）
 - [lbjlaq/Antigravity-Tools-LS](https://github.com/lbjlaq/Antigravity-Tools-LS) — **重用官方 ls_core 的核心方案**（Rust + Axum）
@@ -913,7 +913,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" \
 ### Tools-LS 關鍵 Issues
 - [#11 有人用這個被封過號嗎](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/11) — 風控不確定性
 - [#17 思考模型不思考](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/17) — Thinking 限制
-- [#20 內核返回為空](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/20) — 穩定度問題
+- [#20 核心返回為空](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/20) — 穩定度問題
 - [#21 圖片返回空](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/21) — 多模態限制
 - [#22 7 day block](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/22) — 風控未明確
 - [#27 Opus 4.6 報錯、3.1 pro 正常](https://github.com/lbjlaq/Antigravity-Tools-LS/issues/27) — Opus 不穩
