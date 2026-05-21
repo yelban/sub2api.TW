@@ -297,6 +297,16 @@ jobs:
             exit 0
           fi
 
+          # Refuse to roll VERSION backwards. When multiple tags are pushed
+          # in a batch (e.g. catching up on upstream tags), every tag triggers
+          # this job and an older tag could otherwise overwrite a newer
+          # VERSION already on main.
+          LATEST=$(printf '%s\n%s\n' "$CURRENT_VERSION" "$VERSION" | sort -V | tail -1)
+          if [ "$LATEST" != "$VERSION" ]; then
+            echo "Skipping: main VERSION ($CURRENT_VERSION) is newer than tag ($VERSION)"
+            exit 0
+          fi
+
           echo "$VERSION" > backend/cmd/server/VERSION
 
           git config user.name "github-actions[bot]"
