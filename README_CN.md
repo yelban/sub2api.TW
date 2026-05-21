@@ -115,7 +115,7 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 
 <tr>
 <td width="180"><a href="https://runapi.co/register?aff=fu2E"><img src="assets/partners/logos/runapi.png" alt="RunAPI" width="150"></a></td>
-<td>感谢 RunAPI 赞助本项目！ <a href="https://runapi.co/register?aff=fu2E">RunAPI</a> 是高效稳定的API OpenRouter平替平台，一个 API Key 即可访问 OpenAI、Claude、Gemini、DeepSeek、Grok 等 150+ 主流模型，低至 1 折，极其稳定，可以无缝兼容 Claude Code、OpenClaw 等工具。
+<td>感謝 RunAPI 贊助本專案！ <a href="https://runapi.co/register?aff=fu2E">RunAPI</a> 是高效穩定的API OpenRouter平替平臺，一個 API Key 即可訪問 OpenAI、Claude、Gemini、DeepSeek、Grok 等 150+ 主流模型，低至 1 折，極其穩定，可以無縫相容 Claude Code、OpenClaw 等工具。
 </td>
 </tr>
 
