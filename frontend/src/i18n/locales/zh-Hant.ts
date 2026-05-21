@@ -122,19 +122,23 @@ export default {
     dateRangeToday: '今日',
     dateRange7d: '7 天',
     dateRange30d: '30 天',
+    dateRange90d: '90 天',
     dateRangeCustom: '自定義',
     apply: '應用',
     used: '已使用',
     detailInfo: '詳細資訊',
     tokenStats: 'Token 統計',
+    dailyDetail: '按日明細',
     modelStats: '模型用量統計',
     // Table headers
+    date: '日期',
     model: '模型',
     requests: '請求數',
     inputTokens: '輸入 Tokens',
     outputTokens: '輸出 Tokens',
     cacheCreationTokens: '快取建立',
     cacheReadTokens: '快取讀取',
+    cacheWriteTokens: '快取寫入',
     totalTokens: '總 Tokens',
     cost: '費用',
     // Status
@@ -178,6 +182,7 @@ export default {
     querySuccess: '查詢成功',
     queryFailed: '查詢失敗',
     queryFailedRetry: '查詢失敗，請稍後重試',
+    noDailyUsage: '暫無按日用量資料',
   },
 
   // Setup Wizard
@@ -2430,6 +2435,8 @@ export default {
         webSearchEmulationGlobalDisabled: '請先在系統設定 → 閘道器 → Web Search 模擬中啟用全域性開關',
         codexImageGenerationBridge: 'Codex 圖片生成橋接',
         codexImageGenerationBridgeHint: '開啟後，OpenAI 分組的 Codex /responses 文本請求可能會被自動注入 image_generation 工具。僅在路由帳號支援圖片生成時開啟。',
+        bedrockCCCompat: 'Bedrock CC 相容',
+        bedrockCCCompatHint: '⚠️ 開啟後，該渠道下 Bedrock 帳號的請求將進行 Claude Code 相容處理（thinking 型別轉換、tool_use ID 清理）',
         basicSettings: '基礎設定',
         addPlatform: '新增平臺',
         noPlatforms: '點選"新增平臺"開始配置渠道',
@@ -4282,6 +4289,22 @@ export default {
       used: '已使用',
       searchCodes: '搜尋兌換碼或郵箱...',
       exportCsv: '匯出 CSV',
+      batchUpdate: '批次修改',
+      batchUpdateTitle: '批次修改兌換碼',
+      selectedCount: '已選擇 {count} 個兌換碼',
+      clearSelection: '清空選擇',
+      selectCodesFirst: '請先選擇兌換碼',
+      noBatchFieldsSelected: '請至少勾選一個要修改的欄位',
+      batchUpdateSuccess: '成功修改 {count} 個兌換碼',
+      failedToBatchUpdate: '批次修改兌換碼失敗',
+      batchFields: {
+        status: '狀態',
+        expiresAt: '過期時間',
+        notes: '備註',
+        group: '分組'
+      },
+      batchNotesPlaceholder: '輸入新的備註，留空可清空備註',
+      clearGroup: '清空分組',
       deleteAllUnused: '刪除全部未使用',
       deleteCodeConfirm: '確定要刪除此兌換碼嗎？此操作無法撤銷。',
       deleteAllUnusedConfirm: '確定要刪除全部未使用的兌換碼嗎？此操作無法撤銷。',
@@ -5451,6 +5474,13 @@ export default {
         secretKeyHint: '服務端驗證金鑰（請保密）',
         secretKeyConfiguredHint: '金鑰已配置，留空以保留當前值。'
       },
+      apiKeyAcl: {
+        title: 'API Key IP 訪問控制',
+        description: '控制 API Key 白名單和黑名單使用哪個客戶端 IP 判斷',
+        trustForwardedIp: '信任反代傳遞的客戶端 IP',
+        trustForwardedIpHint:
+          '預設關閉。僅在源站只允許 Cloudflare 或 Nginx 反代訪問時開啟；開啟後 API Key IP 白/黑名單會使用 CF-Connecting-IP、X-Real-IP 或 X-Forwarded-For，與使用記錄中的請求 IP 保持一致。'
+      },
       linuxdo: {
         title: 'LinuxDo Connect 登入',
         description: '配置 LinuxDo Connect OAuth，用於 Sub2API 使用者登入',
@@ -5612,6 +5642,9 @@ export default {
         antigravityUserAgentVersion: 'Antigravity UA 版本',
         antigravityUserAgentVersionPlaceholder: '1.23.2',
         antigravityUserAgentVersionHint: '留空時使用 ANTIGRAVITY_USER_AGENT_VERSION 或內建預設值 1.23.2；填寫後後臺設定優先。',
+        openaiCodexUserAgent: 'OpenAI Codex UA',
+        openaiCodexUserAgentPlaceholder: 'codex-tui/0.125.0 (Ubuntu 22.4.0; x86_64) xterm-256color (codex-tui; 0.125.0)',
+        openaiCodexUserAgentHint: '用於規避 OpenAI 上游 Cloudflare 對瀏覽器 UA 的訪問質詢。僅在檢測到客戶端 User-Agent 為瀏覽器（Mozilla/...）時生效，其他客戶端原樣透傳。留空使用內建預設值。',
       },
       webSearchEmulation: {
         title: 'Web Search 模擬',
@@ -5921,6 +5954,12 @@ export default {
         addEmail: '新增郵箱',
         emailPlaceholder: '輸入郵箱地址',
       },
+      subscriptionExpiryNotify: {
+        title: '訂閱到期提醒',
+        description: '控制是否向用戶傳送訂閱即將到期的郵件提醒。',
+        enabled: '啟用訂閱到期提醒',
+        enabledHint: '開啟後，系統會在訂閱到期前 7 天、3 天、1 天各發送一次提醒。'
+      },
       smtp: {
         title: 'SMTP 設定',
         description: '配置用於傳送驗證碼的郵件服務',
@@ -5952,6 +5991,36 @@ export default {
         sendTestEmail: '傳送測試郵件',
         sending: '傳送中...',
         enterRecipientHint: '請輸入收件人郵箱地址'
+      },
+      emailTemplates: {
+        title: '郵件模板',
+        description: '按事件和語言自定義通知郵件主題與 HTML 內容。',
+        event: '事件',
+        locale: '語言',
+        localeEn: '英文',
+        localeZh: '中文',
+        subject: '主題',
+        subjectPlaceholder: '輸入郵件主題',
+        html: 'HTML 模板',
+        htmlPlaceholder: '編輯郵件 HTML 模板',
+        placeholders: '可用佔位符',
+        placeholdersHelp: '點選佔位符可複製。後端傳送郵件時會替換這些值。',
+        livePreview: '即時預覽',
+        previewSecurityHint: '預覽 HTML 由後端預覽介面生成，並在停用指令碼的沙盒 iframe 中展示。',
+        preview: '預覽 / 重新整理',
+        previewing: '預覽中...',
+        save: '儲存模板',
+        saving: '儲存中...',
+        restoreOfficial: '恢復官方模板',
+        restoring: '恢復中...',
+        restoreConfirm: '確定恢復此事件和語言的官方模板嗎？當前自定義版本將被替換。',
+        restoreSuccess: '已恢復官方模板',
+        saveSuccess: '郵件模板已儲存',
+        placeholderCopied: '佔位符已複製',
+        validationRequired: '主題和 HTML 模板不能為空',
+        empty: '暫無可用的郵件模板事件或語言。',
+        noPreview: '重新整理預覽後檢視渲染後的郵件主題。',
+        customized: '已自定義'
       },
       opsMonitoring: {
         title: '運維監控',

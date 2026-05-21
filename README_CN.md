@@ -67,12 +67,12 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 
 <tr>
 <td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高性價比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
+<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
 </tr>
 
 <tr>
 <td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高性價比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。透過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受所有充值永久 95 折優惠。</td>
+<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。透過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受所有充值永久 95 折優惠。</td>
 </tr>
 
 <tr>
@@ -328,11 +328,11 @@ docker compose -f docker-compose.local.yml logs -f sub2api
 
 #### 啟用“資料管理”功能（datamanagementd）
 
-如需啟用管理後臺“資料管理”，需要額外部署宿主機資料管理程序 `datamanagementd`。
+如需啟用管理後臺“資料管理”，需要額外部署宿主機資料管理程式 `datamanagementd`。
 
 關鍵點：
 
-- 主程序固定探測：`/tmp/sub2api-datamanagement.sock`
+- 主程式固定探測：`/tmp/sub2api-datamanagement.sock`
 - 只有該 Socket 可連通時，資料管理功能才會開啟
 - Docker 場景需將宿主機 Socket 掛載到容器同路徑
 
@@ -468,7 +468,7 @@ default:
 
 > ⚠️ 當前 Sora 相關功能因上游接入與媒體鏈路存在技術問題，暫時不可用。
 > 現階段請勿在生產環境依賴 Sora 能力。
-> 文件中的 `gateway.sora_*` 配置僅作預留，待技術問題修復後再恢復可用。
+> 檔案中的 `gateway.sora_*` 配置僅作預留，待技術問題修復後再恢復可用。
 
 ### Sora 媒體簽名 URL（功能恢復後可選）
 
