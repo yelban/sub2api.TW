@@ -54,6 +54,39 @@ git add -A && git commit -m "chore(i18n): update Traditional Chinese translation
 - [i18n-traditional-chinese.md](docs/i18n-traditional-chinese.md) - 完整中文化流程
 - [fork-sync-workflow.md](docs/fork-sync-workflow.md) - Fork 同步策略與衝突處理
 
+### Tag 推送陷阱（補同步多個上游 tag 時必看）
+
+fork 的 [release.yml](.github/workflows/release.yml) 在每次推 tag 時會：
+1. 觸發 GitHub Release 建立（用 release notes 模板）
+2. `sync-version-file` job 把 `backend/cmd/server/VERSION` 改寫成 tag 名稱並 commit 回 main
+
+**批次推多個 tag 會踩兩個坑：**
+
+1. **VERSION 被舊 tag 拉低**：例如同時推 `v0.1.128 v0.1.129`，兩個 workflow 平行跑、v0.1.128 後完成就會把 main 的 VERSION 改回 0.1.128。
+   - ✅ 已加防呆：semver guard 拒絕往回 sync（[release.yml:300-308](.github/workflows/release.yml#L300-L308)）
+   - 殘留風險：仍可能在 race window 內短暫不一致
+
+2. **GitHub `Latest` 標記被誤掛在舊 tag 上**：`Latest` 由「publish 時間」決定（不是 semver），舊 tag publish 較晚就會被誤標。
+   - ❌ 無 workflow 防呆，需手動修正
+
+**建議做法（推 tag 順序）：**
+```bash
+# 補同步上游 tag 時，逐個推、等前一個 workflow 跑完
+git push origin v0.1.128
+gh run watch --repo yelban/sub2api.TW   # 等 Release workflow 完成
+git push origin v0.1.129
+
+# 若已踩坑（Latest 標錯），手動修正
+gh release edit v0.1.129 --repo yelban/sub2api.TW --latest
+
+# 若 VERSION 被拉低（防呆失效時的回復）
+echo "0.1.129" > backend/cmd/server/VERSION
+git commit -am "chore: restore VERSION to 0.1.129"
+git push origin main
+```
+
+或更省事：**只推最新一個 tag**（舊 tag 在 fork 上沒有意義，反正源頭在 upstream）。
+
 ## Common Commands
 
 ### Backend (Go)
