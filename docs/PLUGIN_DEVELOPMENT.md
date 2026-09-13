@@ -1,30 +1,30 @@
-# Sub2API 插件开发教程
+# Sub2API 外掛開發教程
 
-本文面向希望为 Sub2API 开发、打包和发布插件的团队。插件是独立进程和静态 UI 组成的 `.s2plugin` 包，宿主通过稳定的 gRPC 协议调用它。本文以当前宿主已经定义的 `openai.oauth.outbound_transport.v1` 能力作为协议示例，说明开发者需要准备什么、哪些职责属于插件、哪些职责仍由 Sub2API 负责。
+本文面向希望為 Sub2API 開發、打包和釋出外掛的團隊。外掛是獨立程序和靜態 UI 組成的 `.s2plugin` 包，宿主通過穩定的 gRPC 協議呼叫它。本文以當前宿主已經定義的 `openai.oauth.outbound_transport.v1` 能力作為協議示例，說明開發者需要準備什麼、哪些職責屬於外掛、哪些職責仍由 Sub2API 負責。
 
-本文不是一个可直接安装的完整插件，也不代表 Sub2API 已经发布对应的官方插件包。当前文档主要描述公开协议、宿主边界和开发流程。后续是否发布可安装包、支持哪些 Provider，以及如何提供示例仓库，都需要另行公告。
+本文不是一個可直接安裝的完整外掛，也不代表 Sub2API 已經發布對應的官方外掛包。當前文件主要描述公開協議、宿主邊界和開發流程。後續是否釋出可安裝包、支援哪些 Provider，以及如何提供示例倉庫，都需要另行公告。
 
-## 1. 准备开发环境
+## 1. 準備開發環境
 
-建议使用以下环境：
+建議使用以下環境：
 
 - Go 1.21 或更高版本；
-- Node.js（仅在插件 UI 使用 JavaScript 时需要）；
+- Node.js（僅在外掛 UI 使用 JavaScript 時需要）；
 - Git；
-- 与目标部署环境一致的构建工具链。
+- 與目標部署環境一致的構建工具鏈。
 
-协议定义和通用说明位于：
+協議定義和通用說明位於：
 
-- `backend/pkg/pluginapi/v1/plugin.proto`：进程间消息和流式请求定义；
-- `backend/pkg/pluginapi/v1/runtime.go`：插件进程启动入口；
-- `backend/pkg/pluginapi/v1/manifest.schema.json`：包清单 JSON Schema；
-- `backend/pkg/pluginapi/docs/`：开发、UI Bridge、包格式和安全边界说明。
+- `backend/pkg/pluginapi/v1/plugin.proto`：程序間訊息和流式請求定義；
+- `backend/pkg/pluginapi/v1/runtime.go`：外掛程序啟動入口；
+- `backend/pkg/pluginapi/v1/manifest.schema.json`：包清單 JSON Schema；
+- `backend/pkg/pluginapi/docs/`：開發、UI Bridge、包格式和安全邊界說明。
 
-目前暂未提供可直接复制的官方示例源码。开发者可以按照本文的目录和协议说明创建自己的插件工程；示例仓库发布后，会在本文补充正式的获取地址、目录说明和版本要求。公开协议始终以 `backend/pkg/pluginapi/` 为准。
+目前暫未提供可直接複製的官方示例原始碼。開發者可以按照本文的目錄和協議說明建立自己的外掛工程；示例倉庫釋出後，會在本文補充正式的獲取地址、目錄說明和版本要求。公開協議始終以 `backend/pkg/pluginapi/` 為準。
 
-## 2. 创建插件工程
+## 2. 建立外掛工程
 
-在示例仓库发布前，可以先创建一个独立的 Go 工程，目录建议如下：
+在示例倉庫釋出前，可以先建立一個獨立的 Go 工程，目錄建議如下：
 
 ```text
 my-plugin/
@@ -38,79 +38,79 @@ my-plugin/
 └── build.sh
 ```
 
-开发时至少准备以下部分：
+開發時至少準備以下部分：
 
-1. `manifest.source.json`：插件 ID、名称、版本、作者、能力和兼容的 Sub2API 版本；
-2. `cmd/<plugin>/main.go`：启动入口和运行时版本注入，并同步打包器中的构建目标和二进制名称；
-3. `internal/pluginconfig/`：配置结构、默认值、严格校验和规范化；
-4. `internal/transport/`：HTTP 客户端、代理、请求头、请求体、网络连接参数、响应流和资源回收；
-5. `ui/index.html` 与 `ui/assets/`：插件自己的配置界面；
-6. 单元测试、进程集成测试和目标平台构建配置。
+1. `manifest.source.json`：外掛 ID、名稱、版本、作者、能力和相容的 Sub2API 版本；
+2. `cmd/<plugin>/main.go`：啟動入口和執行時版本注入，並同步打包器中的構建目標和二進位制名稱；
+3. `internal/pluginconfig/`：配置結構、預設值、嚴格校驗和規範化；
+4. `internal/transport/`：HTTP 客戶端、代理、請求頭、請求體、網路連線引數、響應流和資源回收；
+5. `ui/index.html` 與 `ui/assets/`：外掛自己的配置介面；
+6. 單元測試、程序整合測試和目標平臺構建配置。
 
-入口文件应保持很小，只负责调用 `pluginv1.Serve`。实际逻辑放在可独立测试的包中，避免把配置解析、网络请求和协议组装全部写在 `main.go`。
+入口檔案應保持很小，只負責呼叫 `pluginv1.Serve`。實際邏輯放在可獨立測試的包中，避免把配置解析、網路請求和協議組裝全部寫在 `main.go`。
 
-## 3. 编写运行时
+## 3. 編寫執行時
 
-运行时实现 `TransportPlugin` 服务，必须满足以下约定：
+執行時實現 `TransportPlugin` 服務，必須滿足以下約定：
 
 | 方法 | 要求 |
 | --- | --- |
-| `GetInfo` | 返回的插件 ID、版本、协议版本、传输 API 版本和能力必须与清单一致。 |
-| `Health` | 快速返回进程是否可以接收新请求，不执行长时间网络探测。 |
-| `ValidateConfig` | 严格解析 JSON，拒绝未知字段和非法范围，并返回完整的规范化配置。 |
-| `ApplyConfig` | 成功后原子切换配置；失败时保留旧配置和旧连接。 |
-| `TestConfig` | 针对已保存配置进行快速诊断，返回简短、可展示的结果。 |
-| `Forward` | 按协议接收请求流，发出上游请求，再按顺序返回响应流。 |
+| `GetInfo` | 返回的外掛 ID、版本、協議版本、傳輸 API 版本和能力必須與清單一致。 |
+| `Health` | 快速返回程序是否可以接收新請求，不執行長時間網路探測。 |
+| `ValidateConfig` | 嚴格解析 JSON，拒絕未知欄位和非法範圍，並返回完整的規範化配置。 |
+| `ApplyConfig` | 成功後原子切換配置；失敗時保留舊配置和舊連線。 |
+| `TestConfig` | 針對已儲存配置進行快速診斷，返回簡短、可展示的結果。 |
+| `Forward` | 按協議接收請求流，發出上游請求，再按順序返回響應流。 |
 
-请求帧顺序为 `start`、零到多个 `body_chunk`、`body_end`；响应帧顺序为 `start`、零到多个 `body_chunk`、`end`。不能继续处理时发送 `error` 帧。
+請求幀順序為 `start`、零到多個 `body_chunk`、`body_end`；響應幀順序為 `start`、零到多個 `body_chunk`、`end`。不能繼續處理時傳送 `error` 幀。
 
-`ForwardResponseError.request_sent` 必须准确：只有在能够确认尚未调用上游 HTTP Transport 时才返回 `false`；一旦已经调用，或无法确认上游是否收到请求，就返回 `true`。宿主会据此决定是否允许切换账号重试，避免重复执行同一个请求。
+`ForwardResponseError.request_sent` 必須準確：只有在能夠確認尚未呼叫上游 HTTP Transport 時才返回 `false`；一旦已經呼叫，或無法確認上游是否收到請求，就返回 `true`。宿主會據此決定是否允許切換帳號重試，避免重複執行同一個請求。
 
-资源管理也属于运行时契约：复用 HTTP Transport 和连接池，配置切换时关闭旧空闲连接，沿用 gRPC stream 的 context 取消 DNS、连接、上传和响应读取，并始终关闭上游响应体。日志和错误消息不能包含 Token、代理凭据、完整请求体或敏感响应头。
+資源管理也屬於執行時契約：複用 HTTP Transport 和連線池，配置切換時關閉舊空閒連線，沿用 gRPC stream 的 context 取消 DNS、連線、上傳和響應讀取，並始終關閉上游響應體。日誌和錯誤訊息不能包含 Token、代理憑據、完整請求體或敏感響應頭。
 
-## 4. 设计插件配置
+## 4. 設計外掛配置
 
-插件配置由插件定义，由 Sub2API 加密保存。推荐流程是：
+外掛配置由外掛定義，由 Sub2API 加密儲存。推薦流程是：
 
-1. 在 `internal/pluginconfig.Config` 中定义字段和默认值；
-2. 使用 `json.Decoder.DisallowUnknownFields` 等严格方式解析；
-3. 将空对象规范化为完整默认配置；
-4. 在 `ValidateConfig` 和 `ApplyConfig` 中复用同一套校验；
-5. 配置应用成功后再让宿主保存，保存失败时允许恢复旧配置。
+1. 在 `internal/pluginconfig.Config` 中定義欄位和預設值；
+2. 使用 `json.Decoder.DisallowUnknownFields` 等嚴格方式解析；
+3. 將空物件規範化為完整預設配置；
+4. 在 `ValidateConfig` 和 `ApplyConfig` 中複用同一套校驗；
+5. 配置應用成功後再讓宿主儲存，儲存失敗時允許恢復舊配置。
 
-JSON 字段统一使用 `snake_case`。敏感配置不要放入 URL、UI 通知、诊断结果或日志。插件不应从 UI 读取、刷新或持久化 OAuth Token；宿主只在运行时调用需要的网络转发接口。
+JSON 欄位統一使用 `snake_case`。敏感配置不要放入 URL、UI 通知、診斷結果或日誌。外掛不應從 UI 讀取、重新整理或持久化 OAuth Token；宿主只在執行時呼叫需要的網路轉發介面。
 
-## 5. 实现插件自己的配置 UI
+## 5. 實現外掛自己的配置 UI
 
-UI 是插件包内的静态页面，不需要修改 Sub2API 前端源码。宿主会在受限 iframe 中加载 `ui/index.html`，并通过 UI Bridge 提供配置读写和测试能力。
+UI 是外掛包內的靜態頁面，不需要修改 Sub2API 前端原始碼。宿主會在受限 iframe 中載入 `ui/index.html`，並通過 UI Bridge 提供配置讀寫和測試能力。
 
-页面初始化流程：
+頁面初始化流程：
 
-1. 加载包内 HTML、CSS 和 JavaScript；
-2. 创建 Bridge 并注册 `message` 监听；
-3. 发送 `sub2api.plugin.ready`；
-4. 调用 `config.load` 渲染表单；
-5. 编辑后调用 `config.save`；
-6. 测试前先保存，再调用 `config.test`；
-7. 页面卸载时调用 `dispose()`。
+1. 載入包內 HTML、CSS 和 JavaScript；
+2. 建立 Bridge 並註冊 `message` 監聽；
+3. 傳送 `sub2api.plugin.ready`；
+4. 呼叫 `config.load` 渲染表單；
+5. 編輯後呼叫 `config.save`；
+6. 測試前先儲存，再呼叫 `config.test`；
+7. 頁面解除安裝時呼叫 `dispose()`。
 
-当前 Bridge 支持：
+當前 Bridge 支援：
 
-| 消息 | 用途 |
+| 訊息 | 用途 |
 | --- | --- |
-| `config.load` | 读取当前配置。 |
-| `config.save` | 提交配置，由运行时校验、应用并加密保存。 |
-| `config.test` | 运行已保存配置的诊断。 |
-| `ui.resize` | 调整配置 iframe 高度。 |
-| `ui.notify` | 显示成功、错误或提示消息。 |
+| `config.load` | 讀取當前配置。 |
+| `config.save` | 提交配置，由執行時校驗、應用並加密儲存。 |
+| `config.test` | 執行已儲存配置的診斷。 |
+| `ui.resize` | 調整配置 iframe 高度。 |
+| `ui.notify` | 顯示成功、錯誤或提示訊息。 |
 
-每条消息都必须带 `request_id`，并校验 `event.source`、消息来源标识和 Bridge Token。不要依赖 CDN、远程脚本、Cookie 或本地存储。页面需要兼容窄屏和明暗主题，并正确处理加载、保存、测试、超时和未保存状态。
+每條訊息都必須帶 `request_id`，並校驗 `event.source`、訊息來源標識和 Bridge Token。不要依賴 CDN、遠端指令碼、Cookie 或本地儲存。頁面需要相容窄屏和明暗主題，並正確處理載入、儲存、測試、超時和未儲存狀態。
 
-详细信封格式见 `backend/pkg/pluginapi/docs/ui-bridge.md`。如果后续示例仓库提供可复用的 Bridge SDK，本文会在示例仓库章节补充对应路径和使用方式。
+詳細信封格式見 `backend/pkg/pluginapi/docs/ui-bridge.md`。如果後續示例倉庫提供可複用的 Bridge SDK，本文會在示例倉庫章節補充對應路徑和使用方式。
 
-## 6. 编写包清单
+## 6. 編寫包清單
 
-只维护 `manifest.source.json`，不要手工编辑构建目录中的 `manifest.json`。至少需要填写：
+只維護 `manifest.source.json`，不要手工編輯構建目錄中的 `manifest.json`。至少需要填寫：
 
 ```json
 {
@@ -139,30 +139,30 @@ UI 是插件包内的静态页面，不需要修改 Sub2API 前端源码。宿�
 }
 ```
 
-打包器会自动填充目标平台运行时、UI 和运行时文件的 SHA-256。清单中的 `requires.sub2api` 是硬兼容范围；`tested_sub2api_versions` 应只填写真实验证过的版本；`recommended_sub2api_version` 用于管理页面展示。当前宿主仅处理 `openai.oauth.outbound_transport.v1`，声明其他能力不会自动产生新路由。后续增加 Provider 支持时，会在协议、能力清单和宿主路由完成适配后，再补充对应的清单示例。
+打包器會自動填充目標平臺執行時、UI 和執行時檔案的 SHA-256。清單中的 `requires.sub2api` 是硬兼容範圍；`tested_sub2api_versions` 應只填寫真實驗證過的版本；`recommended_sub2api_version` 用於管理頁面展示。當前宿主僅處理 `openai.oauth.outbound_transport.v1`，宣告其他能力不會自動產生新路由。後續增加 Provider 支援時，會在協議、能力清單和宿主路由完成適配後，再補充對應的清單示例。
 
-## 7. 生成密钥并签名
+## 7. 生成金鑰並簽名
 
-生产包应始终签名，宿主默认拒绝未签名包。可以使用插件工程中的密钥生成工具生成一对 Ed25519 密钥；示例仓库发布后会提供标准工具和完整命令：
+生產包應始終簽名，宿主預設拒絕未簽名包。可以使用外掛工程中的金鑰生成工具生成一對 Ed25519 金鑰；示例倉庫釋出後會提供標準工具和完整命令：
 
 ```bash
 go run ./tools/keygen -out build/keys/my-publisher
 ```
 
-生成的 `my-publisher.private` 只保存在受控的开发机或 CI Secret 中，不能提交到源码仓库、插件包或部署服务器。公钥是 Base64 文本，可以提供给部署者。
+生成的 `my-publisher.private` 只儲存在受控的開發機或 CI Secret 中，不能提交到原始碼倉庫、外掛包或部署伺服器。公鑰是 Base64 文本，可以提供給部署者。
 
-插件工程的 `build.sh` 应调用标准打包器。自定义发布者密钥时必须同时提供 `-signing-key` 和 `-key-id`：
+外掛工程的 `build.sh` 應呼叫標準打包器。自定義釋出者金鑰時必須同時提供 `-signing-key` 和 `-key-id`：
 
 ```bash
 ./build.sh \
-  -signing-key /安全目录/my-publisher.private \
+  -signing-key /安全目錄/my-publisher.private \
   -key-id my-publisher-v1 \
   -output dist/my-openai-plugin.s2plugin
 ```
 
-签名覆盖最终 `manifest.json` 的精确字节；清单中的文件哈希再覆盖运行时和 UI 文件。签名完成后不要重新格式化 `manifest.json`。
+簽名覆蓋最終 `manifest.json` 的精確位元組；清單中的檔案雜湊再覆蓋執行時和 UI 檔案。簽名完成後不要重新格式化 `manifest.json`。
 
-部署者在 Sub2API 配置文件中追加公钥：
+部署者在 Sub2API 配置檔案中追加公鑰：
 
 ```yaml
 plugins:
@@ -171,13 +171,13 @@ plugins:
     my-publisher-v1: "BASE64_ED25519_PUBLIC_KEY"
 ```
 
-`trusted_publishers` 是在宿主内置官方公钥之外追加的信任来源，不能覆盖内置公钥。`signature.json` 中的 `key_id` 必须与配置键完全一致。密钥轮换时先发布包含新公钥的宿主配置或版本，再发布新签名包，最后再停用旧密钥。
+`trusted_publishers` 是在宿主內建官方公鑰之外追加的信任來源，不能覆蓋內建公鑰。`signature.json` 中的 `key_id` 必須與配置鍵完全一致。金鑰輪換時先發布包含新公鑰的宿主配置或版本，再發布新簽名包，最後再停用舊金鑰。
 
-开发阶段如需使用未签名包，只应在隔离的本地环境临时设置 `plugins.allow_unsigned: true`，测试完成后立即恢复为 `false`。
+開發階段如需使用未簽名包，只應在隔離的本地環境臨時設定 `plugins.allow_unsigned: true`，測試完成後立即恢復為 `false`。
 
-## 8. 构建、测试和安装
+## 8. 構建、測試和安裝
 
-在插件目录执行：
+在外掛目錄執行：
 
 ```bash
 go test ./... -count=1
@@ -187,7 +187,7 @@ node --check ui/assets/app.js
 unzip -t dist/*.s2plugin
 ```
 
-回到 Sub2API 仓库根目录后，再使用真实构建包运行宿主集成测试：
+回到 Sub2API 倉庫根目錄後，再使用真實構建包執行宿主整合測試：
 
 ```bash
 cd ../..
@@ -195,39 +195,39 @@ SUB2API_TEST_PLUGIN_PACKAGE=plugins/my-openai-plugin/dist/my-openai-plugin.s2plu
   go test ./backend/internal/service -run '^TestPluginRuntimeIntegration$' -count=1
 ```
 
-最低测试集应覆盖配置默认值和边界值、插件身份、请求和响应分块、流式响应、上下文取消、插件退出、代理开关、包哈希、签名、路径安全、目标平台运行时以及 UI Bridge 的加载、保存、测试、错误和超时。
+最低測試集應覆蓋配置預設值和邊界值、外掛身份、請求和響應分塊、流式響應、上下文取消、外掛退出、代理開關、包雜湊、簽名、路徑安全、目標平臺執行時以及 UI Bridge 的載入、儲存、測試、錯誤和超時。
 
-安装后先保持停用，确认清单兼容性、签名和诊断结果，再按账号灰度启用。API Key 账号和未命中灰度的 OAuth 账号继续走 Sub2API 原有路径。
+安裝後先保持停用，確認清單相容性、簽名和診斷結果，再按帳號灰度啟用。API Key 帳號和未命中灰度的 OAuth 帳號繼續走 Sub2API 原有路徑。
 
-## 9. 发布前检查清单
+## 9. 釋出前檢查清單
 
-- 插件版本与 `GetInfo` 返回值一致；
-- `requires.sub2api` 覆盖范围经过验证，没有未经测试的破坏性版本；
-- `tested_sub2api_versions` 与实际测试记录一致；
-- 每个支持的平台和架构都有运行时文件；
-- 生产包存在有效 `signature.json`，公钥已交付部署者；
-- 包中没有私钥、源映射、测试数据、日志和临时文件；
-- UI 不依赖外部资源，也不保存宿主会话信息；
-- 配置切换、请求取消、响应关闭和错误重试语义经过测试；
-- 发布说明包含升级、停用、回滚和兼容版本信息。
+- 外掛版本與 `GetInfo` 返回值一致；
+- `requires.sub2api` 覆蓋範圍經過驗證，沒有未經測試的破壞性版本；
+- `tested_sub2api_versions` 與實際測試記錄一致；
+- 每個支援的平臺和架構都有執行時檔案；
+- 生產包存在有效 `signature.json`，公鑰已交付部署者；
+- 包中沒有私鑰、源對映、測試資料、日誌和臨時檔案；
+- UI 不依賴外部資源，也不儲存宿主會話資訊；
+- 配置切換、請求取消、響應關閉和錯誤重試語義經過測試；
+- 釋出說明包含升級、停用、回滾和相容版本資訊。
 
-## 10. 常见问题
+## 10. 常見問題
 
-| 现象 | 排查方向 |
+| 現象 | 排查方向 |
 | --- | --- |
-| 安装提示签名不受信任 | 检查 `signature.json.key_id`、Base64 公钥和配置键是否完全一致。 |
-| 插件显示不兼容 | 检查 `requires.sub2api`、`plugin_protocol`、`transport_api` 和 `ui_bridge`。 |
-| 插件进程无法启动 | 检查目标系统和架构对应的运行时路径、可执行权限和运行用户权限。 |
-| 配置页无法加载 | 检查 `ui.entrypoint`、UI 文件哈希、Bridge Token 校验和 iframe 消息来源。 |
-| 保存后配置未生效 | 查看 `ValidateConfig`、`ApplyConfig` 返回的规范化配置和诊断信息。 |
-| 请求失败后重复执行 | 检查 `ForwardResponseError.request_sent` 是否准确反映请求是否可能已发出。 |
+| 安裝提示簽名不受信任 | 檢查 `signature.json.key_id`、Base64 公鑰和配置鍵是否完全一致。 |
+| 外掛顯示不相容 | 檢查 `requires.sub2api`、`plugin_protocol`、`transport_api` 和 `ui_bridge`。 |
+| 外掛程序無法啟動 | 檢查目標系統和架構對應的執行時路徑、可執行許可權和執行使用者許可權。 |
+| 配置頁無法載入 | 檢查 `ui.entrypoint`、UI 檔案雜湊、Bridge Token 校驗和 iframe 訊息來源。 |
+| 儲存後配置未生效 | 檢視 `ValidateConfig`、`ApplyConfig` 返回的規範化配置和診斷資訊。 |
+| 請求失敗後重復執行 | 檢查 `ForwardResponseError.request_sent` 是否準確反映請求是否可能已發出。 |
 
-## 11. 需要扩展能力时
+## 11. 需要擴充套件能力時
 
-如果新插件需要支持其他 Provider、其他账号类型或新的消息字段，应先扩展并版本化公开协议，再由宿主增加能力匹配和生命周期处理。不要仅通过清单声明一个宿主尚未实现的能力。这样可以让旧插件继续运行，也能让新宿主明确拒绝不兼容的插件。
+如果新外掛需要支援其他 Provider、其他帳號型別或新的訊息欄位，應先擴充套件並版本化公開協議，再由宿主增加能力匹配和生命週期處理。不要僅通過清單宣告一個宿主尚未實現的能力。這樣可以讓舊外掛繼續執行，也能讓新宿主明確拒絕不相容的外掛。
 
-Sub2API 后续会持续补充更多 Provider 的插件适配说明，包括能力标识、请求和响应契约、配置字段、UI Bridge 使用方式、版本兼容要求以及测试清单。本文会随着这些能力的落地继续更新，Provider 专属章节会放在本节之后。
+Sub2API 後續會持續補充更多 Provider 的外掛適配說明，包括能力標識、請求和響應契約、配置欄位、UI Bridge 使用方式、版本相容要求以及測試清單。本文會隨著這些能力的落地繼續更新，Provider 專屬章節會放在本節之後。
 
-## 12. 示例仓库预留
+## 12. 示例倉庫預留
 
-后续计划提供独立的插件示例仓库，用于存放可复用的运行时骨架、UI 组件、打包工具和各 Provider 的最小实现。目前示例仓库尚未准备完成，因此暂不提供地址；正式发布后会在这里补充仓库地址、适用的 Sub2API 版本、示例插件版本和构建说明。
+後續計劃提供獨立的外掛示例倉庫，用於存放可複用的執行時骨架、UI 元件、打包工具和各 Provider 的最小實現。目前示例倉庫尚未準備完成，因此暫不提供地址；正式釋出後會在這裡補充倉庫地址、適用的 Sub2API 版本、示例外掛版本和構建說明。

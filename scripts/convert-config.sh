@@ -9,7 +9,7 @@
 # 格式：OPENCC_SYNC[index]="source|target"
 # =============================================================================
 OPENCC_SYNC=(
-    "frontend/src/i18n/locales/zh-Hans.ts|frontend/src/i18n/locales/zh-Hant.ts"
+    "frontend/src/i18n/locales/zh|frontend/src/i18n/locales/zh-Hant"
     "README_CN.md|README_TW.md"
 )
 
@@ -49,4 +49,5 @@ EXCLUDE_FILES=(
     ".goreleaser.simple.yaml"
     "release.yml"
     "HANDOFF.md"
+    "admin-compliance.zh.md"  # 前端以 ?raw 打包，簡體使用者看到的法律文件保留上游原文
 )

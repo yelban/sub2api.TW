@@ -1,138 +1,138 @@
 ## Purpose
 
-让 OpenAI 分组管理员指定一组固定账号来获取普通模型列表与 Codex Model Manifest，使同一分组的 API Key 始终看到确定且合并后的模型列表，而不受调度器选账结果影响。
+讓 OpenAI 分組管理員指定一組固定帳號來獲取普通模型列表與 Codex Model Manifest，使同一分組的 API Key 始終看到確定且合併後的模型列表，而不受排程器選帳結果影響。
 
 ## ADDED Requirements
 
-### Requirement: OpenAI 分组可配置固定账号获取 Codex Model Manifest
-系统 SHALL 为平台为 `openai` 的分组提供 `codex_models_manifest_config` 配置，包含 `enabled`（默认 false）、`account_ids`（账号 ID 列表）和 `fallback_to_scheduler`（默认 false）。`enabled=false` 时系统 MUST 保持现有的本地目录优先、无本地目录时调度器获取 manifest 的行为；普通列表保持本地映射/默认列表行为。
+### Requirement: OpenAI 分組可配置固定帳號獲取 Codex Model Manifest
+系統 SHALL 為平臺為 `openai` 的分組提供 `codex_models_manifest_config` 配置，包含 `enabled`（預設 false）、`account_ids`（帳號 ID 列表）和 `fallback_to_scheduler`（預設 false）。`enabled=false` 時系統 MUST 保持現有的本地目錄優先、無本地目錄時排程器獲取 manifest 的行為；普通列表保持本地對映/預設列表行為。
 
-#### Scenario: 默认关闭
-- **WHEN** 分组未设置或 `enabled=false`
-- **THEN** Codex Model Manifest 请求 MUST 走现有本地生成或调度器选账路径
-- **THEN** `account_ids` 与 `fallback_to_scheduler` MUST 不影响任何运行时行为
+#### Scenario: 預設關閉
+- **WHEN** 分組未設定或 `enabled=false`
+- **THEN** Codex Model Manifest 請求 MUST 走現有本地生成或排程器選帳路徑
+- **THEN** `account_ids` 與 `fallback_to_scheduler` MUST 不影響任何執行時行為
 
-#### Scenario: 非 OpenAI 平台分组
-- **WHEN** 分组平台不是 `openai` 且请求携带 `enabled=true` 的配置
-- **THEN** 系统 MUST 将该配置归一化为关闭状态后落库，而不是返回错误
+#### Scenario: 非 OpenAI 平臺分組
+- **WHEN** 分組平臺不是 `openai` 且請求攜帶 `enabled=true` 的配置
+- **THEN** 系統 MUST 將該配置歸一化為關閉狀態後落庫，而不是返回錯誤
 
-### Requirement: 开启时必须至少选择一个分组内的 OpenAI 账号
-当 `enabled=true` 时，管理端更新接口 MUST 校验 `account_ids` 去重后至少包含一个账号，且每个账号 MUST 是当前分组内状态为 active、平台为 `openai` 的账号；账号数量 MUST NOT 超过 10 个。校验失败 MUST 返回 400，不落库。
+### Requirement: 開啟時必須至少選擇一個分組內的 OpenAI 帳號
+當 `enabled=true` 時，管理端更新介面 MUST 校驗 `account_ids` 去重後至少包含一個帳號，且每個帳號 MUST 是當前分組內狀態為 active、平臺為 `openai` 的帳號；帳號數量 MUST NOT 超過 10 個。校驗失敗 MUST 返回 400，不落庫。
 
-#### Scenario: 开启但未选择账号
-- **WHEN** 管理员保存 `enabled=true` 且 `account_ids` 为空
-- **THEN** 系统 MUST 返回 400，错误码为 `INVALID_CODEX_MODELS_MANIFEST_CONFIG`
+#### Scenario: 開啟但未選擇帳號
+- **WHEN** 管理員儲存 `enabled=true` 且 `account_ids` 為空
+- **THEN** 系統 MUST 返回 400，錯誤碼為 `INVALID_CODEX_MODELS_MANIFEST_CONFIG`
 
-#### Scenario: 选择了不属于当前分组的账号
-- **WHEN** `account_ids` 包含未绑定到该分组、已停用或平台不是 `openai` 的账号
-- **THEN** 系统 MUST 返回 400，错误信息指出无效账号 ID
+#### Scenario: 選擇了不屬於當前分組的帳號
+- **WHEN** `account_ids` 包含未繫結到該分組、已停用或平臺不是 `openai` 的帳號
+- **THEN** 系統 MUST 返回 400，錯誤資訊指出無效帳號 ID
 
-#### Scenario: 创建分组时开启
-- **WHEN** 创建分组请求携带 `enabled=true`
-- **THEN** 系统 MUST 返回 400，提示创建后再在编辑中配置
+#### Scenario: 建立分組時開啟
+- **WHEN** 建立分組請求攜帶 `enabled=true`
+- **THEN** 系統 MUST 返回 400，提示建立後再在編輯中配置
 
-#### Scenario: 重复账号 ID
-- **WHEN** `account_ids` 含重复 ID
-- **THEN** 系统 MUST 去重后保存，保持首次出现的顺序
+#### Scenario: 重複帳號 ID
+- **WHEN** `account_ids` 含重複 ID
+- **THEN** 系統 MUST 去重後儲存，保持首次出現的順序
 
-### Requirement: 固定账号模式只使用选定账号获取 manifest
-当 `enabled=true` 时，该分组 API Key 的 Codex Model Manifest 请求 MUST 只向选定账号发起上游请求，MUST NOT 调用调度器。选定账号的可用性判定 MUST 只考虑账号状态为 active、可调度开关打开、未因过期自动暂停；MUST 忽略优先级、负载因子、限流窗口与过载窗口。已从分组移除或已删除的账号 MUST 被跳过。
+### Requirement: 固定帳號模式只使用選定帳號獲取 manifest
+當 `enabled=true` 時，該分組 API Key 的 Codex Model Manifest 請求 MUST 只向選定帳號發起上游請求，MUST NOT 呼叫排程器。選定帳號的可用性判定 MUST 只考慮帳號狀態為 active、可排程開關開啟、未因過期自動暫停；MUST 忽略優先順序、負載因子、限流視窗與過載視窗。已從分組移除或已刪除的帳號 MUST 被跳過。
 
-#### Scenario: 限流中的选定账号仍被使用
-- **WHEN** 某个选定账号处于限流或过载窗口内
-- **THEN** 系统 MUST 仍然使用该账号请求 manifest
+#### Scenario: 限流中的選定帳號仍被使用
+- **WHEN** 某個選定帳號處於限流或過載視窗內
+- **THEN** 系統 MUST 仍然使用該帳號請求 manifest
 
-#### Scenario: 停用的选定账号被跳过
-- **WHEN** 某个选定账号状态为 inactive 或可调度开关关闭
-- **THEN** 系统 MUST 跳过该账号，不向其发起请求
+#### Scenario: 停用的選定帳號被跳過
+- **WHEN** 某個選定帳號狀態為 inactive 或可排程開關關閉
+- **THEN** 系統 MUST 跳過該帳號，不向其發起請求
 
-#### Scenario: 选定账号已不在分组内
-- **WHEN** 配置中的账号 ID 已从分组解绑或已删除
-- **THEN** 系统 MUST 跳过该 ID，并继续处理其余账号
+#### Scenario: 選定帳號已不在分組內
+- **WHEN** 配置中的帳號 ID 已從分組解綁或已刪除
+- **THEN** 系統 MUST 跳過該 ID，並繼續處理其餘帳號
 
-### Requirement: 多个选定账号并发请求并合并模型列表
-系统 MUST 对所有可用的选定账号并发发起 manifest 请求，并把各账号响应的 `models` 按 `slug` 取并集：同一 slug 以配置顺序中靠前账号的条目为准；顶层其余字段取配置顺序中第一个成功账号的响应。合并结果 MUST 继续应用分组自定义模型列表过滤；别名 MUST 仅来自成功拉取账号的映射投影，并基于最终响应体计算 ETag。
+### Requirement: 多個選定帳號併發請求併合並模型列表
+系統 MUST 對所有可用的選定帳號併發發起 manifest 請求，並把各帳號響應的 `models` 按 `slug` 取並集：同一 slug 以配置順序中靠前帳號的條目為準；頂層其餘欄位取配置順序中第一個成功帳號的響應。合併結果 MUST 繼續應用分組自定義模型列表過濾；別名 MUST 僅來自成功拉取帳號的對映投影，並基於最終響應體計算 ETag。
 
-#### Scenario: 并集合并
-- **WHEN** 账号 1 返回模型 A、B，账号 2 返回模型 A、C
-- **THEN** 客户端 MUST 收到模型 A、B、C，且 A 的条目来自账号 1
+#### Scenario: 並集合並
+- **WHEN** 帳號 1 返回模型 A、B，帳號 2 返回模型 A、C
+- **THEN** 客戶端 MUST 收到模型 A、B、C，且 A 的條目來自帳號 1
 
-#### Scenario: 部分账号失败
-- **WHEN** 一个选定账号上游返回错误而其他账号成功
-- **THEN** 系统 MUST 以成功账号的响应合并并返回 200
-- **THEN** 系统 MUST 记录包含失败账号 ID 的警告日志
+#### Scenario: 部分帳號失敗
+- **WHEN** 一個選定帳號上游返回錯誤而其他帳號成功
+- **THEN** 系統 MUST 以成功帳號的響應合併並返回 200
+- **THEN** 系統 MUST 記錄包含失敗帳號 ID 的警告日誌
 
-#### Scenario: 分组自定义模型列表仍然生效
-- **WHEN** 分组启用了自定义 `/v1/models` 列表
-- **THEN** 合并后的 manifest MUST 只保留列表中允许的模型
+#### Scenario: 分組自定義模型列表仍然生效
+- **WHEN** 分組啟用了自定義 `/v1/models` 列表
+- **THEN** 合併後的 manifest MUST 只保留列表中允許的模型
 
-#### Scenario: ETag 条件请求
-- **WHEN** 客户端 `If-None-Match` 与合并后最终响应体的 ETag 匹配
-- **THEN** 系统 MUST 返回 304 且响应体为空
+#### Scenario: ETag 條件請求
+- **WHEN** 客戶端 `If-None-Match` 與合併後最終響應體的 ETag 匹配
+- **THEN** 系統 MUST 返回 304 且響應體為空
 
-### Requirement: 选定账号全部不可用或全部失败时按配置回退
-当没有任何可用的选定账号，或所有可用账号的上游请求全部失败时：`fallback_to_scheduler=false` 时系统 MUST 返回上游错误（全部失败时）或 503（无可用账号时）；`fallback_to_scheduler=true` 时系统 MUST 回退到现有调度器选账路径。
+### Requirement: 選定帳號全部不可用或全部失敗時按配置回退
+當沒有任何可用的選定帳號，或所有可用帳號的上游請求全部失敗時：`fallback_to_scheduler=false` 時系統 MUST 返回上游錯誤（全部失敗時）或 503（無可用帳號時）；`fallback_to_scheduler=true` 時系統 MUST 回退到現有排程器選帳路徑。
 
-#### Scenario: 默认不回退
-- **WHEN** `fallback_to_scheduler=false` 且所有选定账号都不可用
-- **THEN** 系统 MUST 返回 503，错误类型为 `upstream_error`
+#### Scenario: 預設不回退
+- **WHEN** `fallback_to_scheduler=false` 且所有選定帳號都不可用
+- **THEN** 系統 MUST 返回 503，錯誤型別為 `upstream_error`
 
-#### Scenario: 全部失败且不回退
-- **WHEN** `fallback_to_scheduler=false` 且所有可用选定账号的上游请求均失败
-- **THEN** 系统 MUST 返回最后一个上游错误对应的状态码与信息
+#### Scenario: 全部失敗且不回退
+- **WHEN** `fallback_to_scheduler=false` 且所有可用選定帳號的上游請求均失敗
+- **THEN** 系統 MUST 返回最後一個上游錯誤對應的狀態碼與資訊
 
-#### Scenario: 开启回退
-- **WHEN** `fallback_to_scheduler=true` 且所有选定账号不可用或全部失败
-- **THEN** 系统 MUST 使用调度器选择账号并按现有流程返回 manifest
+#### Scenario: 開啟回退
+- **WHEN** `fallback_to_scheduler=true` 且所有選定帳號不可用或全部失敗
+- **THEN** 系統 MUST 使用排程器選擇帳號並按現有流程返回 manifest
 
-### Requirement: 管理端展示与编辑固定账号配置
-分组编辑对话框在平台为 `openai` 时 MUST 展示该配置：一个开关；开关打开后展示带搜索的多选账号下拉与「全部不可用时回退调度器」子开关。账号下拉 MUST 只列出当前分组内平台为 `openai` 的账号，并支持按名称搜索。分组创建对话框 MUST NOT 展示该配置。
+### Requirement: 管理端展示與編輯固定帳號配置
+分組編輯對話方塊在平臺為 `openai` 時 MUST 展示該配置：一個開關；開關開啟後展示帶搜尋的多選帳號下拉與「全部不可用時回退排程器」子開關。帳號下拉 MUST 只列出當前分組內平臺為 `openai` 的帳號，並支援按名稱搜尋。分組建立對話方塊 MUST NOT 展示該配置。
 
-#### Scenario: 开启后未选账号即提交
-- **WHEN** 管理员打开开关但未选择任何账号并点击保存
-- **THEN** 前端 MUST 阻止提交并提示至少选择一个账号
+#### Scenario: 開啟後未選帳號即提交
+- **WHEN** 管理員開啟開關但未選擇任何帳號並點選儲存
+- **THEN** 前端 MUST 阻止提交併提示至少選擇一個帳號
 
-#### Scenario: 回显已保存账号
-- **WHEN** 打开一个已配置固定账号的分组编辑对话框
-- **THEN** 已选账号 MUST 以名称标签展示；无法解析名称的账号 MUST 以 `#<id>` 展示
+#### Scenario: 回顯已儲存帳號
+- **WHEN** 開啟一個已配置固定帳號的分組編輯對話方塊
+- **THEN** 已選帳號 MUST 以名稱標籤展示；無法解析名稱的帳號 MUST 以 `#<id>` 展示
 
-#### Scenario: 分组复制
-- **WHEN** 管理员复制一个开启了固定账号配置的分组
-- **THEN** 新分组的该配置 MUST 为关闭且账号列表为空
+#### Scenario: 分組複製
+- **WHEN** 管理員複製一個開啟了固定帳號配置的分組
+- **THEN** 新分組的該配置 MUST 為關閉且帳號列表為空
 
-### Requirement: 普通模型列表复用固定账号配置
-当 OpenAI 分组开启固定账号时，普通 `/v1/models` 与 `/models` 请求 MUST 使用同一组指定账号向上游发现模型，并输出 `{object:"list",data:[...]}`。API Key 请求 MUST 使用标准模型列表端点，不添加 `client_version`；OAuth MUST 使用已有 Codex manifest 链路，将 slug 转为标准 ID。普通列表 MUST 保留上游媒体模型与未知具体模型。
+### Requirement: 普通模型列表複用固定帳號配置
+當 OpenAI 分組開啟固定帳號時，普通 `/v1/models` 與 `/models` 請求 MUST 使用同一組指定帳號向上遊發現模型，並輸出 `{object:"list",data:[...]}`。API Key 請求 MUST 使用標準模型列表端點，不新增 `client_version`；OAuth MUST 使用已有 Codex manifest 鏈路，將 slug 轉為標準 ID。普通列表 MUST 保留上游媒體模型與未知具體模型。
 
-#### Scenario: 普通客户端发现特殊模型
-- **WHEN** 不带 `client_version` 的请求使用开启固定账号的分组，所选账号返回非内置的模型
-- **THEN** 普通列表 MUST 包含该模型且 MUST NOT 请求未选账号
+#### Scenario: 普通客戶端發現特殊模型
+- **WHEN** 不帶 `client_version` 的請求使用開啟固定帳號的分組，所選帳號返回非內建的模型
+- **THEN** 普通列表 MUST 包含該模型且 MUST NOT 請求未選帳號
 
-#### Scenario: API Key 与 OAuth 账号混合
-- **WHEN** 所选账号包含 API Key 与 OAuth
-- **THEN** 系统 MUST 按各自协议获取目录并按 ID 合并，重复 ID MUST 取配置顺序靠前账号的条目
+#### Scenario: API Key 與 OAuth 帳號混合
+- **WHEN** 所選帳號包含 API Key 與 OAuth
+- **THEN** 系統 MUST 按各自協議獲取目錄並按 ID 合併，重複 ID MUST 取配置順序靠前帳號的條目
 
-#### Scenario: 普通请求回退
-- **WHEN** 固定账号全不可用或全失败且开启回退
-- **THEN** 系统 MUST 经由调度器选账号获取普通模型目录，而不是返回本地默认列表
+#### Scenario: 普通請求回退
+- **WHEN** 固定帳號全不可用或全失敗且開啟回退
+- **THEN** 系統 MUST 經由排程器選帳號獲取普通模型目錄，而不是返回本地預設列表
 
-### Requirement: 固定账号发现先于本地目录生成
-固定账号开启时，普通列表与 Codex manifest MUST 先获取指定账号目录，再按照来源账号的模型映射生成公开名称，最后应用分组列表过滤。MUST NOT 因为存在显式模型映射而跳过上游发现。透传账号 MUST 忽略残留模型映射；普通模式的具体别名仅在映射目标存在于来源账号目录时可见。MUST NOT 注入未成功拉取账号的别名或把通配模式作为模型 ID 返回。
+### Requirement: 固定帳號發現先於本地目錄生成
+固定帳號開啟時，普通列表與 Codex manifest MUST 先獲取指定帳號目錄，再按照來源帳號的模型對映生成公開名稱，最後應用分組列表過濾。MUST NOT 因為存在顯式模型對映而跳過上游發現。透傳帳號 MUST 忽略殘留模型對映；普通模式的具體別名僅在對映目標存在於來源帳號目錄時可見。MUST NOT 注入未成功拉取帳號的別名或把通配模式作為模型 ID 返回。
 
-#### Scenario: 有映射的固定账号
-- **WHEN** 所选账号配置 public-name 到 upstream-name 的映射且上游返回 upstream-name
-- **THEN** 系统 MUST 请求该账号上游并以 public-name 返回该模型，Codex 条目 MUST 继承上游能力元数据
+#### Scenario: 有對映的固定帳號
+- **WHEN** 所選帳號配置 public-name 到 upstream-name 的對映且上游返回 upstream-name
+- **THEN** 系統 MUST 請求該帳號上游並以 public-name 返回該模型，Codex 條目 MUST 繼承上游能力後設資料
 
-#### Scenario: 固定账号开启但列表为空
-- **WHEN** 运行时配置开启但账号 ID 列表为空
-- **THEN** 系统 MUST 按无可用固定账号的失败/回退规则处理，MUST NOT 静默使用本地目录
+#### Scenario: 固定帳號開啟但列表為空
+- **WHEN** 執行時配置開啟但帳號 ID 列表為空
+- **THEN** 系統 MUST 按無可用固定帳號的失敗/回退規則處理，MUST NOT 靜默使用本地目錄
 
-#### Scenario: 成功空目录或过滤为空
-- **WHEN** 上游返回有效空数组或分组过滤排除了全部模型
-- **THEN** 普通模型列表 MUST 返回 200 且 data 为空数组，MUST NOT 返回默认模型或触发失败回退
+#### Scenario: 成功空目錄或過濾為空
+- **WHEN** 上游返回有效空陣列或分組過濾排除了全部模型
+- **THEN** 普通模型列表 MUST 返回 200 且 data 為空陣列，MUST NOT 返回預設模型或觸發失敗回退
 
-### Requirement: 普通模型列表的条件请求
-普通固定账号列表 MUST 基于映射、合并和过滤后的最终响应体计算 ETag。
+### Requirement: 普通模型列表的條件請求
+普通固定帳號列表 MUST 基於對映、合併和過濾後的最終響應體計算 ETag。
 
 #### Scenario: 普通列表 ETag 匹配
-- **WHEN** 客户端 If-None-Match 与最终普通列表响应的 ETag 匹配
-- **THEN** 系统 MUST 返回 304 且无响应体
+- **WHEN** 客戶端 If-None-Match 與最終普通列表響應的 ETag 匹配
+- **THEN** 系統 MUST 返回 304 且無響應體

@@ -146,7 +146,25 @@ process_opencc_sync() {
         local source="${item%%|*}"
         local target="${item##*|}"
 
-        if [[ -f "$source" ]]; then
+        if [[ -d "$source" ]]; then
+            if [[ "$DRY_RUN" == true ]]; then
+                log_info "會轉換目錄：$source → $target"
+                continue
+            fi
+            # 整個目錄重建，避免殘留上游已刪除的檔案
+            rm -rf "$target"
+            local src_file dst_file
+            while IFS= read -r src_file; do
+                dst_file="$target/${src_file#"$source"/}"
+                mkdir -p "$(dirname "$dst_file")"
+                if opencc -i "$src_file" -o "$dst_file" -c s2twp.json 2>/dev/null; then
+                    apply_manual_corrections "$dst_file"
+                else
+                    log_error "轉換失敗：$src_file"
+                fi
+            done < <(find "$source" -type f)
+            log_success "已轉換目錄：$source → $target"
+        elif [[ -f "$source" ]]; then
             if [[ "$DRY_RUN" == true ]]; then
                 log_info "會轉換：$source → $target"
             else

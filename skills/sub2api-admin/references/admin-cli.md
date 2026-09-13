@@ -5,11 +5,11 @@
 ```bash
 export SUB2API_BASE_URL='https://your-sub2api-host'
 export SUB2API_ADMIN_API_KEY='<admin api key>'
-# 或者，未配置管理员 API Key 时使用管理员 JWT：
+# 或者，未配置管理員 API Key 時使用管理員 JWT：
 # export SUB2API_JWT='<admin access_token>'
 ```
 
-后台鉴权优先使用 `SUB2API_ADMIN_API_KEY` 发送 `x-api-key`，未设置时使用 `SUB2API_JWT` 发送 `Authorization: Bearer <jwt>`。如果返回 `INVALID_ADMIN_KEY`，重新生成管理员 API Key；如果使用 JWT，先用管理员邮箱密码登录并从响应的 `data.access_token` 复制 token：
+後臺鑑權優先使用 `SUB2API_ADMIN_API_KEY` 傳送 `x-api-key`，未設定時使用 `SUB2API_JWT` 傳送 `Authorization: Bearer <jwt>`。如果返回 `INVALID_ADMIN_KEY`，重新生成管理員 API Key；如果使用 JWT，先用管理員郵箱密碼登入並從響應的 `data.access_token` 複製 token：
 
 ```bash
 curl -sS "$SUB2API_BASE_URL/api/v1/auth/login" \
@@ -19,7 +19,7 @@ curl -sS "$SUB2API_BASE_URL/api/v1/auth/login" \
 
 ## CLI
 
-以下命令都假设当前目录是这个 skill 目录。
+以下命令都假設當前目錄是這個 skill 目錄。
 
 ```bash
 node scripts/sub2api-admin.js <command>
@@ -27,7 +27,7 @@ node scripts/sub2api-admin.js <command>
 
 ## Accounts
 
-### 只读
+### 只讀
 
 ```bash
 node scripts/sub2api-admin.js accounts list --page-size 20
@@ -42,14 +42,14 @@ node scripts/sub2api-admin.js accounts temp-unschedulable 40
 node scripts/sub2api-admin.js accounts antigravity-default-model-mapping
 ```
 
-`accounts export` 会包含账号凭据和 token，建议写入文件，不要直接刷屏：
+`accounts export` 會包含帳號憑據和 token，建議寫入檔案，不要直接刷屏：
 
 ```bash
 node scripts/sub2api-admin.js accounts export --ids 40,39 --file accounts-export.json
 node scripts/sub2api-admin.js accounts export --platform openai --type oauth --include-proxies false --file accounts-export.json
 ```
 
-### 单账号写入
+### 單帳號寫入
 
 ```bash
 node scripts/sub2api-admin.js accounts create --file account.json
@@ -67,16 +67,16 @@ node scripts/sub2api-admin.js accounts apply-oauth 40 --file credentials.json
 node scripts/sub2api-admin.js accounts reset-temp-unschedulable 40
 ```
 
-### 删除与清理
+### 刪除與清理
 
-删除前先列出目标账号名和 ID。
+刪除前先列出目標帳號名和 ID。
 
 ```bash
 node scripts/sub2api-admin.js accounts delete 25
 node scripts/sub2api-admin.js accounts keep-only --name 'target@example.com'
 ```
 
-### 批量写入
+### 批次寫入
 
 ```bash
 node scripts/sub2api-admin.js accounts batch-create --file accounts.json
@@ -86,11 +86,11 @@ node scripts/sub2api-admin.js accounts batch-refresh --ids 40,39
 node scripts/sub2api-admin.js accounts batch-clear-error --ids 40,39
 ```
 
-`bulk-update` 可覆盖页面“批量更新”的字段，payload 由后台表单字段决定，例如 `base_url`、`model_mapping`、`group_ids`、`proxy_id`、`concurrency`、`priority`、`rate_multiplier`、`status`、`compact_mode` 等。更新前先用 `accounts get <id>` 确认字段名。
+`bulk-update` 可覆蓋頁面“批次更新”的欄位，payload 由後臺表單欄位決定，例如 `base_url`、`model_mapping`、`group_ids`、`proxy_id`、`concurrency`、`priority`、`rate_multiplier`、`status`、`compact_mode` 等。更新前先用 `accounts get <id>` 確認欄位名。
 
-### 导入
+### 匯入
 
-通用后台导入：
+通用後臺匯入：
 
 ```bash
 node scripts/sub2api-admin.js accounts import-data --file accounts-export.json
@@ -104,7 +104,7 @@ node scripts/sub2api-admin.js accounts crs-preview --file payload.json
 node scripts/sub2api-admin.js accounts crs-sync --file payload.json
 ```
 
-旧版 JSON 导入仍可用，会把模板账号的配置复制给导入账号：
+舊版 JSON 匯入仍可用，會把模板帳號的配置複製給匯入帳號：
 
 ```bash
 node scripts/sub2api-admin.js accounts import-json \
@@ -113,7 +113,7 @@ node scripts/sub2api-admin.js accounts import-json \
   --dry-run
 ```
 
-复制字段：
+複製欄位：
 
 - `concurrency`
 - `priority`
@@ -129,9 +129,9 @@ node scripts/sub2api-admin.js proxies all
 
 ## Redeem Codes
 
-兑换码类型包括 `balance`、`concurrency`、`subscription`、`invitation`。状态常用 `unused`、`used`、`expired`。
+兌換碼型別包括 `balance`、`concurrency`、`subscription`、`invitation`。狀態常用 `unused`、`used`、`expired`。
 
-### 只读
+### 只讀
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes list --page-size 20
@@ -141,7 +141,7 @@ node scripts/sub2api-admin.js redeem-codes stats
 node scripts/sub2api-admin.js redeem-codes export --file redeem-codes.csv
 ```
 
-### 生成兑换码
+### 生成兌換碼
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes generate \
@@ -149,7 +149,7 @@ node scripts/sub2api-admin.js redeem-codes generate \
   --idempotency-key "redeem-generate-$(date +%s)"
 ```
 
-订阅兑换码需要 `group_id` 和非零 `validity_days`：
+訂閱兌換碼需要 `group_id` 和非零 `validity_days`：
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes generate \
@@ -157,9 +157,9 @@ node scripts/sub2api-admin.js redeem-codes generate \
   --idempotency-key "redeem-subscription-$(date +%s)"
 ```
 
-### 创建并兑换
+### 建立並兌換
 
-用于支付回调或人工充值，一步完成创建兑换码并兑换到用户。生产流程必须传稳定的 `--idempotency-key`。
+用於支付回撥或人工充值，一步完成建立兌換碼並兌換到使用者。生產流程必須傳穩定的 `--idempotency-key`。
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes create-and-redeem \
@@ -167,9 +167,9 @@ node scripts/sub2api-admin.js redeem-codes create-and-redeem \
   --idempotency-key order-123
 ```
 
-### 修改与清理
+### 修改與清理
 
-写入前先 `list` 或 `get` 核对目标 ID。
+寫入前先 `list` 或 `get` 核對目標 ID。
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes batch-update --ids 123,124 --json '{"notes":"campaign A"}'
@@ -180,7 +180,7 @@ node scripts/sub2api-admin.js redeem-codes batch-delete --ids 123,124
 
 ## Error Rules And TLS Profiles
 
-对应账号页顶部“错误透传规则”和“TLS 指纹模板”。
+對應帳號頁頂部“錯誤透傳規則”和“TLS 指紋模板”。
 
 ```bash
 node scripts/sub2api-admin.js error-rules list
@@ -199,7 +199,7 @@ node scripts/sub2api-admin.js tls-profiles delete 1
 
 ## Raw Admin API
 
-未封装或新版本后台接口可用 `api` 直通。路径可写 `/admin/...` 或 `/api/v1/admin/...`。
+未封裝或新版本後臺介面可用 `api` 直通。路徑可寫 `/admin/...` 或 `/api/v1/admin/...`。
 
 ```bash
 node scripts/sub2api-admin.js api GET /admin/groups/all
@@ -267,6 +267,6 @@ node scripts/sub2api-admin.js api POST /admin/accounts/bulk-update \
 
 ## Notes
 
-- 线上写入前先只读核对目标集合。
-- 导出结果包含敏感凭据，优先使用 `--file`。
-- `PUT /admin/accounts/:id` 和 `bulk-update` 接受宽松请求体，字段名不确定时先用 `accounts get` 或后台页面确认。
+- 線上寫入前先只讀核對目標集合。
+- 匯出結果包含敏感憑據，優先使用 `--file`。
+- `PUT /admin/accounts/:id` 和 `bulk-update` 接受寬鬆請求體，欄位名不確定時先用 `accounts get` 或後臺頁面確認。

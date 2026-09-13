@@ -2,11 +2,13 @@
 
 > 建立日期: 2026-01-07
 
+> **2026-09-13 結構變更**：上游把翻譯檔拆成 `locales/en/`、`locales/zh/` 目錄，且程式碼多處以 `locale === 'zh'` 判斷中文。fork 改為沿用上游的 `zh`（簡體）目錄與代碼，另以 OpenCC 從 `locales/zh/` 產生 `locales/zh-Hant/`；舊的 `zh-Hans` 設定值會遷移成 `zh`。下方「實作步驟」保留當初的 `zh-Hans.ts` 寫法作為歷史紀錄，現行設定以 `scripts/convert-config.sh` 為準。
+
 ## 決策摘要
 
 | 專案 | 決定 | 說明 |
 |------|------|------|
-| 語言程式碼 | `zh-Hans` / `zh-Hant` | 基於書寫系統 (BCP 47 標準) |
+| 語言程式碼 | `zh` / `zh-Hant` | 簡體沿用上游 `zh`，減少同步衝突（原為 `zh-Hans` / `zh-Hant`） |
 | 顯示名稱 | 「簡體中文」/「繁體中文」| - |
 | 旗幟 | 🇨🇳 / 🇹🇼 | - |
 | 翻譯方式 | OpenCC 簡轉繁 + 人工校對 | 使用 `s2twp.json` 配置 |
@@ -279,7 +281,7 @@ sed -i '' 's/帳/帳/g' <target>
 
 ### 注意事項
 
-1. **上游 i18n 結構變更**：如果上游修改了 `index.ts`（如改回 `zh.ts`），需要手動恢復 `zh-Hans`/`zh-Hant` 結構
+1. **上游 i18n 結構變更**：`index.ts` 衝突時以上游版本為基礎，重新加回 `zh-Hant` 的 loader、瀏覽器語言偵測與 `availableLocales` 項目；若上游再次調整 `locales/zh/` 的位置，同步修改 `convert-config.sh` 的 `OPENCC_SYNC`
 2. **新增翻譯 key**：OpenCC 會自動處理新增的簡體內容
 3. **衝突處理**：i18n 檔案衝突時，優先採用上游版本，再重新執行中文化流程
 4. **新增校正詞彙**：更新 `scripts/convert-config.sh` 的 `MANUAL_CORRECTIONS` 陣列

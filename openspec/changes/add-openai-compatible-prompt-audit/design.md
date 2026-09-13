@@ -1,91 +1,91 @@
 ## Context
 
-### 当前系统
+### 當前系統
 
-sub2api 当前已经存在一套完整的内容审核能力：
+sub2api 當前已經存在一套完整的內容稽核能力：
 
-- 核心实现位于 `backend/internal/service/content_moderation*.go`。
-- 管理 API 位于 `backend/internal/handler/admin/content_moderation_handler.go`，路由前缀为 `/admin/risk-control`。
-- 网关统一接线位于 `backend/internal/handler/content_moderation_helper.go`，各协议 Handler 在解析完请求体和模型后调用 `checkContentModeration`。
-- 数据保存在 `content_moderation_logs`，配置保存在 settings 的 `content_moderation_config`。
-- 管理页面为 `frontend/src/views/admin/RiskControlView.vue`。
-- 能力包括 OpenAI Moderations、关键词阻断、命中 Hash、异步观察、同步前置阻断、API Key 健康、邮件、违规计数和自动封号。
+- 核心實現位於 `backend/internal/service/content_moderation*.go`。
+- 管理 API 位於 `backend/internal/handler/admin/content_moderation_handler.go`，路由字首為 `/admin/risk-control`。
+- 閘道器統一接線位於 `backend/internal/handler/content_moderation_helper.go`，各協議 Handler 在解析完請求體和模型後呼叫 `checkContentModeration`。
+- 資料儲存在 `content_moderation_logs`，配置儲存在 settings 的 `content_moderation_config`。
+- 管理頁面為 `frontend/src/views/admin/RiskControlView.vue`。
+- 能力包括 OpenAI Moderations、關鍵詞阻斷、命中 Hash、非同步觀察、同步前置阻斷、API Key 健康、郵件、違規計數和自動封號。
 
-该能力不是本次要迁移的 aicodex-api “提示词审计”：两者使用不同模型、分类、队列、事件和阻断语义。把 Qwen3Guard 直接塞入 ContentModerationService 会让现有阈值、封号统计和记录含义失真，也会继续扩大已经接近 3000 行的单文件。
+該能力不是本次要遷移的 aicodex-api “提示詞審計”：兩者使用不同模型、分類、佇列、事件和阻斷語義。把 Qwen3Guard 直接塞入 ContentModerationService 會讓現有閾值、封號統計和記錄含義失真，也會繼續擴大已經接近 3000 行的單檔案。
 
-### 参考能力
+### 參考能力
 
-参考仓库 `/Users/mt/code/mt-ai/aicodex/aicodex-api` 当前磁盘实现提供：
+參考倉庫 `/Users/mt/code/mt-ai/aicodex/aicodex-api` 當前磁碟實現提供：
 
-- OpenAI 兼容 Qwen3Guard 审计池。
+- OpenAI 相容 Qwen3Guard 審計池。
 - 持久 PromptAuditJob / PromptAuditEvent。
-- Redis 30 分钟临时原文载荷。
-- 进程内 Worker、重试、租约和滞留回收。
-- 脱敏快照、Hash、Unicode 分片、最新输入优先。
-- 九类风险和严格 `Safety/Categories` 解析。
-- 异步审计与同步 fail-closed 阻断。
-- HTTP、SSE、Responses WebSocket 错误映射。
-- 节点探测、运行态、事件筛选/详情/硬删除和独立控制台页面。
+- Redis 30 分鐘臨時原文載荷。
+- 程序內 Worker、重試、租約和滯留回收。
+- 脫敏快照、Hash、Unicode 分片、最新輸入優先。
+- 九類風險和嚴格 `Safety/Categories` 解析。
+- 非同步審計與同步 fail-closed 阻斷。
+- HTTP、SSE、Responses WebSocket 錯誤對映。
+- 節點探測、執行態、事件篩選/詳情/硬刪除和獨立控制台頁面。
 
-参考仓库 `yjb` 分支当前包含未提交的同步阻止改动。因此实施开始前必须固定源 commit/tag 或生成包含未提交文件的只读 patch 清单，作为功能对照和测试移植的权威基线。
+參考倉庫 `yjb` 分支當前包含未提交的同步阻止改動。因此實施開始前必須固定源 commit/tag 或生成包含未提交檔案的只讀 patch 清單，作為功能對照和測試移植的權威基線。
 
-### 目标项目约束
+### 目標專案約束
 
-- PostgreSQL SQL migrations 是 schema 的事实源，Ent 自动迁移不是生产建表入口。
-- 后端是 Go + Gin + Wire；前端是 Vue 3 + TypeScript + pnpm。
-- Redis 已是运行基础设施，可作为短 TTL 敏感载荷存储和配置失效通知通道。
-- 新模块必须尽量集中在独立目录，并只通过显式接口接入现有 Handler。
-- 新功能默认关闭，不能改变升级前行为。
-- 完整提示词和 Guard 凭据不能进入数据库、日志、API、前端或错误响应。
+- PostgreSQL SQL migrations 是 schema 的事實源，Ent 自動遷移不是生產建表入口。
+- 後端是 Go + Gin + Wire；前端是 Vue 3 + TypeScript + pnpm。
+- Redis 已是執行基礎設施，可作為短 TTL 敏感載荷儲存和配置失效通知通道。
+- 新模組必須儘量集中在獨立目錄，並只通過顯式介面接入現有 Handler。
+- 新功能預設關閉，不能改變升級前行為。
+- 完整提示詞和 Guard 憑據不能進入資料庫、日誌、API、前端或錯誤響應。
 
-### 参与边界
+### 參與邊界
 
-- 网关请求处理：提供可信身份上下文、协议、模型和原始请求体。
-- 安全审计协调器：调用两个独立引擎并归并阻断结果。
-- 现有内容审核：保持原实现和副作用。
-- 新 Prompt Audit 模块：负责配置、提取、队列、Guard、事件、运行态和管理 API。
-- PostgreSQL：持久任务与事件。
-- Redis：扫描正文 TTL、配置失效通知、可选跨实例心跳/指标汇总。
-- 控制台：独立提示词审计页面。
+- 閘道器請求處理：提供可信身份上下文、協議、模型和原始請求體。
+- 安全審計協調器：呼叫兩個獨立引擎並歸併阻斷結果。
+- 現有內容稽核：保持原實現和副作用。
+- 新 Prompt Audit 模組：負責配置、提取、佇列、Guard、事件、執行態和管理 API。
+- PostgreSQL：持久任務與事件。
+- Redis：掃描正文 TTL、配置失效通知、可選跨例項心跳/指標彙總。
+- 控制台：獨立提示詞審計頁面。
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- 在不改变现有内容审核语义的前提下完整引入提示词输入审计。
-- 使用模块化垂直目录封装新能力，限制对现有代码的修改面。
-- 保持所有现有 OpenAI/Claude/Gemini/媒体兼容入口的请求和响应 envelope。
-- 提供异步不阻塞和同步 fail-closed 两种模式。
-- 在同步 Block/Unavailable 时保证无账号、无计费、无上游副作用。
-- 支持多实例持久任务消费和配置最终一致。
-- 只持久化脱敏、可关联、可复核的数据。
-- 把运行态、日志、指标和测试设计为第一等反馈信号。
-- 提供完整、独立、可访问的管理页面。
+- 在不改變現有內容稽核語義的前提下完整引入提示詞輸入審計。
+- 使用模組化垂直目錄封裝新能力，限制對現有程式碼的修改面。
+- 保持所有現有 OpenAI/Claude/Gemini/媒體相容入口的請求和響應 envelope。
+- 提供非同步不阻塞和同步 fail-closed 兩種模式。
+- 在同步 Block/Unavailable 時保證無帳號、無計費、無上游副作用。
+- 支援多例項持久任務消費和配置最終一致。
+- 只持久化脫敏、可關聯、可複核的資料。
+- 把執行態、日誌、指標和測試設計為第一等反饋訊號。
+- 提供完整、獨立、可訪問的管理頁面。
 
 **Non-Goals:**
 
-- 不审核模型输出，不在流式输出中途截断。
-- 不实现请求正文 Redact 或自动改写。
-- 不实现人工审批、申诉、逐请求放行或策略工作流。
-- 不把 Qwen3Guard 分类映射为现有 OpenAI Moderations 分数。
-- 不让提示词审计命中触发自动封号、邮件或 Hash 黑名单。
-- 不删除、合并或迁移 `content_moderation_logs`。
-- 不新增目标项目不存在的 AICodex 专属产品路由；只对目标项目实际存在的文本入口提供等价覆盖。
-- 不在本 change 中重构整个 Handler、计费或账号调度架构。
+- 不稽核模型輸出，不在流式輸出中途截斷。
+- 不實現請求正文 Redact 或自動改寫。
+- 不實現人工審批、申訴、逐請求放行或策略工作流。
+- 不把 Qwen3Guard 分類對映為現有 OpenAI Moderations 分數。
+- 不讓提示詞審計命中觸發自動封號、郵件或 Hash 黑名單。
+- 不刪除、合併或遷移 `content_moderation_logs`。
+- 不新增目標專案不存在的 AICodex 專屬產品路由；只對目標專案實際存在的文本入口提供等價覆蓋。
+- 不在本 change 中重構整個 Handler、計費或帳號排程架構。
 
 ## Decisions
 
-### 1. 迁移行为契约，而不是直接复制源目录
+### 1. 遷移行為契約，而不是直接複製源目錄
 
-源模块依赖 aicodex-api 的 Ent 全局客户端、option 模型、Gin context key、日志封装、Caddy/gatewaycore 和 React 控制台，不能原样复制到目标项目。
+源模組依賴 aicodex-api 的 Ent 全域性客戶端、option 模型、Gin context key、日誌封裝、Caddy/gatewaycore 和 React 控制台，不能原樣複製到目標專案。
 
-实施时以本 change 的 specs 和验收矩阵作为权威行为契约，再选择目标项目已有的 SettingRepository、Redis、SecretEncryptor、Gin Handler、SQL migration 和 Vue 组件实现。
+實施時以本 change 的 specs 和驗收矩陣作為權威行為契約，再選擇目標專案已有的 SettingRepository、Redis、SecretEncryptor、Gin Handler、SQL migration 和 Vue 元件實現。
 
-**备选方案：直接复制 `internal/service/promptaudit`。** 放弃，因为会引入大量适配壳、全局状态和源仓库私有依赖，并且源工作区当前未提交。
+**備選方案：直接複製 `internal/service/promptaudit`。** 放棄，因為會引入大量適配殼、全域性狀態和源倉庫私有依賴，並且源工作區當前未提交。
 
-### 2. 使用模块化垂直目录承载新能力
+### 2. 使用模組化垂直目錄承載新能力
 
-新增目录：
+新增目錄：
 
 ```text
 backend/internal/securityaudit/
@@ -108,20 +108,20 @@ backend/internal/securityaudit/
 └── *_test.go
 ```
 
-该目录内部允许用文件划分子职责，但对外只暴露：
+該目錄內部允許用檔案劃分子職責，但對外只暴露：
 
 - `Coordinator.Check(ctx, Request) Decision`
-- `PromptService` 生命周期与管理方法
+- `PromptService` 生命週期與管理方法
 - `PromptAdminHandler`
 - Wire provider set
 
-SQL migration、前端和少量路由/注入接线由于项目结构约束仍位于各自事实源目录。
+SQL migration、前端和少量路由/注入接線由於專案結構約束仍位於各自事實源目錄。
 
-**备选方案：继续平铺在 `internal/service`、`internal/repository` 和 `internal/handler`。** 放弃，因为无法满足独立模块要求，也会增加 AI 和人工定位所需上下文。
+**備選方案：繼續平鋪在 `internal/service`、`internal/repository` 和 `internal/handler`。** 放棄，因為無法滿足獨立模組要求，也會增加 AI 和人工定位所需上下文。
 
-### 3. 使用薄协调器组合两个引擎
+### 3. 使用薄協調器組合兩個引擎
 
-目标调用关系：
+目標呼叫關係：
 
 ```mermaid
 flowchart LR
@@ -135,33 +135,33 @@ flowchart LR
     C --> D[Normalized gateway decision]
 ```
 
-Coordinator 只承担：
+Coordinator 只承擔：
 
-1. 接收可信身份和请求快照。
-2. 确保新异步任务即使现有引擎随后阻断也能 best-effort 投递。
-3. 在新同步模式下执行两个引擎并等待结果。
-4. 使用固定优先级生成客户端决策。
+1. 接收可信身份和請求快照。
+2. 確保新非同步任務即使現有引擎隨後阻斷也能 best-effort 投遞。
+3. 在新同步模式下執行兩個引擎並等待結果。
+4. 使用固定優先順序生成客戶端決策。
 
-优先级：
+優先順序：
 
-1. 现有内容审核 Block：保留原状态、错误码和文案。
+1. 現有內容稽核 Block：保留原狀態、錯誤碼和文案。
 2. Prompt Guard Block：403 + `prompt_guard_blocked`。
 3. Prompt Guard Invalid：503 + `prompt_guard_invalid_response`。
 4. Prompt Guard Unavailable：503 + `prompt_guard_unavailable`。
-5. 否则 Allow。
+5. 否則 Allow。
 
-两个引擎的事件和副作用独立。Coordinator 不持久化业务事件，不修改风险分数。
+兩個引擎的事件和副作用獨立。Coordinator 不持久化業務事件，不修改風險分數。
 
-**同步执行策略：** 当 Prompt Guard blocking 开启时，现有内容审核和 Prompt Guard 可在独立受控 goroutine 中并行执行，共享请求取消信号但不共享 mutable state。必须等待两者完成或各自 deadline 到期，以保留两个引擎的审计完整性。若实现评审认为并行引入的复杂度过高，可先串行执行，但仍必须满足既有 Block 响应优先级和无下游副作用测试。
+**同步執行策略：** 當 Prompt Guard blocking 開啟時，現有內容稽核和 Prompt Guard 可在獨立受控 goroutine 中並行執行，共享請求取消訊號但不共享 mutable state。必須等待兩者完成或各自 deadline 到期，以保留兩個引擎的審計完整性。若實現評審認為並行引入的複雜度過高，可先序列執行，但仍必須滿足既有 Block 響應優先順序和無下游副作用測試。
 
-### 4. 复用现有接入位置，但显式改名为安全审计
+### 4. 複用現有接入位置，但顯式改名為安全審計
 
-把各协议 Handler 的 `checkContentModeration` 调用机械替换为 `checkSecurityAudit`，保持调用点仍在：
+把各協議 Handler 的 `checkContentModeration` 呼叫機械替換為 `checkSecurityAudit`，保持呼叫點仍在：
 
-- 身份鉴权、基本请求体读取和协议格式校验之后。
-- 账号选择、账户并发、计费资格、预扣、上游拨号/写入之前。
+- 身份鑑權、基本請求體讀取和協議格式校驗之後。
+- 帳號選擇、帳戶併發、計費資格、預扣、上游撥號/寫入之前。
 
-现有 `content_moderation_helper.go` 改为或新增 `security_audit_helper.go`，构造统一 `securityaudit.Request`：
+現有 `content_moderation_helper.go` 改為或新增 `security_audit_helper.go`，構造統一 `securityaudit.Request`：
 
 ```go
 type Request struct {
@@ -182,32 +182,32 @@ type Request struct {
 }
 ```
 
-请求体必须在 Handler 已受全局大小限制后传入。模块不得再次从 `http.Request.Body` 读取，避免破坏转发。
+請求體必須在 Handler 已受全域性大小限制後傳入。模組不得再次從 `http.Request.Body` 讀取，避免破壞轉發。
 
-### 5. 保持三个独立开关层级
+### 5. 保持三個獨立開關層級
 
-有效开关：
+有效開關：
 
-1. `risk_control_enabled`：现有安全审计总入口和菜单开关。
-2. `content_moderation_config.enabled/mode`：现有内容审核。
-3. `prompt_audit_config.enabled/blocking_enabled`：新提示词审计。
+1. `risk_control_enabled`：現有安全審計總入口和選單開關。
+2. `content_moderation_config.enabled/mode`：現有內容稽核。
+3. `prompt_audit_config.enabled/blocking_enabled`：新提示詞審計。
 
 Prompt Audit 有效模式：
 
-| risk_control | enabled | blocking_enabled | 有效行为 |
+| risk_control | enabled | blocking_enabled | 有效行為 |
 | --- | --- | --- | --- |
 | false | 任意 | 任意 | off |
 | true | false | false | off |
 | true | true | false | async_audit |
 | true | true | true | blocking |
 
-后端必须拒绝 `enabled=false && blocking_enabled=true`。前端联动只提升体验，不能替代后端校验。
+後端必須拒絕 `enabled=false && blocking_enabled=true`。前端聯動只提升體驗，不能替代後端校驗。
 
-### 6. 配置使用 settings JSON，但凭据独立加密
+### 6. 配置使用 settings JSON，但憑據獨立加密
 
 新增 setting key：`prompt_audit_config`。
 
-配置结构包含：
+配置結構包含：
 
 ```text
 enabled
@@ -226,59 +226,59 @@ change_summary
 endpoints[]
 ```
 
-每个 endpoint 持久化：
+每個 endpoint 持久化：
 
 ```text
 id, name, protocol=openai_compatible, base_url, model,
 token_ciphertext, timeout_ms, input_limit, enabled
 ```
 
-读取 API 只返回 `has_token`/`token_status`。保存请求使用：
+讀取 API 只返回 `has_token`/`token_status`。儲存請求使用：
 
-- `token` 非空：替换并加密。
+- `token` 非空：替換並加密。
 - `token` 空且 `clear_token=false`：保留已有密文。
-- `clear_token=true`：删除密文。
+- `clear_token=true`：刪除密文。
 
-config_version 每次成功保存单调加一。change_summary 只保存节点数量、开关、分类数量、分组数量及其 Hash 等脱敏摘要。
+config_version 每次成功儲存單調加一。change_summary 只儲存節點數量、開關、分類數量、分組數量及其 Hash 等脫敏摘要。
 
-保存请求必须携带管理员读取草稿时的 `expected_config_version`。ConfigStore 在 PostgreSQL 短事务中获取 `prompt_audit_config` 专用 advisory transaction lock，重新读取 settings 当前值并比较版本；不一致时返回 409 `prompt_audit_config_conflict`，不得覆盖其他管理员的新配置。版本一致时才计算 current+1、加密并写回。首次无 setting 时按 version=1/default-off 参与比较。进程内 mutex 不能代替该多实例 CAS。
+儲存請求必須攜帶管理員讀取草稿時的 `expected_config_version`。ConfigStore 在 PostgreSQL 短事務中獲取 `prompt_audit_config` 專用 advisory transaction lock，重新讀取 settings 當前值並比較版本；不一致時返回 409 `prompt_audit_config_conflict`，不得覆蓋其他管理員的新配置。版本一致時才計算 current+1、加密並寫回。首次無 setting 時按 version=1/default-off 參與比較。程序內 mutex 不能代替該多例項 CAS。
 
-**备选方案：新增配置表。** 第一版放弃，因为目标项目已有 settings 配置模式，源实现也使用 option JSON；任务和事件才需要独立关系表。
+**備選方案：新增配置表。** 第一版放棄，因為目標專案已有 settings 配置模式，源實現也使用 option JSON；任務和事件才需要獨立關係表。
 
-### 7. 配置使用内存快照和 Redis 失效通知
+### 7. 配置使用記憶體快照和 Redis 失效通知
 
-PromptService 维护原子只读配置快照：
+PromptService 維護原子只讀配置快照：
 
-- 启动时加载并校验。
-- 保存成功后先安装本实例快照，再 publish `sub2api:prompt_guard:config:invalidate`，消息只包含版本。
-- 其他实例收到通知后重新从 settings 加载、解密、校验并原子替换。
-- Redis publish 失败时保留最后有效配置，并通过 5 秒有界 TTL 后台刷新。
-- 请求热路径只读取快照，不查询数据库。
+- 啟動時載入並校驗。
+- 儲存成功後先安裝本例項快照，再 publish `sub2api:prompt_guard:config:invalidate`，訊息只包含版本。
+- 其他例項收到通知後重新從 settings 載入、解密、校驗並原子替換。
+- Redis publish 失敗時保留最後有效配置，並通過 5 秒有界 TTL 後臺重新整理。
+- 請求熱路徑只讀取快照，不查詢資料庫。
 
-运行态返回 expected 和 active version。配置加载失败不得清空最后有效快照；冷启动无有效快照时不得伪装为关闭或健康。
+執行態返回 expected 和 active version。配置載入失敗不得清空最後有效快照；冷啟動無有效快照時不得偽裝為關閉或健康。
 
-### 8. 使用提示词专用快照提取器，不直接复用现有截断结果
+### 8. 使用提示詞專用快照提取器，不直接複用現有截斷結果
 
-复用现有内容审核提供的 protocol 常量、身份/分组上下文和部分 JSON 内容块解析思路，但新模块实现独立 `PromptSnapshotExtractor`：
+複用現有內容稽核提供的 protocol 常量、身份/分組上下文和部分 JSON 內容塊解析思路，但新模組實現獨立 `PromptSnapshotExtractor`：
 
-- Chat Completions：只提取 role=user 的文本内容。
-- Responses：支持 input 字符串、消息数组和 content blocks。
-- Claude Messages：提取 role=user 文本块。
+- Chat Completions：只提取 role=user 的文本內容。
+- Responses：支援 input 字串、訊息陣列和 content blocks。
+- Claude Messages：提取 role=user 文本塊。
 - Gemini：提取 user contents/parts 文本。
-- Images/媒体：只提取 prompt 文本，忽略图片载荷。
-- Responses WS：解析每个 response.create 帧。
+- Images/媒體：只提取 prompt 文本，忽略圖片載荷。
+- Responses WS：解析每個 response.create 幀。
 
-扫描顺序：
+掃描順序：
 
-1. 最新非空用户输入独立作为首段。
-2. 其余用户历史保持确定顺序。
+1. 最新非空使用者輸入獨立作為首段。
+2. 其餘使用者歷史保持確定順序。
 3. 每段再按 Unicode rune 分片。
 
-数据库预览使用统一脱敏器：移除/掩码 API Key、Bearer、常见凭据、邮箱/电话等敏感模式，随后按 rune 裁剪。Hash 使用实际待扫描文本的 SHA-256。
+資料庫預覽使用統一脫敏器：移除/掩碼 API Key、Bearer、常見憑據、郵箱/電話等敏感模式，隨後按 rune 裁剪。Hash 使用實際待掃描文本的 SHA-256。
 
-### 9. PostgreSQL 使用两个新表，SQL migration 为事实源
+### 9. PostgreSQL 使用兩個新表，SQL migration 為事實源
 
-建议 migration 名称：`backend/migrations/181_prompt_audit.sql`。如果实施时已有 181，则按当前最大序号递增，不允许修改已应用 migration。
+建議 migration 名稱：`backend/migrations/181_prompt_audit.sql`。如果實施時已有 181，則按當前最大序號遞增，不允許修改已應用 migration。
 
 #### `prompt_audit_jobs`
 
@@ -317,9 +317,9 @@ CREATE TABLE prompt_audit_jobs (
 );
 ```
 
-状态集合：`staging|queued|processing|retry|done|failed`。
+狀態集合：`staging|queued|processing|retry|done|failed`。
 
-关键索引：
+關鍵索引：
 
 ```text
 (status, next_attempt_at, id)
@@ -370,39 +370,39 @@ CREATE TABLE prompt_audit_events (
 );
 ```
 
-事件保留请求快照列用于稳定查询，即使 user/API key/group 后续删除仍保留管理员可复核上下文。用户名、邮箱和 API Key 名称必须作为不同字段返回，不能拼成不可筛选的单一展示串；这些身份快照沿用现有管理员数据访问和保留规则，不得写入普通请求日志。外键使用 SET NULL，快照字段保留。
+事件保留請求快照列用於穩定查詢，即使 user/API key/group 後續刪除仍保留管理員可複核上下文。使用者名稱、郵箱和 API Key 名稱必須作為不同欄位返回，不能拼成不可篩選的單一展示串；這些身份快照沿用現有管理員資料訪問和保留規則，不得寫入普通請求日誌。外部索引鍵使用 SET NULL，快照欄位保留。
 
 事件索引：job、request、decision/time、risk/time、user/time、API key/time、group/time、Hash、created_at。
 
-不得创建 raw_prompt、raw_request、payload、token 等列。
+不得建立 raw_prompt、raw_request、payload、token 等列。
 
-### 10. 跨 PostgreSQL/Redis 投递使用 staging 状态避免竞态
+### 10. 跨 PostgreSQL/Redis 投遞使用 staging 狀態避免競態
 
-异步投递顺序：
+非同步投遞順序：
 
-1. 检查有效模式、范围和节点；在 PostgreSQL 短事务内获取 Prompt Audit 队列准入 advisory transaction lock，重新统计 active jobs，并仅在低于 snapshot queue_capacity 时插入 staging job。
+1. 檢查有效模式、範圍和節點；在 PostgreSQL 短事務內獲取 Prompt Audit 佇列准入 advisory transaction lock，重新統計 active jobs，並僅在低於 snapshot queue_capacity 時插入 staging job。
 2. 提取快照。
 3. 插入 `status=staging` 的 job。
 4. `SET sub2api:prompt_audit:payload:<job_id> <scan_text> EX 1800`。
-5. 条件更新 staging → queued。
-6. 输出 `prompt_audit.job_enqueued`。
+5. 條件更新 staging → queued。
+6. 輸出 `prompt_audit.job_enqueued`。
 
-Worker 只领取 queued/retry，因此不会在 Redis SET 前看到任务。
+Worker 只領取 queued/retry，因此不會在 Redis SET 前看到任務。
 
-失败处理：
+失敗處理：
 
-- 步骤 3 失败：不写 Redis。
-- 步骤 4 失败：job → failed，原请求继续。
-- 步骤 5 失败：删除 Redis key；job 由 staging 清理器标记 failed。
-- 进程在 4/5 之间退出：Redis 自动过期，staging 回收器标记 failed。
+- 步驟 3 失敗：不寫 Redis。
+- 步驟 4 失敗：job → failed，原請求繼續。
+- 步驟 5 失敗：刪除 Redis key；job 由 staging 清理器標記 failed。
+- 程序在 4/5 之間退出：Redis 自動過期，staging 回收器標記 failed。
 
-这比源实现“先 queued 再写 Redis”更适合多实例，避免 Worker 提前领取。
+這比源實現“先 queued 再寫 Redis”更適合多例項，避免 Worker 提前領取。
 
-队列容量检查和 staging INSERT 必须在同一准入锁事务中完成，防止多个实例先各自看到剩余容量再共同超限。锁等待必须有很短的有界 timeout；无法及时取得锁时按 `queue_admission_busy` 丢弃异步审计任务并让主请求继续。Redis 写入不在该事务内。
+佇列容量檢查和 staging INSERT 必須在同一准入鎖事務中完成，防止多個例項先各自看到剩餘容量再共同超限。鎖等待必須有很短的有界 timeout；無法及時取得鎖時按 `queue_admission_busy` 丟棄非同步審計任務並讓主請求繼續。Redis 寫入不在該事務內。
 
-### 11. Worker 使用 PostgreSQL 原子领取与租约
+### 11. Worker 使用 PostgreSQL 原子領取與租約
 
-Repository 使用短事务：
+Repository 使用短事務：
 
 ```sql
 WITH candidate AS (
@@ -425,24 +425,24 @@ WHERE j.id = candidate.id
 RETURNING j.*;
 ```
 
-Worker 必须把 RETURNING 得到的 `claim_version` 作为 fencing token 保存到本次执行上下文。每处理一个分片前以 `id + status=processing + claim_version` 条件更新 `processing_started_at`；创建事件、标记 done/retry/failed 同样必须校验 claim_version 并检查 affected rows。回收后再次领取会递增版本，因此旧 Worker 即使稍后恢复也不能覆盖新领取者的结果。
+Worker 必須把 RETURNING 得到的 `claim_version` 作為 fencing token 儲存到本次執行上下文。每處理一個分片前以 `id + status=processing + claim_version` 條件更新 `processing_started_at`；建立事件、標記 done/retry/failed 同樣必須校驗 claim_version 並檢查 affected rows。回收後再次領取會遞增版本，因此舊 Worker 即使稍後恢復也不能覆蓋新領取者的結果。
 
-回收器每分钟扫描一小批超时 processing：
+回收器每分鐘掃描一小批超時 processing：
 
 - attempts < max_attempts → retry。
 - attempts >= max_attempts → failed。
 
-退避建议：5s、30s、2m，上限 5m并加少量 jitter。401/403 和 invalid_response 不重试；429、5xx、连接错误和超时可重试。
+退避建議：5s、30s、2m，上限 5m並加少量 jitter。401/403 和 invalid_response 不重試；429、5xx、連線錯誤和超時可重試。
 
-Runner 生命周期由应用启动/停止管理：
+Runner 生命週期由應用啟動/停止管理：
 
-- Start 验证 DB、Redis、配置。
-- Worker panic 单任务恢复并记录，不能杀死进程。
-- Shutdown 停止领取新任务，等待活动任务到有界超时。
+- Start 驗證 DB、Redis、配置。
+- Worker panic 單任務恢復並記錄，不能殺死程序。
+- Shutdown 停止領取新任務，等待活動任務到有界超時。
 
-### 12. OpenAI 兼容 Client 使用严格 Qwen3Guard 契约
+### 12. OpenAI 相容 Client 使用嚴格 Qwen3Guard 契約
 
-请求：
+請求：
 
 ```json
 {
@@ -456,86 +456,86 @@ Runner 生命周期由应用启动/停止管理：
 
 解析要求：
 
-- 响应体上限 256 KiB。
-- 只接受一个非空 `Safety:` 行和一个 `Categories:` 行。
+- 響應體上限 256 KiB。
+- 只接受一個非空 `Safety:` 行和一個 `Categories:` 行。
 - 只接受 Safe、Controversial、Unsafe。
-- 不允许额外非空说明。
-- 类别做大小写/标点别名归一，但未知类别必须保留风险事实。
+- 不允許額外非空說明。
+- 類別做大小寫/標點別名歸一，但未知類別必須保留風險事實。
 
-策略映射：
+策略對映：
 
-| Safety | 已启用类别 | 结果 |
+| Safety | 已啟用類別 | 結果 |
 | --- | --- | --- |
 | Safe | 任意 | Pass / Allow |
-| Controversial | 普通类别 | Flag / Warn |
+| Controversial | 普通類別 | Flag / Warn |
 | Controversial | Jailbreak/PII/Suicide & Self-Harm | Critical / Block |
-| Unsafe | 至少一个启用类别 | Critical / Block |
-| Unsafe | 未知类别 | Critical / Block + unknown_unsafe |
-| Unsafe | 仅命中明确禁用类别 | Flag / Warn，保留事实 |
+| Unsafe | 至少一個啟用類別 | Critical / Block |
+| Unsafe | 未知類別 | Critical / Block + unknown_unsafe |
+| Unsafe | 僅命中明確停用類別 | Flag / Warn，保留事實 |
 
-scanner score 只用于展示排序，不得被解释为真实置信度阈值。
+scanner score 只用於展示排序，不得被解釋為真實置信度閾值。
 
-管理 API 还应从 categories、scanner evidence 和 Guard policy 确定性派生 `issue_summaries`。每项至少包含 category、scanner_id、title、description、severity/label、action/label、code、score 和脱敏 evidence；可选位置必须是 rune 范围和不可逆命中 Hash，不能返回原文。该摘要是展示 DTO，不要求新增数据库列，防止复制同一风险事实。
+管理 API 還應從 categories、scanner evidence 和 Guard policy 確定性派生 `issue_summaries`。每項至少包含 category、scanner_id、title、description、severity/label、action/label、code、score 和脫敏 evidence；可選位置必須是 rune 範圍和不可逆命中 Hash，不能返回原文。該摘要是展示 DTO，不要求新增資料庫列，防止複製同一風險事實。
 
-### 13. 同步 Guard 使用共享 deadline、故障切换和 bulkhead
+### 13. 同步 Guard 使用共享 deadline、故障切換和 bulkhead
 
 同步 evaluator：
 
-- 全局并发上限默认 64。
-- 每节点并发上限默认 16。
-- 总 deadline 使用第一启用节点 timeout。
-- 所有分片和节点故障切换共享 deadline。
-- 顺序扫描，最新输入优先。
-- Block 可早停；Allow 必须所有必要分片成功。
-- 连接失败、429、5xx、超时可切下一节点。
-- 401/403、invalid_response 终止。
-- 所有节点失败或 bulkhead 满 → Unavailable。
+- 全域性併發上限預設 64。
+- 每節點併發上限預設 16。
+- 總 deadline 使用第一啟用節點 timeout。
+- 所有分片和節點故障切換共享 deadline。
+- 順序掃描，最新輸入優先。
+- Block 可早停；Allow 必須所有必要分片成功。
+- 連線失敗、429、5xx、超時可切下一節點。
+- 401/403、invalid_response 終止。
+- 所有節點失敗或 bulkhead 滿 → Unavailable。
 
-第一版不使用熔断器外部依赖；连续失败健康状态和冻结窗口可用模块内小状态机实现。若后续数据证明需要通用熔断库，另起 change。
+第一版不使用熔斷器外部依賴；連續失敗健康狀態和凍結視窗可用模組內小狀態機實現。若後續資料證明需要通用熔斷庫，另起 change。
 
-### 14. 出站 HTTP Client 使用管理员配置的网络目标
+### 14. 出站 HTTP Client 使用管理員配置的網路目標
 
-保存、探测和实际调用共用同一校验：
+儲存、探測和實際呼叫共用同一校驗：
 
-- 仅接受结构有效的 http/https Base URL，并禁止会破坏固定 API 路径拼接的 userinfo、query、fragment。
-- 私网、回环、link-local、metadata、保留地址及域名解析结果均不做目标类别拦截。
-- HTTP 与 HTTPS 均可由管理员选择；使用标准 DialContext 和标准重定向行为。
-- 节点目标的可信性、网络可达性和协议安全由管理员负责。
-- 独立连接池、Dial/TLS/Header timeout、响应上限。
-- 日志只记录 endpoint ID，不记录完整 URL。
+- 僅接受結構有效的 http/https Base URL，並禁止會破壞固定 API 路徑拼接的 userinfo、query、fragment。
+- 私網、迴環、link-local、metadata、保留地址及域名解析結果均不做目標類別攔截。
+- HTTP 與 HTTPS 均可由管理員選擇；使用標準 DialContext 和標準重定向行為。
+- 節點目標的可信性、網路可達性和協議安全由管理員負責。
+- 獨立連線池、Dial/TLS/Header timeout、響應上限。
+- 日誌只記錄 endpoint ID，不記錄完整 URL。
 
-### 15. HTTP、SSE 和 WebSocket 使用协议原有错误构造器
+### 15. HTTP、SSE 和 WebSocket 使用協議原有錯誤建構子
 
-HTTP 错误：
+HTTP 錯誤：
 
-| 情况 | HTTP | error_code |
+| 情況 | HTTP | error_code |
 | --- | ---: | --- |
 | Block | 403 | prompt_guard_blocked |
 | Unavailable | 503 | prompt_guard_unavailable |
 | Invalid response | 503 | prompt_guard_invalid_response |
 
-Handler 使用自己已有的 OpenAI、Claude 或 Gemini error helper。正文只包含通用中文消息、code 和 request ID。
+Handler 使用自己已有的 OpenAI、Claude 或 Gemini error helper。正文只包含通用中文訊息、code 和 request ID。
 
-现有 helper 需要通过最小协议适配器扩展稳定代码，不能破坏原字段：
+現有 helper 需要通過最小協議介面卡擴充套件穩定程式碼，不能破壞原欄位：
 
-- OpenAI Chat/Responses：保持 `error.type/message` 或 Responses 现有结构，并设置 `error.code=<prompt_guard_*>`。
-- Claude Messages：保持 `type=error` 和合法的 `error.type=permission_error|api_error`，增加可选 `error.code=<prompt_guard_*>`。
-- Gemini：保持 Google envelope 的数值 `error.code`、message 和 canonical status；在 `error.details[]` 增加 `type.googleapis.com/google.rpc.ErrorInfo`，其 `reason=<prompt_guard_*>`、domain=`sub2api.securityaudit`，metadata 只允许 request_id。
+- OpenAI Chat/Responses：保持 `error.type/message` 或 Responses 現有結構，並設定 `error.code=<prompt_guard_*>`。
+- Claude Messages：保持 `type=error` 和合法的 `error.type=permission_error|api_error`，增加可選 `error.code=<prompt_guard_*>`。
+- Gemini：保持 Google envelope 的數值 `error.code`、message 和 canonical status；在 `error.details[]` 增加 `type.googleapis.com/google.rpc.ErrorInfo`，其 `reason=<prompt_guard_*>`、domain=`sub2api.securityaudit`，metadata 只允許 request_id。
 
-不得把 Gemini 数值 `error.code` 替换为字符串，也不得把类别、Prompt、节点或内部错误放入 details。协议 golden test 必须锁定三类 envelope。
+不得把 Gemini 數值 `error.code` 替換為字串，也不得把類別、Prompt、節點或內部錯誤放入 details。協議 golden test 必須鎖定三類 envelope。
 
-SSE 必须在 Guard 完成前不写 response header/首字节。
+SSE 必須在 Guard 完成前不寫 response header/首位元組。
 
 Responses WebSocket：
 
-- 握手本身无 prompt，不执行输入分类。
-- 首个 response.create 在用户/账号 slot、计费和上游拨号前检查。
-- 每个后续 response.create 在本轮 slot、计费和上游发送前重新检查。
+- 握手本身無 prompt，不執行輸入分類。
+- 首個 response.create 在使用者/帳號 slot、計費和上游撥號前檢查。
+- 每個後續 response.create 在本輪 slot、計費和上游傳送前重新檢查。
 - Block：close 4403，reason prompt_guard_blocked。
-- Unavailable/Invalid：close 1013，对应稳定 reason。
-- 日志 stage=first_turn/subsequent_turn。
+- Unavailable/Invalid：close 1013，對應穩定 reason。
+- 日誌 stage=first_turn/subsequent_turn。
 
-### 16. 同步结果采用独立轻量记录路径
+### 16. 同步結果採用獨立輕量記錄路徑
 
 同步 evaluator 返回：
 
@@ -547,16 +547,16 @@ policy_id/version, chunk_total, latency,
 error_code, allow_next_stage
 ```
 
-记录 adapter：
+記錄 adapter：
 
-- 不接受完整 scan_text，只接受脱敏 PromptSnapshot。
-- 创建 `execution_mode=blocking,status=done` 的 job。
-- 按 store_pass_events 决定是否创建事件。
-- 在单个 DB transaction 内完成 job + event。
-- 记录失败只增加指标和日志，不改变 evaluator 已确定结果。
-- 禁止再次调用 Guard。
+- 不接受完整 scan_text，只接受脫敏 PromptSnapshot。
+- 建立 `execution_mode=blocking,status=done` 的 job。
+- 按 store_pass_events 決定是否建立事件。
+- 在單個 DB transaction 內完成 job + event。
+- 記錄失敗只增加指標和日誌，不改變 evaluator 已確定結果。
+- 禁止再次呼叫 Guard。
 
-### 17. 管理 API 使用独立前缀和现有管理员审计
+### 17. 管理 API 使用獨立字首和現有管理員審計
 
 新增：
 
@@ -573,19 +573,19 @@ POST   /admin/prompt-audit/events/delete-preview
 POST   /admin/prompt-audit/events/delete-by-filter
 ```
 
-所有写操作和敏感探测复用 AdminAuth 和现有管理操作审计。审计 detail 采用 allowlist 字段，不使用“先记录完整结构再删除敏感 key”的方式。
+所有寫操作和敏感探測複用 AdminAuth 和現有管理操作審計。審計 detail 採用 allowlist 欄位，不使用“先記錄完整結構再刪除敏感 key”的方式。
 
-删除规则：
+刪除規則：
 
-- 单次批量 ID 数量有上限。
-- 按筛选删除必须带开始/结束时间、预览 Hash、服务端认证 confirmation_token 和 confirm。
-- preview 在同一数据库快照中返回 matched_count、`snapshot_max_id` 和 `filter_hash = SHA-256(canonical JSON filter summary + snapshot_max_id)`。
-- confirmation_token 是由现有 SecretEncryptor 认证加密的短期 claim，绑定 filter_hash、snapshot_max_id、管理员 ID、签发/过期时间（默认 5 分钟）。delete-by-filter 必须解密、校验操作者/过期时间/Hash，并强制 `id <= snapshot_max_id`；客户端自行计算 SHA-256 不能绕过预览，预览后的新事件不能被本次操作删除。
-- 删除分批执行，避免长事务。
-- 删除事件后只删除无任何事件引用且非 processing 的孤立 job。
-- 尝试清理对应 Redis key。
+- 單次批次 ID 數量有上限。
+- 按篩選刪除必須帶開始/結束時間、預覽 Hash、服務端認證 confirmation_token 和 confirm。
+- preview 在同一資料庫快照中返回 matched_count、`snapshot_max_id` 和 `filter_hash = SHA-256(canonical JSON filter summary + snapshot_max_id)`。
+- confirmation_token 是由現有 SecretEncryptor 認證加密的短期 claim，繫結 filter_hash、snapshot_max_id、管理員 ID、簽發/過期時間（預設 5 分鐘）。delete-by-filter 必須解密、校驗操作者/過期時間/Hash，並強制 `id <= snapshot_max_id`；客戶端自行計算 SHA-256 不能繞過預覽，預覽後的新事件不能被本次操作刪除。
+- 刪除分批執行，避免長事務。
+- 刪除事件後只刪除無任何事件引用且非 processing 的孤立 job。
+- 嘗試清理對應 Redis key。
 
-### 18. 控制台使用独立 feature 目录
+### 18. 控制台使用獨立 feature 目錄
 
 ```text
 frontend/src/features/prompt-audit/
@@ -597,24 +597,24 @@ frontend/src/features/prompt-audit/
 └── __tests__/
 ```
 
-少量外部接线：
+少量外部接線：
 
-- router 增加 `/admin/prompt-audit`，复用 requiresAuth/requiresAdmin/requiresRiskControl。
-- Sidebar 把现有 risk-control 单项改为 expandOnly “安全审计”分组，子项保留原路由并新增提示词路由。
-- i18n 增加 zh/en 对称键。
+- router 增加 `/admin/prompt-audit`，複用 requiresAuth/requiresAdmin/requiresRiskControl。
+- Sidebar 把現有 risk-control 單項改為 expandOnly “安全審計”分組，子項保留原路由並新增提示詞路由。
+- i18n 增加 zh/en 對稱鍵。
 
-页面分区：
+頁面分割槽：
 
-1. 运行概览。
-2. 审计池表格和参数/探测对话框。
-3. 分组范围和九类 scanner。
-4. Worker/队列/配置版本/Guard 指标。
-5. 事件筛选、表格、详情、删除。
-6. 固定保存栏：enabled、blocking、store pass、保存/重置。
+1. 執行概覽。
+2. 審計池表格和引數/探測對話方塊。
+3. 分組範圍和九類 scanner。
+4. Worker/佇列/配置版本/Guard 指標。
+5. 事件篩選、表格、詳情、刪除。
+6. 固定儲存欄：enabled、blocking、store pass、儲存/重置。
 
-页面不得在 localStorage/sessionStorage 保存 API Key。保存成功后立即清除输入 state。
+頁面不得在 localStorage/sessionStorage 儲存 API Key。儲存成功後立即清除輸入 state。
 
-### 19. 日志和指标使用稳定词典
+### 19. 日誌和指標使用穩定詞典
 
 最小事件：
 
@@ -648,105 +648,105 @@ prompt_audit.events_delete_previewed
 prompt_audit.events_filter_deleted
 ```
 
-字段采用 allowlist：request_id、user_id、api_key_id、group_id、provider、protocol、endpoint、model、job_id、event_id、config_version、guard_endpoint_id、decision、risk_level、action、chunk_index、chunk_total、chunk_chars、input_chars、input_limit、latency_ms、status、error_code、error_kind、queue_length/capacity、stage、upstream_dispatched、billing_preconsumed。
+欄位採用 allowlist：request_id、user_id、api_key_id、group_id、provider、protocol、endpoint、model、job_id、event_id、config_version、guard_endpoint_id、decision、risk_level、action、chunk_index、chunk_total、chunk_chars、input_chars、input_limit、latency_ms、status、error_code、error_kind、queue_length/capacity、stage、upstream_dispatched、billing_preconsumed。
 
 禁止：body、raw_prompt、payload、token、authorization、完整 Base URL/query、Redis value。
 
-指标：异步 enqueue/dropped、队列各状态、processed/failed、Worker active、Guard total/allow/flag/block/unavailable/invalid/timeout/failover/bulkhead/record_failure、延迟直方图。Guard 结果与延迟由同步 evaluator 和异步 Worker 使用同一稳定指标结构观测，使 blocking 启用前可以先在 async 测试分组建立 P50/P95/P99、失败率和事件增长率基线；runtime 同时返回 async enqueue/dropped 计数以区分投递与扫描阶段。
+指標：非同步 enqueue/dropped、佇列各狀態、processed/failed、Worker active、Guard total/allow/flag/block/unavailable/invalid/timeout/failover/bulkhead/record_failure、延遲直方圖。Guard 結果與延遲由同步 evaluator 和非同步 Worker 使用同一穩定指標結構觀測，使 blocking 啟用前可以先在 async 測試分組建立 P50/P95/P99、失敗率和事件增長率基線；runtime 同時返回 async enqueue/dropped 計數以區分投遞與掃描階段。
 
-### 20. 测试按行为矩阵而不是文件覆盖率验收
+### 20. 測試按行為矩陣而不是檔案覆蓋率驗收
 
-核心矩阵：
+核心矩陣：
 
-| 维度 | 值 |
+| 維度 | 值 |
 | --- | --- |
-| 引擎 | 现有 moderation / prompt audit / 两者 |
+| 引擎 | 現有 moderation / prompt audit / 兩者 |
 | Prompt 模式 | off / async / blocking |
-| 协议 | chat / responses / messages / gemini / images-media / responses-ws |
+| 協議 | chat / responses / messages / gemini / images-media / responses-ws |
 | 返回 | allow / flag / block / unavailable / invalid |
 | 流式 | non-stream / SSE / WS first / WS subsequent |
 | 副作用 | account selection / billing / upstream |
 
-必须有结构测试验证所有现有调用点经过 Coordinator；必须有 stub 统计 Block/Unavailable 时账号选择、计费和上游调用均为 0。
+必須有結構測試驗證所有現有呼叫點經過 Coordinator；必須有 stub 統計 Block/Unavailable 時帳號選擇、計費和上游呼叫均為 0。
 
-敏感信息测试对日志、DB row、API JSON、前端 state snapshot 做 canary secret 断言。
+敏感資訊測試對日誌、DB row、API JSON、前端 state snapshot 做 canary secret 斷言。
 
-### 21. 不新增外部运行时依赖
+### 21. 不新增外部執行時依賴
 
-使用现有 go-redis、database/sql、Gin、SecretEncryptor、logger、Vue 3、Axios 和测试工具。Qwen3Guard 是外部 OpenAI 兼容服务，不在本仓库启动模型进程。
+使用現有 go-redis、database/sql、Gin、SecretEncryptor、logger、Vue 3、Axios 和測試工具。Qwen3Guard 是外部 OpenAI 相容服務，不在本倉庫啟動模型程序。
 
-不引入新的 Go 队列库、ORM、前端状态库或 UI 框架。
+不引入新的 Go 佇列庫、ORM、前端狀態庫或 UI 框架。
 
 ## Risks / Trade-offs
 
-- [两个同步引擎会增加首字节延迟] → 只有管理员显式开启 blocking 才发生；并行执行、最新输入优先、Block 早停、共享 deadline、连接池和分组灰度。
-- [Guard 故障在 fail-closed 下影响可用性] → 多节点有序故障切换、bulkhead、真实探测、运行态告警和一键关闭 blocking；Unavailable 与 Block 使用不同错误码。
-- [Qwen3Guard 误报导致合法请求被拒绝] → 先运行 async 建立误报基线，再按 group 灰度 blocking；保留独立事件，不直接触发封号。
-- [两个引擎同时 Block 时语义冲突] → 固定现有内容审核响应优先级，两个事件仍独立记录。
-- [PostgreSQL/Redis 非事务导致悬挂状态] → staging → Redis SET → queued 发布协议；staging 回收和 TTL 清理。
-- [多实例重复消费或旧 Worker 覆盖新结果] → `FOR UPDATE SKIP LOCKED` 原子领取、递增 claim_version fencing token、processing 租约和带版本条件更新。
-- [长提示词导致超时] → Unicode 分片、总 deadline、最新输入优先；Allow 必须完整覆盖，禁止部分结果放行。
-- [管理员配置的节点可访问服务端可达的任意网络目标] → 产品明确由管理员负责节点目标；继续使用加密密文、日志/API allowlist、响应上限和 canary 泄露测试保护凭据与数据。
-- [手工接入多个 Handler 造成漏路由] → 将现有调用统一替换为 Coordinator 并增加静态/结构路由矩阵测试。
-- [新模块仍反向侵入现有 service] → 新模块依赖现有端口；现有 ContentModerationService 不导入新模块，Handler 仅注入 Coordinator。
-- [事件量过大] → 默认不保存 Pass，分页索引、分批删除；后续根据真实规模单独设计自动保留期。
-- [源参考继续变化] → 实施前冻结源基线，本 change specs 作为目标实现最终权威。
+- [兩個同步引擎會增加首位元組延遲] → 只有管理員顯式開啟 blocking 才發生；並行執行、最新輸入優先、Block 早停、共享 deadline、連線池和分組灰度。
+- [Guard 故障在 fail-closed 下影響可用性] → 多節點有序故障切換、bulkhead、真實探測、執行態告警和一鍵關閉 blocking；Unavailable 與 Block 使用不同錯誤碼。
+- [Qwen3Guard 誤報導致合法請求被拒絕] → 先執行 async 建立誤報基線，再按 group 灰度 blocking；保留獨立事件，不直接觸發封號。
+- [兩個引擎同時 Block 時語義衝突] → 固定現有內容稽核響應優先順序，兩個事件仍獨立記錄。
+- [PostgreSQL/Redis 非事務導致懸掛狀態] → staging → Redis SET → queued 釋出協議；staging 回收和 TTL 清理。
+- [多例項重複消費或舊 Worker 覆蓋新結果] → `FOR UPDATE SKIP LOCKED` 原子領取、遞增 claim_version fencing token、processing 租約和帶版本條件更新。
+- [長提示詞導致超時] → Unicode 分片、總 deadline、最新輸入優先；Allow 必須完整覆蓋，禁止部分結果放行。
+- [管理員配置的節點可訪問服務端可達的任意網路目標] → 產品明確由管理員負責節點目標；繼續使用加密密文、日誌/API allowlist、響應上限和 canary 洩露測試保護憑據與資料。
+- [手工接入多個 Handler 造成漏路由] → 將現有呼叫統一替換為 Coordinator 並增加靜態/結構路由矩陣測試。
+- [新模組仍反向侵入現有 service] → 新模組依賴現有埠；現有 ContentModerationService 不匯入新模組，Handler 僅注入 Coordinator。
+- [事件量過大] → 預設不儲存 Pass，分頁索引、分批刪除；後續根據真實規模單獨設計自動保留期。
+- [源參考繼續變化] → 實施前凍結源基線，本 change specs 作為目標實現最終權威。
 
 ## Migration Plan
 
-### 阶段 0：冻结和对照
+### 階段 0：凍結和對照
 
-1. 记录参考仓库 commit、branch 和 `git diff --stat`。
-2. 对未提交的同步阻止文件生成只读 patch 或提交到专用分支。
-3. 建立“源功能 → 本 change requirement → 目标测试”追踪表。
+1. 記錄參考倉庫 commit、branch 和 `git diff --stat`。
+2. 對未提交的同步阻止檔案生成只讀 patch 或提交到專用分支。
+3. 建立“源功能 → 本 change requirement → 目標測試”追蹤表。
 
-### 阶段 1：纯数据和配置基础
+### 階段 1：純資料和配置基礎
 
-1. 新增 SQL migration 和 Repository 测试。
-2. 新增加密配置、Public DTO、URL 校验和 config cache。
+1. 新增 SQL migration 和 Repository 測試。
+2. 新增加密配置、Public DTO、URL 校驗和 config cache。
 3. 新增管理 API 的 config/probe/runtime 骨架。
-4. 保持 enabled=false，不接网关。
+4. 保持 enabled=false，不接閘道器。
 
-### 阶段 2：异步审计
+### 階段 2：非同步審計
 
-1. 实现 PromptSnapshot、脱敏、Hash 和协议提取。
-2. 实现 staging 投递、Redis Payload Store、Worker、重试和回收。
-3. 实现 OpenAI 兼容 Client、Qwen parser、分片聚合和事件。
-4. 接入 Coordinator 的 async 分支；队列故障不影响请求。
+1. 實現 PromptSnapshot、脫敏、Hash 和協議提取。
+2. 實現 staging 投遞、Redis Payload Store、Worker、重試和回收。
+3. 實現 OpenAI 相容 Client、Qwen parser、分片聚合和事件。
+4. 接入 Coordinator 的 async 分支；佇列故障不影響請求。
 
-### 阶段 3：控制台和运营闭环
+### 階段 3：控制台和運營閉環
 
-1. 完成页面、节点探测、配置、运行态和事件列表/详情。
-2. 完成单条、批量和按筛选删除。
-3. 运行前后端 lint、typecheck、unit/integration test。
+1. 完成頁面、節點探測、配置、執行態和事件列表/詳情。
+2. 完成單條、批次和按篩選刪除。
+3. 執行前後端 lint、typecheck、unit/integration test。
 
-### 阶段 4：同步门禁
+### 階段 4：同步門禁
 
-1. 实现 evaluator、bulkhead、deadline、故障切换和错误映射。
-2. 完成 HTTP/SSE 入口接线。
-3. 完成 Responses WS 首轮与后续帧接线。
-4. 用副作用 stub 证明 Block/Unavailable 无账号、无计费、无上游。
+1. 實現 evaluator、bulkhead、deadline、故障切換和錯誤對映。
+2. 完成 HTTP/SSE 入口接線。
+3. 完成 Responses WS 首輪與後續幀接線。
+4. 用副作用 stub 證明 Block/Unavailable 無帳號、無計費、無上游。
 
-### 阶段 5：灰度上线
+### 階段 5：灰度上線
 
-1. 生产先保持 Prompt Audit off。
-2. 开启 async，只选测试 group，观察 Guard 延迟、失败、误报和事件量。
-3. 建立良性/恶意回归语料。
-4. 仅在多节点稳定、Unavailable 率和 P99 满足阈值后开启 blocking。
-5. 按 group 扩大范围。
+1. 生產先保持 Prompt Audit off。
+2. 開啟 async，只選測試 group，觀察 Guard 延遲、失敗、誤報和事件量。
+3. 建立良性/惡意迴歸語料。
+4. 僅在多節點穩定、Unavailable 率和 P99 滿足閾值後開啟 blocking。
+5. 按 group 擴大範圍。
 
-### 回滚
+### 回滾
 
-- 首选：关闭 blocking_enabled，立即回到 async。
-- 次选：关闭 enabled，完全停止新 Prompt Audit。
-- 必要时关闭 risk_control_enabled，但这也会停用现有内容审核入口，应作为最后手段。
-- 回滚不删除表、配置或历史事件，不回退已应用 migration。
-- Worker 停止后 queued/retry 任务保留；恢复时继续处理，或由管理员按明确策略清理。
+- 首選：關閉 blocking_enabled，立即回到 async。
+- 次選：關閉 enabled，完全停止新 Prompt Audit。
+- 必要時關閉 risk_control_enabled，但這也會停用現有內容稽核入口，應作為最後手段。
+- 回滾不刪除表、配置或歷史事件，不回退已應用 migration。
+- Worker 停止後 queued/retry 任務保留；恢復時繼續處理，或由管理員按明確策略清理。
 
 ## Resolved Decisions
 
-1. **源基线标识**：采用 `source-freeze/` 中的只读 tracked patch + untracked archive；base commit、SHA-256 和恢复测试已登记在 `source-baseline.md`。
-2. **事件自动保留期**：第一版只提供管理员安全删除，不增加自动保留清理；真实事件量稳定后另起 change。
-3. **同步两个引擎并行或串行**：采用受控并行；实现必须通过 race test，并保持 Legacy Block 优先级和两引擎独立记录。
-4. **目标项目额外文本入口**：以实施时 `backend/internal/server/routes/gateway.go` 的自动/结构枚举为事实源；所有用户文本入口必须接入 Coordinator 或提供不会旁路/重复扫描的测试证明。
-5. **生产启用阈值**：实现和部署验证期间只允许 off/async；blocking 生产启用必须满足 `verification.md` 的建议阈值并由安全、运营和业务责任人签字，未签字不得生产开启。
+1. **源基線標識**：採用 `source-freeze/` 中的只讀 tracked patch + untracked archive；base commit、SHA-256 和恢復測試已登記在 `source-baseline.md`。
+2. **事件自動保留期**：第一版只提供管理員安全刪除，不增加自動保留清理；真實事件量穩定後另起 change。
+3. **同步兩個引擎並行或序列**：採用受控並行；實現必須通過 race test，並保持 Legacy Block 優先順序和兩引擎獨立記錄。
+4. **目標專案額外文本入口**：以實施時 `backend/internal/server/routes/gateway.go` 的自動/結構列舉為事實源；所有使用者文本入口必須接入 Coordinator 或提供不會旁路/重複掃描的測試證明。
+5. **生產啟用閾值**：實現和部署驗證期間只允許 off/async；blocking 生產啟用必須滿足 `verification.md` 的建議閾值並由安全、運營和業務責任人簽字，未簽字不得生產開啟。

@@ -1,40 +1,40 @@
-# Sub2API 本地插件协议
+# Sub2API 本地外掛協議
 
-本目录是插件开发者可以依赖的公开契约。`v1/plugin.proto` 和 `v1/runtime.go` 定义进程协议，`v1/manifest.schema.json` 定义包清单，`docs/` 记录开发和发布规范。Provider 私有实现不应放入本目录。
+本目錄是外掛開發者可以依賴的公開契約。`v1/plugin.proto` 和 `v1/runtime.go` 定義程序協議，`v1/manifest.schema.json` 定義包清單，`docs/` 記錄開發和釋出規範。Provider 私有實現不應放入本目錄。
 
-## 开发文档
+## 開發文件
 
-- [开发指南](docs/development.md)：从运行时、配置到集成测试的完整流程。
-- [UI Bridge](docs/ui-bridge.md)：沙箱配置 UI 的消息结构和安全要求。
-- [包格式](docs/package-format.md)：清单、文件哈希、签名和版本规则。
-- [安全边界](docs/security.md)：进程权限、敏感数据和故障策略。
+- [開發指南](docs/development.md)：從執行時、配置到整合測試的完整流程。
+- [UI Bridge](docs/ui-bridge.md)：沙箱配置 UI 的訊息結構和安全要求。
+- [包格式](docs/package-format.md)：清單、檔案雜湊、簽名和版本規則。
+- [安全邊界](docs/security.md)：程序許可權、敏感資料和故障策略。
 
-## 实体与运行方式
+## 實體與執行方式
 
-插件的交付实体是一个 `.s2plugin` 文件，本质上是带清单、签名、独立可执行文件和静态 UI 的 ZIP 包。管理员在独立的插件管理页手动上传，Sub2API 不从网络自动下载插件，也不要求 Docker。
+外掛的交付實體是一個 `.s2plugin` 檔案，本質上是帶清單、簽名、獨立執行檔和靜態 UI 的 ZIP 包。管理員在獨立的外掛管理頁手動上傳，Sub2API 不從網路自動下載外掛，也不要求 Docker。
 
-启用后，Sub2API 以子进程方式拉起当前操作系统和 CPU 架构对应的二进制，通过本机 gRPC 流传递请求与响应。插件进程退出时会随 Sub2API 清理；停用时先停止接收新请求，再等待正在处理的请求结束。
+啟用後，Sub2API 以子程序方式拉起當前作業系統和 CPU 架構對應的二進位制，通過本機 gRPC 流傳遞請求與響應。外掛程序退出時會隨 Sub2API 清理；停用時先停止接收新請求，再等待正在處理的請求結束。
 
-多实例部署不要求共享插件目录。宿主会在数据库保存已验签的原始插件包，各实例缺少本地文件时会重新验签和解包，并周期性对齐启用状态、灰度比例和加密配置。所有实例必须连接同一数据库并使用相同的加密密钥。
+多例項部署不要求共享外掛目錄。宿主會在資料庫儲存已驗籤的原始外掛包，各例項缺少本地檔案時會重新驗籤和解包，並週期性對齊啟用狀態、灰度比例和加密配置。所有例項必須連線同一資料庫並使用相同的加密金鑰。
 
-独立进程是代码和发布边界，不是操作系统安全沙箱。插件拥有 Sub2API 服务用户所拥有的文件和网络权限，因此只应安装可信发布者的签名包。闭源二进制可提高源码分发门槛，但不能承诺无法反编译。
+獨立程序是程式碼和釋出邊界，不是作業系統安全沙箱。外掛擁有 Sub2API 服務使用者所擁有的檔案和網路許可權，因此只應安裝可信釋出者的簽名包。閉源二進位制可提高原始碼分發門檻，但不能承諾無法反編譯。
 
-## 初期能力边界
+## 初期能力邊界
 
-当前只接受 `openai.oauth.outbound_transport.v1`：
+當前只接受 `openai.oauth.outbound_transport.v1`：
 
-- 仅匹配 `platform=openai` 且 `account_type=oauth` 的上游 HTTP 请求。
-- API Key 账号、其他 provider、OAuth 登录与 Token 刷新流程不进入插件。
-- 插件建立真实的上游 HTTP/TLS 连接并返回原始 HTTP 响应。
-- 命中插件的 OAuth WebSocket 账号会使用 Sub2API 现有 HTTP Bridge，不直接建立上游 WebSocket，避免绕过 v1 HTTP 插件协议。
-- Sub2API 继续负责响应状态处理、SSE 解析、错误映射、用量统计、计费和下游输出。
-- 灰度比例以账号 ID 稳定分桶，未命中的 OAuth 账号继续使用原有内置路径。
+- 僅匹配 `platform=openai` 且 `account_type=oauth` 的上游 HTTP 請求。
+- API Key 帳號、其他 provider、OAuth 登入與 Token 重新整理流程不進入外掛。
+- 外掛建立真實的上游 HTTP/TLS 連線並返回原始 HTTP 響應。
+- 命中外掛的 OAuth WebSocket 帳號會使用 Sub2API 現有 HTTP Bridge，不直接建立上游 WebSocket，避免繞過 v1 HTTP 外掛協議。
+- Sub2API 繼續負責響應狀態處理、SSE 解析、錯誤對映、用量統計、計費和下游輸出。
+- 灰度比例以帳號 ID 穩定分桶，未命中的 OAuth 帳號繼續使用原有內建路徑。
 
-## 包结构
+## 包結構
 
 ```text
 manifest.json
-signature.json                 # 生产包必需
+signature.json                 # 生產包必需
 runtimes/linux-amd64/plugin
 runtimes/linux-arm64/plugin
 runtimes/windows-amd64/plugin.exe
@@ -42,26 +42,26 @@ ui/index.html
 ui/assets/...
 ```
 
-`manifest.json` 必须声明所有运行时和 UI 文件的 SHA-256。`signature.json` 使用受信任发布者的 Ed25519 私钥对 `manifest.json` 原始字节签名。官方 OpenAI Transport 公钥由宿主内置，第三方发布者公钥由部署者追加到 `plugins.trusted_publishers`。文件哈希由已签名清单保护。
+`manifest.json` 必須宣告所有執行時和 UI 檔案的 SHA-256。`signature.json` 使用受信任釋出者的 Ed25519 私鑰對 `manifest.json` 原始位元組簽名。官方 OpenAI Transport 公鑰由宿主內建，第三方釋出者公鑰由部署者追加到 `plugins.trusted_publishers`。檔案雜湊由已簽名清單保護。
 
-插件默认保持停用。未签名包默认拒绝安装；`plugins.allow_unsigned` 只应用于开发者自己构建的本地调试包。
+外掛預設保持停用。未簽名包預設拒絕安裝；`plugins.allow_unsigned` 只應用於開發者自己構建的本地除錯包。
 
-## 兼容性
+## 相容性
 
-清单必须同时声明：
+清單必須同時宣告：
 
-- `requires.sub2api`：允许的 Sub2API 语义化版本范围。
-- `requires.recommended_sub2api_version`：建议使用的宿主版本。
-- `requires.tested_sub2api_versions`：发布者实际验证过的宿主版本。
-- `plugin_protocol`、`transport_api`、`ui_bridge`：三个独立协议版本。
+- `requires.sub2api`：允許的 Sub2API 語義化版本範圍。
+- `requires.recommended_sub2api_version`：建議使用的宿主版本。
+- `requires.tested_sub2api_versions`：釋出者實際驗證過的宿主版本。
+- `plugin_protocol`、`transport_api`、`ui_bridge`：三個獨立協議版本。
 
-宿主版本超出范围时，插件可以安装并查看，但保持“不兼容”状态且不能启用。版本在范围内但未列入已测试版本时，管理员必须再次确认才能启用。
+宿主版本超出範圍時，外掛可以安裝並檢視，但保持“不相容”狀態且不能啟用。版本在範圍內但未列入已測試版本時，管理員必須再次確認才能啟用。
 
-## UI 隔离与 Bridge
+## UI 隔離與 Bridge
 
-插件 UI 由包内静态文件实现，宿主使用只有 `allow-scripts` 权限的 sandbox iframe 加载。iframe 没有管理员 Token，也不能直接访问管理 API。宿主为每次打开配置页生成短时资源 URL 和独立 Bridge Token，并且同时校验消息来源窗口与 Token。
+外掛 UI 由包內靜態檔案實現，宿主使用只有 `allow-scripts` 許可權的 sandbox iframe 載入。iframe 沒有管理員 Token，也不能直接訪問管理 API。宿主為每次開啟配置頁生成短時資源 URL 和獨立 Bridge Token，並且同時校驗訊息來源視窗與 Token。
 
-UI 可以发送以下消息：
+UI 可以傳送以下訊息：
 
 - `config.load`
 - `config.save`
@@ -69,12 +69,12 @@ UI 可以发送以下消息：
 - `ui.resize`
 - `ui.notify`
 
-每个请求消息带 `request_id`，宿主以 `<type>.result` 返回结果。配置整体使用 Sub2API 的密钥加密后存入数据库；运行中插件会先验证并应用新配置，数据库写入失败时恢复旧配置。
+每個請求訊息帶 `request_id`，宿主以 `<type>.result` 返回結果。配置整體使用 Sub2API 的金鑰加密後存入資料庫；執行中外掛會先驗證並應用新配置，資料庫寫入失敗時恢復舊配置。
 
-## 协议源码
+## 協議原始碼
 
-- `v1/plugin.proto`：稳定的进程间消息定义。
-- `v1/runtime.go`：Go 插件进程启动入口和宿主客户端声明。
+- `v1/plugin.proto`：穩定的程序間訊息定義。
+- `v1/runtime.go`：Go 外掛程序啟動入口和宿主客戶端宣告。
 - `v1/manifest.schema.json`：`manifest.json` 的 JSON Schema。
 
-插件通过进程协议协作，不使用 Go 动态链接，也不要求插件与 Sub2API 使用相同编译器或共享内存 ABI。
+外掛通過程序協議協作，不使用 Go 動態連結，也不要求外掛與 Sub2API 使用相同編譯器或共享記憶體 ABI。

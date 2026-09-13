@@ -1,81 +1,81 @@
-# 验证与灰度手册
+# 驗證與灰度手冊
 
-## 1. 验证原则
+## 1. 驗證原則
 
-本文件既是实现期验收矩阵，也是上线前证据索引模板。所有“待实现”项必须替换为可重复执行的测试名、命令输出、SQL 结果、日志查询或页面截图路径；仅写“人工验证通过”不算证据。
+本檔案既是實現期驗收矩陣，也是上線前證據索引模板。所有“待實現”項必須替換為可重複執行的測試名、命令輸出、SQL 結果、日誌查詢或頁面截圖路徑；僅寫“人工驗證通過”不算證據。
 
-验证顺序：
+驗證順序：
 
-1. OpenSpec 结构和需求完整性。
-2. 纯函数、配置和核心单元测试。
-3. PostgreSQL/Redis 集成与多 Worker/多实例测试。
-4. Handler 协议矩阵和无副作用断言。
-5. 前端功能、凭据状态、可访问和原页面回归。
-6. 全量构建、canary 泄露检查、async 灰度和 blocking 准入。
+1. OpenSpec 結構和需求完整性。
+2. 純函式、配置和核心單元測試。
+3. PostgreSQL/Redis 整合與多 Worker/多例項測試。
+4. Handler 協議矩陣和無副作用斷言。
+5. 前端功能、憑據狀態、可訪問和原頁面迴歸。
+6. 全量構建、canary 洩露檢查、async 灰度和 blocking 准入。
 
-关键不变量：
+關鍵不變數：
 
-- off 等于升级前行为。
-- async 的任何失败都不改变主请求结果。
-- blocking 的 Block/Unavailable/Invalid 必须发生在账号、计费和上游之前。
-- 现有 Content Moderation Block 响应永远优先且原副作用保持不变。
-- PostgreSQL、日志、管理 API、前端和错误响应中没有完整 Prompt 或 Guard token。
+- off 等於升級前行為。
+- async 的任何失敗都不改變主請求結果。
+- blocking 的 Block/Unavailable/Invalid 必須發生在帳號、計費和上游之前。
+- 現有 Content Moderation Block 響應永遠優先且原副作用保持不變。
+- PostgreSQL、日誌、管理 API、前端和錯誤響應中沒有完整 Prompt 或 Guard token。
 
-## 2. Requirement → Evidence 追踪矩阵
+## 2. Requirement → Evidence 追蹤矩陣
 
-状态词：`待实现`、`通过`、`失败`、`豁免（必须有批准链接）`。证据路径建议统一放到实现 PR 的 CI artifact 或 `docs/evidence/prompt-audit/<date>/`，不要把包含真实 Prompt/token 的原始数据提交到仓库。
+狀態詞：`待實現`、`通過`、`失敗`、`豁免（必須有批准連結）`。證據路徑建議統一放到實現 PR 的 CI artifact 或 `docs/evidence/prompt-audit/<date>/`，不要把包含真實 Prompt/token 的原始資料提交到倉庫。
 
 ### 2.1 prompt-input-audit
 
-| ID | Requirement | 必备自动化证据 | 补充证据 | 状态 |
+| ID | Requirement | 必備自動化證據 | 補充證據 | 狀態 |
 | --- | --- | --- | --- | --- |
-| A01 | 独立且默认关闭 | Coordinator off 单测；默认 config 单测；现有 Moderation 回归 | 升级后 config/runtime 截图 | 通过（自动化） |
-| A02 | OpenAI 兼容节点 | request builder golden；mock server 断言 `/v1/chat/completions`、model/messages/temperature/max_tokens/seed | probe 脱敏结果 | 通过（自动化） |
-| A03 | 凭据和出站地址安全 | 加密往返；Public DTO canary；SSRF/DNS rebinding/redirect/256 KiB 测试 | 配置 JSON 与日志扫描 | 通过（自动化） |
-| A04 | 按协议提取输入快照 | Chat/Responses/Claude/Gemini/images/media/WS 表驱动测试；用户名/邮箱/API Key 名称分列 | 路由覆盖清单 | 通过（自动化） |
-| A05 | 数据库快照脱敏不可恢复 | canary Prompt 入库后全列扫描；预览/hash 单测 | schema 禁止列 SQL | 通过（自动化+SQL） |
-| A06 | 持久任务 + Redis TTL | staging→SET EX→queued；多实例队列 admission lock；Redis/发布失败补偿测试 | TTL 1800 秒窗口证据 | 通过（集成） |
-| A07 | Worker 可靠消费 | SKIP LOCKED、claim_version fencing、retry、lease refresh/reclaim、panic、shutdown 测试 | 多 Worker 运行指标 | 通过（集成+race） |
-| A08 | Qwen3Guard 严格归一 | Safe/Controversial/Unsafe、九类、未知类、重复/额外/缺失字段测试 | golden response 语料 | 通过（自动化） |
-| A09 | Unicode 完整分片 | 中文/emoji/组合字符/超长文本覆盖与顺序测试；部分失败不 Allow；逐片日志无正文 | chunk_total 事件样本 | 通过（自动化） |
-| A10 | 独立可关联事件 | event transaction、store_pass_events、身份快照、FK/筛选、IssueSummary 派生测试 | 管理事件详情截图 | 通过（集成） |
-| A11 | 真实运行态 | healthy/degraded/error、Redis/DB/Worker/节点/config version 测试 | runtime JSON 样本 | 通过（自动化） |
-| A12 | 安全查询和删除 | 复合筛选、分页、单条/批量、snapshot max ID、认证 token/actor/expiry/hash、分批删除测试 | 管理审计日志 | 通过（集成） |
+| A01 | 獨立且預設關閉 | Coordinator off 單測；預設 config 單測；現有 Moderation 迴歸 | 升級後 config/runtime 截圖 | 通過（自動化） |
+| A02 | OpenAI 相容節點 | request builder golden；mock server 斷言 `/v1/chat/completions`、model/messages/temperature/max_tokens/seed | probe 脫敏結果 | 通過（自動化） |
+| A03 | 憑據和出站地址安全 | 加密往返；Public DTO canary；SSRF/DNS rebinding/redirect/256 KiB 測試 | 配置 JSON 與日誌掃描 | 通過（自動化） |
+| A04 | 按協議提取輸入快照 | Chat/Responses/Claude/Gemini/images/media/WS 表驅動測試；使用者名稱/郵箱/API Key 名稱分列 | 路由覆蓋清單 | 通過（自動化） |
+| A05 | 資料庫快照脫敏不可恢復 | canary Prompt 入庫後全列掃描；預覽/hash 單測 | schema 禁止列 SQL | 通過（自動化+SQL） |
+| A06 | 持久任務 + Redis TTL | staging→SET EX→queued；多例項佇列 admission lock；Redis/釋出失敗補償測試 | TTL 1800 秒視窗證據 | 通過（整合） |
+| A07 | Worker 可靠消費 | SKIP LOCKED、claim_version fencing、retry、lease refresh/reclaim、panic、shutdown 測試 | 多 Worker 執行指標 | 通過（整合+race） |
+| A08 | Qwen3Guard 嚴格歸一 | Safe/Controversial/Unsafe、九類、未知類、重複/額外/缺失欄位測試 | golden response 語料 | 通過（自動化） |
+| A09 | Unicode 完整分片 | 中文/emoji/組合字元/超長文本覆蓋與順序測試；部分失敗不 Allow；逐片日誌無正文 | chunk_total 事件樣本 | 通過（自動化） |
+| A10 | 獨立可關聯事件 | event transaction、store_pass_events、身份快照、FK/篩選、IssueSummary 派生測試 | 管理事件詳情截圖 | 通過（整合） |
+| A11 | 真實執行態 | healthy/degraded/error、Redis/DB/Worker/節點/config version 測試 | runtime JSON 樣本 | 通過（自動化） |
+| A12 | 安全查詢和刪除 | 複合篩選、分頁、單條/批次、snapshot max ID、認證 token/actor/expiry/hash、分批刪除測試 | 管理審計日誌 | 通過（整合） |
 
 ### 2.2 prompt-input-guard
 
-| ID | Requirement | 必备自动化证据 | 补充证据 | 状态 |
+| ID | Requirement | 必備自動化證據 | 補充證據 | 狀態 |
 | --- | --- | --- | --- | --- |
-| G01 | 显式启用三态 | 配置真值表和非法组合测试 | 页面联动截图 | 通过（自动化） |
-| G02 | 两引擎独立语义 | fake engines 全组合；Legacy Block 优先；两类事件独立 | 现有邮件/封号/Hash 回归 | 通过（自动化） |
-| G03 | 门禁在副作用之前 | Block/Unavailable/Invalid 的 account/billing/upstream counter 均为 0 | Ops 请求链日志 | 通过（矩阵） |
-| G04 | 覆盖所有协议入口 | routes 自动枚举/结构测试；HTTP/SSE/WS E2E 矩阵 | 已签字路由清单 | 通过（矩阵） |
-| G05 | 同步分片共享预算且完整 | fake clock 总 deadline；Block 早停；Allow 全片；最后片失败测试 | p95/p99 指标 | 通过（自动化） |
-| G06 | 有序 fail-closed 故障切换 | 连接/429/5xx/timeout failover；401/403/invalid 终止；bulkhead 测试 | 节点运行态 | 通过（自动化） |
-| G07 | HTTP 协议兼容错误 | OpenAI/Claude 可选 code、Gemini 数值 code/status + ErrorInfo reason golden；403/503 | curl 样本（脱敏） | 通过（golden） |
-| G08 | WS 每个 response.create 门禁 | 首轮/后续轮次 Allow/Block/Unavailable/Invalid 测试；4403/1013 | WS trace（无正文） | 通过（结构+golden） |
-| G09 | 同步结果复用且不重复扫描 | Guard fake 调用次数=chunk 数；record failure 不改 decision；无二次调用 | event/job 关联 SQL | 通过（自动化） |
-| G10 | 版本化热路径快照 | PostgreSQL CAS 并发保存、双实例 invalidation、last-known-good、cold-start fail-closed、无热路径 DB 测试 | expected/active version 指标 | 通过（集成） |
-| G11 | 可观测且不泄密 | 稳定日志/指标词典测试；canary 全介质扫描 | Dashboard/runtime 截图 | 通过（自动化+扫描） |
-| G12 | 禁用/回滚即时生效 | blocking→async→off 多实例测试；进行中请求边界测试 | 回滚演练记录 | 通过（自动化；生产演练待签字） |
+| G01 | 顯式啟用三態 | 配置真值表和非法組合測試 | 頁面聯動截圖 | 通過（自動化） |
+| G02 | 兩引擎獨立語義 | fake engines 全組合；Legacy Block 優先；兩類事件獨立 | 現有郵件/封號/Hash 迴歸 | 通過（自動化） |
+| G03 | 門禁在副作用之前 | Block/Unavailable/Invalid 的 account/billing/upstream counter 均為 0 | Ops 請求鏈日誌 | 通過（矩陣） |
+| G04 | 覆蓋所有協議入口 | routes 自動列舉/結構測試；HTTP/SSE/WS E2E 矩陣 | 已簽字路由清單 | 通過（矩陣） |
+| G05 | 同步分片共享預算且完整 | fake clock 總 deadline；Block 早停；Allow 全片；最後片失敗測試 | p95/p99 指標 | 通過（自動化） |
+| G06 | 有序 fail-closed 故障切換 | 連線/429/5xx/timeout failover；401/403/invalid 終止；bulkhead 測試 | 節點執行態 | 通過（自動化） |
+| G07 | HTTP 協議相容錯誤 | OpenAI/Claude 可選 code、Gemini 數值 code/status + ErrorInfo reason golden；403/503 | curl 樣本（脫敏） | 通過（golden） |
+| G08 | WS 每個 response.create 門禁 | 首輪/後續輪次 Allow/Block/Unavailable/Invalid 測試；4403/1013 | WS trace（無正文） | 通過（結構+golden） |
+| G09 | 同步結果複用且不重複掃描 | Guard fake 呼叫次數=chunk 數；record failure 不改 decision；無二次呼叫 | event/job 關聯 SQL | 通過（自動化） |
+| G10 | 版本化熱路徑快照 | PostgreSQL CAS 併發儲存、雙例項 invalidation、last-known-good、cold-start fail-closed、無熱路徑 DB 測試 | expected/active version 指標 | 通過（整合） |
+| G11 | 可觀測且不洩密 | 穩定日誌/指標詞典測試；canary 全介質掃描 | Dashboard/runtime 截圖 | 通過（自動化+掃描） |
+| G12 | 停用/回滾即時生效 | blocking→async→off 多例項測試；進行中請求邊界測試 | 回滾演練記錄 | 通過（自動化；生產演練待簽字） |
 
 ### 2.3 security-audit-console
 
-| ID | Requirement | 必备自动化证据 | 补充证据 | 状态 |
+| ID | Requirement | 必備自動化證據 | 補充證據 | 狀態 |
 | --- | --- | --- | --- | --- |
-| C01 | 安全审计分组和独立页面 | router/Sidebar/feature guard 测试；旧路由回归 | 侧栏和双页面截图 | 通过（自动化） |
-| C02 | 清晰独立工作区 | 页面分区、独立加载/错误、dirty/reload 测试 | 桌面页面截图 | 通过（Vitest） |
-| C03 | 审计池和真实探测 | endpoint CRUD draft、probe 进度/结果、token preserve/replace/clear 测试 | probe 对话框截图 | 通过（Vitest+API） |
-| C04 | 范围和九类风险 | all/selected、搜索、失效 group、九类对称展示测试 | 选择器截图 | 通过（Vitest） |
-| C05 | blocking 风险确认 | 开启二次确认；关闭 enabled 联动；取消确认测试 | 确认文案截图 | 通过（Vitest） |
-| C06 | 保存可验证且不泄凭据 | 成功快照刷新、409 冲突保留草稿、secret state 清理、无 storage/console 测试 | Public DTO 捕获 | 通过（Vitest+扫描） |
-| C07 | 真实运行态和 Guard 指标 | expected/active mismatch、Worker stale、Redis degraded、指标渲染测试 | 概览截图 | 通过（Vitest） |
-| C08 | 可复核列表和详情 | filter/page/table/detail tabs、用户名/邮箱/API Key 分列复制、IssueSummary、脱敏预览测试 | 详情截图 | 通过（Vitest+API） |
-| C09 | 防误删除 | 单条/批量/preview/max ID/认证 token/筛选变化失效/时间范围测试 | 删除确认截图 | 通过（集成+Vitest） |
-| C10 | 管理操作审计 | config/probe/delete 成功失败审计测试；detail allowlist | audit_logs SQL/API 样本 | 通过（自动化） |
-| C11 | 响应式/可访问/i18n | zh/en key 对称；键盘/focus/accessible name；窄屏测试 | 桌面与窄屏截图 | 通过（Vitest+lint） |
+| C01 | 安全審計分組和獨立頁面 | router/Sidebar/feature guard 測試；舊路由迴歸 | 側欄和雙頁面截圖 | 通過（自動化） |
+| C02 | 清晰獨立工作區 | 頁面分割槽、獨立載入/錯誤、dirty/reload 測試 | 桌面頁面截圖 | 通過（Vitest） |
+| C03 | 審計池和真實探測 | endpoint CRUD draft、probe 進度/結果、token preserve/replace/clear 測試 | probe 對話方塊截圖 | 通過（Vitest+API） |
+| C04 | 範圍和九類風險 | all/selected、搜尋、失效 group、九類對稱展示測試 | 選擇器截圖 | 通過（Vitest） |
+| C05 | blocking 風險確認 | 開啟二次確認；關閉 enabled 聯動；取消確認測試 | 確認文案截圖 | 通過（Vitest） |
+| C06 | 儲存可驗證且不洩憑據 | 成功快照重新整理、409 衝突保留草稿、secret state 清理、無 storage/console 測試 | Public DTO 捕獲 | 通過（Vitest+掃描） |
+| C07 | 真實執行態和 Guard 指標 | expected/active mismatch、Worker stale、Redis degraded、指標渲染測試 | 概覽截圖 | 通過（Vitest） |
+| C08 | 可複核列表和詳情 | filter/page/table/detail tabs、使用者名稱/郵箱/API Key 分列複製、IssueSummary、脫敏預覽測試 | 詳情截圖 | 通過（Vitest+API） |
+| C09 | 防誤刪除 | 單條/批次/preview/max ID/認證 token/篩選變化失效/時間範圍測試 | 刪除確認截圖 | 通過（整合+Vitest） |
+| C10 | 管理操作審計 | config/probe/delete 成功失敗審計測試；detail allowlist | audit_logs SQL/API 樣本 | 通過（自動化） |
+| C11 | 響應式/可訪問/i18n | zh/en key 對稱；鍵盤/focus/accessible name；窄屏測試 | 桌面與窄屏截圖 | 通過（Vitest+lint） |
 
-## 3. 标准验证命令
+## 3. 標準驗證命令
 
 ### 3.1 OpenSpec
 
@@ -86,7 +86,7 @@ openspec validate add-openai-compatible-prompt-audit --type change --strict --no
 openspec show add-openai-compatible-prompt-audit
 ```
 
-### 3.2 后端快速门禁
+### 3.2 後端快速門禁
 
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
@@ -97,11 +97,11 @@ go test ./internal/service -run ContentModeration -count=1
 go test -race ./internal/securityaudit/... -count=1
 ```
 
-如果新模块采用单一 package，第一条可以写成 `go test ./internal/securityaudit -count=1`；以最终目录结构为准，但不能省略 race。
+如果新模組採用單一 package，第一條可以寫成 `go test ./internal/securityaudit -count=1`；以最終目錄結構為準，但不能省略 race。
 
-### 3.3 PostgreSQL/Redis 集成
+### 3.3 PostgreSQL/Redis 整合
 
-项目已有基于 Testcontainers 的 integration harness。实现时把 Prompt Audit migration/Repository/Redis 场景接入同一模式：
+專案已有基於 Testcontainers 的 integration harness。實現時把 Prompt Audit migration/Repository/Redis 場景接入同一模式：
 
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
@@ -109,7 +109,7 @@ go test -tags=integration ./internal/repository ./internal/securityaudit/... -ru
 go test -tags=integration -race ./internal/securityaudit/... -run 'MultiWorker|MultiInstance|Lease|ConfigInvalidation' -count=1
 ```
 
-CI 中 Docker 不可用必须失败；本地跳过要在证据中明确写“未执行”，不能标为通过。
+CI 中 Docker 不可用必須失敗；本地跳過要在證據中明確寫“未執行”，不能標為通過。
 
 ### 3.4 前端
 
@@ -133,43 +133,43 @@ make test-frontend
 make build
 ```
 
-保存命令、commit SHA、开始/结束时间、退出码和 CI artifact URL。不要只保存终端截图。
+儲存命令、commit SHA、開始/結束時間、退出碼和 CI artifact URL。不要只儲存終端截圖。
 
-## 4. 模式和协议验收矩阵
+## 4. 模式和協議驗收矩陣
 
-### 4.1 运行模式
+### 4.1 執行模式
 
-| risk_control | prompt enabled | blocking | 期望 Prompt 行为 | 主请求 |
+| risk_control | prompt enabled | blocking | 期望 Prompt 行為 | 主請求 |
 | --- | --- | --- | --- | --- |
-| false | 任意 | 任意 | off | 完全保持升级前行为 |
-| true | false | false | off | 完全保持升级前行为 |
-| true | false | true | 配置保存失败 | 无运行态变化 |
-| true | true | false | async enqueue | 无论审计依赖成败都按原流程 |
+| false | 任意 | 任意 | off | 完全保持升級前行為 |
+| true | false | false | off | 完全保持升級前行為 |
+| true | false | true | 配置儲存失敗 | 無執行態變化 |
+| true | true | false | async enqueue | 無論審計依賴成敗都按原流程 |
 | true | true | true | blocking evaluate | Block/Unavailable/Invalid fail-closed |
 
 ### 4.2 HTTP/SSE/WS
 
-每行都要分别验证 benign、flag、block、Guard unavailable、invalid response；Legacy moderation 还需追加“Legacy 单独 Block”和“两者同时 Block”。
+每行都要分別驗證 benign、flag、block、Guard unavailable、invalid response；Legacy moderation 還需追加“Legacy 單獨 Block”和“兩者同時 Block”。
 
 | 入口 | 非流式 Allow | SSE/流式 Allow | Prompt Block | Unavailable | Invalid | 必查副作用 |
 | --- | --- | --- | --- | --- | --- | --- |
-| OpenAI Chat Completions | 原 envelope | Guard 前 0 bytes，之后原流 | 403 `prompt_guard_blocked` | 503 `prompt_guard_unavailable` | 503 `prompt_guard_invalid_response` | account/billing/upstream |
+| OpenAI Chat Completions | 原 envelope | Guard 前 0 bytes，之後原流 | 403 `prompt_guard_blocked` | 503 `prompt_guard_unavailable` | 503 `prompt_guard_invalid_response` | account/billing/upstream |
 | OpenAI Responses + aliases | 原 envelope | 同上 | 403 OpenAI-compatible | 503 | 503 | account/billing/upstream |
 | Claude Messages | 原 envelope | 同上 | 403 Anthropic envelope | 503 Anthropic envelope | 503 Anthropic envelope | account/billing/upstream |
-| Gemini generateContent | 原 envelope | 原流式行为 | 403 Google envelope + ErrorInfo reason | 503 + ErrorInfo reason | 503 + ErrorInfo reason | account/billing/upstream |
-| Images/Grok media 文本入口 | 原 envelope | 保持原 keepalive 时序 | 403 | 503 | 503 | image slot/billing/upstream/task |
-| Responses WS first turn | 正常继续 | N/A | close 4403 blocked | close 1013 unavailable | close 1013 invalid | user/account slot、billing、dial |
-| Responses WS subsequent | 本轮继续 | N/A | close 4403，stage=subsequent_turn | close 1013 | close 1013 | 本轮 slot、billing、upstream write |
+| Gemini generateContent | 原 envelope | 原流式行為 | 403 Google envelope + ErrorInfo reason | 503 + ErrorInfo reason | 503 + ErrorInfo reason | account/billing/upstream |
+| Images/Grok media 文本入口 | 原 envelope | 保持原 keepalive 時序 | 403 | 503 | 503 | image slot/billing/upstream/task |
+| Responses WS first turn | 正常繼續 | N/A | close 4403 blocked | close 1013 unavailable | close 1013 invalid | user/account slot、billing、dial |
+| Responses WS subsequent | 本輪繼續 | N/A | close 4403，stage=subsequent_turn | close 1013 | close 1013 | 本輪 slot、billing、upstream write |
 
-SSE 测试不能只断言最终状态；必须在 Guard fake 阻塞时读取连接并证明还没有 header/首字节/keepalive。
+SSE 測試不能只斷言最終狀態；必須在 Guard fake 阻塞時讀取連線並證明還沒有 header/首位元組/keepalive。
 
-WS 测试必须检查 close code、短 reason、stage 日志和上游帧计数；不能把所有 1013 错误都写成同一内部错误事实。
+WS 測試必須檢查 close code、短 reason、stage 日誌和上游幀計數；不能把所有 1013 錯誤都寫成同一內部錯誤事實。
 
-## 5. 无账号、无计费、无上游证明
+## 5. 無帳號、無計費、無上游證明
 
-### 5.1 测试装置
+### 5.1 測試裝置
 
-在每类 Handler E2E 测试注入以下可计数 fake/stub：
+在每類 Handler E2E 測試注入以下可計數 fake/stub：
 
 ```text
 account_select_calls
@@ -184,22 +184,22 @@ upstream_ws_write_calls
 async_media_task_create_calls
 ```
 
-对 Prompt Block、Unavailable、Invalid 分别断言所有适用计数为 0。若基础鉴权必须读取 API key/user/group，这不算“账号选择”；证据需区分认证主体读取与上游 account scheduler。
+對 Prompt Block、Unavailable、Invalid 分別斷言所有適用計數為 0。若基礎鑑權必須讀取 API key/user/group，這不算“帳號選擇”；證據需區分認證主體讀取與上游 account scheduler。
 
-### 5.2 数据库前后快照
+### 5.2 資料庫前後快照
 
-除 fake counter 外，测试还应记录请求前后这些业务表/统计不变：
+除 fake counter 外，測試還應記錄請求前後這些業務表/統計不變：
 
-- usage/billing/余额/订阅消费记录。
-- API key/account quota 与 rate limit 计数。
-- 上游请求/任务记录。
-- 图片/媒体占用或预扣记录。
+- usage/billing/餘額/訂閱消費記錄。
+- API key/account quota 與 rate limit 計數。
+- 上游請求/任務記錄。
+- 圖片/媒體佔用或預扣記錄。
 
-允许新增的只有 Prompt Audit 自己的脱敏 blocking job/event、结构化日志和指标。现有 Content Moderation 同时命中时，它原本会产生的记录/封号/邮件仍按既有行为执行。
+允許新增的只有 Prompt Audit 自己的脫敏 blocking job/event、結構化日誌和指標。現有 Content Moderation 同時命中時，它原本會產生的記錄/封號/郵件仍按既有行為執行。
 
-### 5.3 日志断言
+### 5.3 日誌斷言
 
-同步拒绝事件必须包含：
+同步拒絕事件必須包含：
 
 ```text
 upstream_dispatched=false
@@ -208,21 +208,21 @@ stage=http|first_turn|subsequent_turn
 error_code=<stable code>
 ```
 
-不得仅依赖日志证明无副作用；日志必须与 counter 和 DB snapshot 同时通过。
+不得僅依賴日誌證明無副作用；日誌必須與 counter 和 DB snapshot 同時通過。
 
-## 6. PostgreSQL 验证
+## 6. PostgreSQL 驗證
 
 ### 6.1 Schema
 
-在 migration 集成测试中验证：
+在 migration 整合測試中驗證：
 
-- 两表、所有列、默认值、CHECK、索引和 FK 删除行为。
-- username/email/API Key name 快照分别落在显式列，API 分列返回；`issue_summaries` 从事件事实派生而非重复落列。
-- migration 从空库和当前生产前一版本都能应用。
-- 不改 `content_moderation_logs` 定义和数据。
-- 关键索引被典型筛选/claim 查询使用；对代表性数据运行 `EXPLAIN`。
+- 兩表、所有列、預設值、CHECK、索引和 FK 刪除行為。
+- username/email/API Key name 快照分別落在顯式列，API 分列返回；`issue_summaries` 從事件事實派生而非重複落列。
+- migration 從空庫和當前生產前一版本都能應用。
+- 不改 `content_moderation_logs` 定義和資料。
+- 關鍵索引被典型篩選/claim 查詢使用；對代表性資料執行 `EXPLAIN`。
 
-禁止列检查示例：
+禁止列檢查示例：
 
 ```sql
 SELECT table_name, column_name
@@ -231,53 +231,53 @@ WHERE table_name IN ('prompt_audit_jobs', 'prompt_audit_events')
   AND lower(column_name) ~ '(raw|prompt_text|request_body|payload|token|authorization|secret)';
 ```
 
-期望 0 行。`prompt_hash` 和 `redacted_preview` 是允许字段，但必须用 canary 行为测试证明内容安全。
+期望 0 行。`prompt_hash` 和 `redacted_preview` 是允許欄位，但必須用 canary 行為測試證明內容安全。
 
-### 6.2 原子性与并发
+### 6.2 原子性與併發
 
-至少覆盖：
+至少覆蓋：
 
-- 1000 个 queued/retry jobs，由 8 个 Worker、2 个 service 实例消费，每个 job 最多一个最终 event。
-- 两实例同时争抢最后 N 个 queue slots，admission lock 后 active jobs 不超过 capacity；锁超时只丢弃审计任务。
-- Worker 在 claim 后崩溃，租约到期由另一 Worker reclaim。
-- 旧 Worker 恢复后，旧 claim_version 的 refresh/event/done/retry/failed 全部 affected rows=0，无法覆盖新领取者状态或创建重复事件。
-- staging 在 Redis SET 前不可领取。
-- 进程在 Redis SET 与 queued publish 间退出，staging 被回收且 payload TTL 到期。
-- event + done 事务中 event insert 失败时不得留下 done 无 event 的风险任务。
-- delete-by-filter 与并发新事件/查询同时运行时，只删除 id≤snapshot_max_id；伪造、过期或其他管理员的 confirmation_token 均失败。
+- 1000 個 queued/retry jobs，由 8 個 Worker、2 個 service 例項消費，每個 job 最多一個最終 event。
+- 兩例項同時爭搶最後 N 個 queue slots，admission lock 後 active jobs 不超過 capacity；鎖超時只丟棄審計任務。
+- Worker 在 claim 後崩潰，租約到期由另一 Worker reclaim。
+- 舊 Worker 恢復後，舊 claim_version 的 refresh/event/done/retry/failed 全部 affected rows=0，無法覆蓋新領取者狀態或建立重複事件。
+- staging 在 Redis SET 前不可領取。
+- 程序在 Redis SET 與 queued publish 間退出，staging 被回收且 payload TTL 到期。
+- event + done 事務中 event insert 失敗時不得留下 done 無 event 的風險任務。
+- delete-by-filter 與併發新事件/查詢同時執行時，只刪除 id≤snapshot_max_id；偽造、過期或其他管理員的 confirmation_token 均失敗。
 
-## 7. Redis 验证
+## 7. Redis 驗證
 
-必须验证：
+必須驗證：
 
-- key 格式仅包含 job ID，不包含 user email、Prompt hash、模型文本或 token。
-- value 是唯一允许的完整 scan text 存放处，默认 TTL 为 1800 秒，测试容差考虑执行时间。
-- worker 成功/终态后主动 DEL；DEL 失败最终依靠 TTL。
-- Redis 不可用时 async 主请求继续、job 明确 failed/staging 回收、runtime degraded。
-- blocking 不依赖 Redis payload 才能决定当前请求，但配置通知失败时按 last-known-good/TTL refresh 规则运行。
-- invalidation channel 只发布 config version，不发布 JSON 配置或 token。
+- key 格式僅包含 job ID，不包含 user email、Prompt hash、模型文本或 token。
+- value 是唯一允許的完整 scan text 存放處，預設 TTL 為 1800 秒，測試容差考慮執行時間。
+- worker 成功/終態後主動 DEL；DEL 失敗最終依靠 TTL。
+- Redis 不可用時 async 主請求繼續、job 明確 failed/staging 回收、runtime degraded。
+- blocking 不依賴 Redis payload 才能決定當前請求，但配置通知失敗時按 last-known-good/TTL refresh 規則執行。
+- invalidation channel 只發布 config version，不釋出 JSON 配置或 token。
 
-测试代码可以读取 canary value 做等值/TTL 断言，但不得把 value 输出到 `t.Log`、CI artifact 或失败消息。失败时只输出 job ID 和长度/hash。
+測試程式碼可以讀取 canary value 做等值/TTL 斷言，但不得把 value 輸出到 `t.Log`、CI artifact 或失敗訊息。失敗時只輸出 job ID 和長度/hash。
 
-## 8. 多实例配置测试
+## 8. 多例項配置測試
 
-启动两个 PromptService 实例，共享 PostgreSQL/Redis、使用独立内存快照：
+啟動兩個 PromptService 例項，共享 PostgreSQL/Redis、使用獨立記憶體快照：
 
-1. A 保存 config v2，A 立即 active=v2。
-2. B 收到 invalidation，从 settings 加载并 active=v2。
-3. 在 B 人为制造一次解密/加载失败，B 保持 v1 且 runtime expected=v2/active=v1/degraded。
-4. 修复依赖后，B 通过下一通知或 5 秒有界刷新到 v2。
-5. Redis Pub/Sub 中断时保存 v3，A active=v3，B 最迟通过 TTL refresh 收敛。
-6. 冷启动 C 无法加载、期望 blocking 时，C 不得按 off 放行，runtime 必须 error/degraded。
-7. A/B 两个管理员以同一 expected version 并发保存，只有一个成功，另一个得到 409；config_version 不重复且成功配置不被静默覆盖。
+1. A 儲存 config v2，A 立即 active=v2。
+2. B 收到 invalidation，從 settings 載入並 active=v2。
+3. 在 B 人為製造一次解密/載入失敗，B 保持 v1 且 runtime expected=v2/active=v1/degraded。
+4. 修復依賴後，B 通過下一通知或 5 秒有界重新整理到 v2。
+5. Redis Pub/Sub 中斷時儲存 v3，A active=v3，B 最遲通過 TTL refresh 收斂。
+6. 冷啟動 C 無法載入、期望 blocking 時，C 不得按 off 放行，runtime 必須 error/degraded。
+7. A/B 兩個管理員以同一 expected version 併發儲存，只有一個成功，另一個得到 409；config_version 不重複且成功配置不被靜默覆蓋。
 
-证据记录版本和错误码，不记录 endpoint token/base URL query。
+證據記錄版本和錯誤碼，不記錄 endpoint token/base URL query。
 
-## 9. Canary 敏感信息门禁
+## 9. Canary 敏感資訊門禁
 
-### 9.1 Canary 设计
+### 9.1 Canary 設計
 
-每次测试生成唯一、不像普通文本的随机 canary：
+每次測試生成唯一、不像普通文本的隨機 canary：
 
 ```text
 PROMPT_CANARY_<random>
@@ -286,193 +286,193 @@ AUTH_CANARY_<random>
 URL_QUERY_CANARY_<random>
 ```
 
-不要在 shell 命令行或 CI 参数中直接传真实 secret；由测试进程生成并只在测试内存保存。
+不要在 shell 命令列或 CI 引數中直接傳真實 secret；由測試程序生成並只在測試記憶體儲存。
 
-### 9.2 检查介质
+### 9.2 檢查介質
 
-| 介质 | 允许 | 禁止 | 证据 |
+| 介質 | 允許 | 禁止 | 證據 |
 | --- | --- | --- | --- |
-| PostgreSQL | SHA-256、脱敏预览、长度、分类 | 完整 Prompt、token、Authorization、Guard raw body | 扫描所有 text/json 列 |
-| Redis key/metadata | job ID、TTL | Prompt/hash/email/token 出现在 key/channel | SCAN/channel payload 断言 |
-| Redis value | 完整 Prompt，TTL≤1800 | token/Authorization；终态长期残留 | 程序内检查，不打印 value |
-| 应用日志 | ID、长度、状态、稳定错误码 | 四类 canary、完整 URL/query、raw response | 捕获 sink 后字节扫描 |
-| 管理 API | 脱敏 preview、has_token/status、分列身份、派生风险摘要 | token/ciphertext/canary Prompt 原文 | 序列化响应扫描 |
-| 客户错误 | 通用消息、code、request ID | 分类证据、Prompt、endpoint、内部错误 | HTTP/WS body/reason 扫描 |
-| 前端状态 | 公共 DTO、空 secret state | 保存后的 token、session/local storage、console | Vitest spies/state snapshot |
-| 页面截图 | 脱敏预览、状态 | token、完整 Prompt | OCR/文本与人工复核 |
+| PostgreSQL | SHA-256、脫敏預覽、長度、分類 | 完整 Prompt、token、Authorization、Guard raw body | 掃描所有 text/json 列 |
+| Redis key/metadata | job ID、TTL | Prompt/hash/email/token 出現在 key/channel | SCAN/channel payload 斷言 |
+| Redis value | 完整 Prompt，TTL≤1800 | token/Authorization；終態長期殘留 | 程式內檢查，不列印 value |
+| 應用日誌 | ID、長度、狀態、穩定錯誤碼 | 四類 canary、完整 URL/query、raw response | 捕獲 sink 後位元組掃描 |
+| 管理 API | 脫敏 preview、has_token/status、分列身份、派生風險摘要 | token/ciphertext/canary Prompt 原文 | 序列化響應掃描 |
+| 客戶錯誤 | 通用訊息、code、request ID | 分類證據、Prompt、endpoint、內部錯誤 | HTTP/WS body/reason 掃描 |
+| 前端狀態 | 公共 DTO、空 secret state | 儲存後的 token、session/local storage、console | Vitest spies/state snapshot |
+| 頁面截圖 | 脫敏預覽、狀態 | token、完整 Prompt | OCR/文本與人工複核 |
 
-数据库扫描必须覆盖 `TEXT/VARCHAR/JSON/JSONB`，不能只查两张新表；至少还要查 settings、audit_logs、ops/error logs 和可能的 request log 表。日志捕获应覆盖成功、探测失败、超时、invalid response、DB/Redis 错误和删除操作。
+資料庫掃描必須覆蓋 `TEXT/VARCHAR/JSON/JSONB`，不能只查兩張新表；至少還要查 settings、audit_logs、ops/error logs 和可能的 request log 表。日誌捕獲應覆蓋成功、探測失敗、超時、invalid response、DB/Redis 錯誤和刪除操作。
 
-发现任何 Guard token/Authorization 泄露是 blocking release 级别 P0：立即停止启用、删除不安全 artifact、轮换凭据并做影响范围调查。Prompt canary 出现在 PostgreSQL/日志/API/前端同样禁止发布。
+發現任何 Guard token/Authorization 洩露是 blocking release 級別 P0：立即停止啟用、刪除不安全 artifact、輪換憑據並做影響範圍調查。Prompt canary 出現在 PostgreSQL/日誌/API/前端同樣禁止釋出。
 
-## 10. 现有内容审核兼容回归
+## 10. 現有內容稽核相容迴歸
 
-必须保存迁移前后同一套结果：
+必須儲存遷移前後同一套結果：
 
-- off：OpenAI Moderations、关键词、Hash、API Key 健康、异步/同步模式行为相同。
-- Legacy Block：状态码、`content_policy_violation`、客户端文案不变。
-- 违规计数、邮件、auto-ban、unban、hash delete/clear 不变。
-- `/admin/risk-control` config/status/logs/API-key test/unban/hash API 不变。
-- `content_moderation_logs` 行内容和清理行为不变。
-- `RiskControlView.vue` 加载、保存、测试、列表和功能总开关不变。
-- 两引擎同时 Block：客户端仍得到 Legacy Block；Prompt event 独立存在，不触发现有副作用第二次执行。
+- off：OpenAI Moderations、關鍵詞、Hash、API Key 健康、非同步/同步模式行為相同。
+- Legacy Block：狀態碼、`content_policy_violation`、客戶端文案不變。
+- 違規計數、郵件、auto-ban、unban、hash delete/clear 不變。
+- `/admin/risk-control` config/status/logs/API-key test/unban/hash API 不變。
+- `content_moderation_logs` 行內容和清理行為不變。
+- `RiskControlView.vue` 載入、儲存、測試、列表和功能總開關不變。
+- 兩引擎同時 Block：客戶端仍得到 Legacy Block；Prompt event 獨立存在，不觸發現有副作用第二次執行。
 
-建议在新增模块前把现有 `ContentModeration` 和 `RiskControlView` 测试输出保存为基线，最终对同 commit 运行一次差分对比。
+建議在新增模組前把現有 `ContentModeration` 和 `RiskControlView` 測試輸出儲存為基線，最終對同 commit 執行一次差分對比。
 
-## 11. Async 灰度观测
+## 11. Async 灰度觀測
 
-### 11.0 当前实施基线（非生产准入）
+### 11.0 當前實施基線（非生產准入）
 
-2026-07-16 在本地 async Worker 完整处理路径运行 `TestPromptAuditSyntheticAsyncBaseline`，使用 100 条无敏感信息的确定性测试分组语料：90 benign、5 flag、3 critical、1 invalid、1 timeout。结果为 P50=5ms、P95=5ms、P99=5ms、Guard 失败率=2%、已知 benign 误报率=0%、已知 critical 阻断率=100%、`store_pass_events=false` 时事件增长=8/100。该结果只证明指标链路、分母和事件策略可用，不代表真实 Guard/网络/业务流量性能，也不能替代下述 72h/10k 生产前 async 观测。
+2026-07-16 在本地 async Worker 完整處理路徑執行 `TestPromptAuditSyntheticAsyncBaseline`，使用 100 條無敏感資訊的確定性測試分組語料：90 benign、5 flag、3 critical、1 invalid、1 timeout。結果為 P50=5ms、P95=5ms、P99=5ms、Guard 失敗率=2%、已知 benign 誤報率=0%、已知 critical 阻斷率=100%、`store_pass_events=false` 時事件增長=8/100。該結果只證明指標鏈路、分母和事件策略可用，不代表真實 Guard/網路/業務流量效能，也不能替代下述 72h/10k 生產前 async 觀測。
 
-复现命令：
+復現命令：
 
 ```bash
 cd /Users/mt/code/mt-ai/sub2api/sub2api-mt/backend
 go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -count=1 -v
 ```
 
-### 11.1 先决条件
+### 11.1 先決條件
 
 - Prompt Audit enabled=true、blocking=false。
-- 只选择内部测试 group，不全量。
-- 至少两个通过真实 probe 的 Guard endpoint；token 已验证且未出现在任何日志/API。
+- 只選擇內部測試 group，不全量。
+- 至少兩個通過真實 probe 的 Guard endpoint；token 已驗證且未出現在任何日誌/API。
 - runtime active=expected，DB/Redis/Worker healthy。
-- store_pass_events 默认 false，避免一开始放大事件量；指标仍统计 Pass。
+- store_pass_events 預設 false，避免一開始放大事件量；指標仍統計 Pass。
 
-### 11.2 最少观测窗口
+### 11.2 最少觀測視窗
 
-推荐至少连续 72 小时且 ≥10,000 个合格请求；流量不足时延长到 7 天。记录：
+推薦至少連續 72 小時且 ≥10,000 個合格請求；流量不足時延長到 7 天。記錄：
 
 - enqueue total/skipped/dropped 及原因。
-- queued/processing/retry/failed/staging age 和队列容量占比。
-- Worker active、处理吞吐、claim/reclaim、payload missing。
+- queued/processing/retry/failed/staging age 和佇列容量佔比。
+- Worker active、處理吞吐、claim/reclaim、payload missing。
 - Guard Allow/Flag/Block/Unavailable/Invalid/timeout/failover/bulkhead。
-- 每 endpoint 与总体 P50/P95/P99。
-- 分类分布、人工抽检误报率、已知恶意回归漏报率。
-- 事件增长率、索引查询 P95、删除批次耗时。
-- config version 收敛时间与 reload failure。
+- 每 endpoint 與總體 P50/P95/P99。
+- 分類分佈、人工抽檢誤報率、已知惡意迴歸漏報率。
+- 事件增長率、索引查詢 P95、刪除批次耗時。
+- config version 收斂時間與 reload failure。
 
-完整 Prompt 不得作为人工抽检材料从 Redis 导出。复核使用脱敏预览、类别证据和专门构造的无敏感测试语料；如业务确需原文复核，必须另起隐私/审批 change。
+完整 Prompt 不得作為人工抽檢材料從 Redis 匯出。複核使用脫敏預覽、類別證據和專門構造的無敏感測試語料；如業務確需原文複核，必須另起隱私/審批 change。
 
-## 12. Blocking 准入和退出阈值
+## 12. Blocking 准入和退出閾值
 
-以下是建议初始门槛，最终值必须由安全、运营和业务责任人在上线记录中签字；未签字只能保持 async：
+以下是建議初始門檻，最終值必須由安全、運營和業務責任人在上線記錄中籤字；未簽字只能保持 async：
 
-| 指标 | 建议准入阈值 | 建议紧急退出阈值 |
+| 指標 | 建議准入閾值 | 建議緊急退出閾值 |
 | --- | --- | --- |
-| 健康 endpoint | ≥2，连续 72h | <1 个可用立即退出 |
-| Guard Unavailable | 24h <0.1% | 5 分钟 ≥1% |
-| Invalid response | 24h <0.01% | 5 分钟 ≥0.1% 或连续出现 |
-| Guard 延迟 | P95 ≤500ms，P99 ≤1000ms | P99 >2000ms 持续 10 分钟 |
-| bulkhead reject | 24h <0.05% | 5 分钟 ≥0.5% |
-| async dropped/payload missing | <0.01%，payload missing=0 | 任一持续增长 |
-| 人工确认误报率 | <0.5%，高价值流程为 0 | 任一严重合法流量阻断事件 |
-| 已知恶意语料 | critical 用例 100% Block | 任一 critical 漏报 |
-| config version 收敛 | 99.9% 实例 <10s | 任一实例 stale >60s |
-| canary 泄露 | 0 | 任意命中立即停用并轮换 |
+| 健康 endpoint | ≥2，連續 72h | <1 個可用立即退出 |
+| Guard Unavailable | 24h <0.1% | 5 分鐘 ≥1% |
+| Invalid response | 24h <0.01% | 5 分鐘 ≥0.1% 或連續出現 |
+| Guard 延遲 | P95 ≤500ms，P99 ≤1000ms | P99 >2000ms 持續 10 分鐘 |
+| bulkhead reject | 24h <0.05% | 5 分鐘 ≥0.5% |
+| async dropped/payload missing | <0.01%，payload missing=0 | 任一持續增長 |
+| 人工確認誤報率 | <0.5%，高價值流程為 0 | 任一嚴重合法流量阻斷事件 |
+| 已知惡意語料 | critical 用例 100% Block | 任一 critical 漏報 |
+| config version 收斂 | 99.9% 例項 <10s | 任一例項 stale >60s |
+| canary 洩露 | 0 | 任意命中立即停用並輪換 |
 
-延迟阈值还必须低于目标接口现有首字节 SLO 允许的新增预算；若业务 SLO 更严格，以更严格值为准。
+延遲閾值還必須低於目標介面現有首位元組 SLO 允許的新增預算；若業務 SLO 更嚴格，以更嚴格值為準。
 
 首次 blocking：
 
-1. 仅一个内部 group，短窗口、有人值守。
-2. 确认页面二次提示、指标和告警均工作。
-3. 执行 benign/flag/block/unavailable/invalid 合成请求。
-4. 证明拒绝时 account/billing/upstream 仍为 0。
-5. 观察至少一个高峰窗口后再扩大 group。
+1. 僅一個內部 group，短視窗、有人值守。
+2. 確認頁面二次提示、指標和告警均工作。
+3. 執行 benign/flag/block/unavailable/invalid 合成請求。
+4. 證明拒絕時 account/billing/upstream 仍為 0。
+5. 觀察至少一個高峰視窗後再擴大 group。
 
-### 12.1 值班检查步骤
+### 12.1 值班檢查步驟
 
-开启 blocking 前、每次扩组前和收到告警后，值班人员按以下固定顺序执行；任一项不满足立即保持/恢复 async：
+開啟 blocking 前、每次擴組前和收到告警後，值班人員按以下固定順序執行；任一項不滿足立即保持/恢復 async：
 
-1. 打开 `/admin/prompt-audit`，确认 effective mode、expected/active config version、Worker heartbeat、PostgreSQL、Redis 和至少两个 endpoint 均健康。
-2. 检查最近 5 分钟 Guard Unavailable、Invalid、timeout、bulkhead、P95/P99 和 async dropped 是否超过本节阈值。
-3. 检查 queued/retry/staging 最老年龄和容量占比；队列持续增长或 staging 未回收时禁止扩组。
-4. 对 benign、flag、block、unavailable、invalid 合成用例各执行一次，核对协议 envelope、错误码及 `upstream_dispatched=false`、`billing_preconsumed=false`。
-5. 抽查最新风险事件的脱敏预览、身份分列、分类和 IssueSummary，禁止从 Redis 导出原文。
-6. 记录值班人、时间、config version、测试 group、指标快照和结论；扩组必须由安全、运营、业务责任人共同确认。
+1. 開啟 `/admin/prompt-audit`，確認 effective mode、expected/active config version、Worker heartbeat、PostgreSQL、Redis 和至少兩個 endpoint 均健康。
+2. 檢查最近 5 分鐘 Guard Unavailable、Invalid、timeout、bulkhead、P95/P99 和 async dropped 是否超過本節閾值。
+3. 檢查 queued/retry/staging 最老年齡和容量佔比；佇列持續增長或 staging 未回收時禁止擴組。
+4. 對 benign、flag、block、unavailable、invalid 合成用例各執行一次，核對協議 envelope、錯誤碼及 `upstream_dispatched=false`、`billing_preconsumed=false`。
+5. 抽查最新風險事件的脫敏預覽、身份分列、分類和 IssueSummary，禁止從 Redis 匯出原文。
+6. 記錄值班人、時間、config version、測試 group、指標快照和結論；擴組必須由安全、運營、業務責任人共同確認。
 
-一键回滚动作固定为：在独立页面关闭 `blocking_enabled` 并保存，等待所有实例 `active_config_version == expected_config_version` 且 effective mode=`async_audit`。若管理页面不可用，使用同一管理员 API 的 GET config 取得版本，只修改 `blocking_enabled=false` 并携带 `expected_config_version` PUT 回去；不得直接修改 settings JSON。若 async 仍造成压力，再关闭 `enabled`。全局 `risk_control_enabled` 只作最后手段，因为它也会停用既有内容审核。
+一鍵回滾動作固定為：在獨立頁面關閉 `blocking_enabled` 並儲存，等待所有例項 `active_config_version == expected_config_version` 且 effective mode=`async_audit`。若管理頁面不可用，使用同一管理員 API 的 GET config 取得版本，只修改 `blocking_enabled=false` 並攜帶 `expected_config_version` PUT 回去；不得直接修改 settings JSON。若 async 仍造成壓力，再關閉 `enabled`。全域性 `risk_control_enabled` 只作最後手段，因為它也會停用既有內容稽核。
 
-## 13. 回滚清单
+## 13. 回滾清單
 
-### 13.1 一键功能回滚
+### 13.1 一鍵功能回滾
 
-1. 在 `/admin/prompt-audit` 关闭 `blocking_enabled` 并保存。
-2. 确认所有实例 `active_version == expected_version`，有效模式变为 async_audit。
-3. 用 benign 请求证明立即恢复原主流程；用 Guard unavailable 合成请求证明不再返回 503。
-4. 继续观察 async，保留事件用于复盘。
+1. 在 `/admin/prompt-audit` 關閉 `blocking_enabled` 並儲存。
+2. 確認所有例項 `active_version == expected_version`，有效模式變為 async_audit。
+3. 用 benign 請求證明立即恢復原主流程；用 Guard unavailable 合成請求證明不再返回 503。
+4. 繼續觀察 async，保留事件用於復盤。
 
-若 async 本身引发 DB/Redis 压力或隐私问题：
+若 async 本身引發 DB/Redis 壓力或隱私問題：
 
-1. 关闭 `enabled`，有效模式变为 off。
-2. 停止 Worker 领取新任务；有界等待活动任务。
-3. queued/retry 保留等待明确处置，不自动删除历史证据。
-4. 若发生 secret 泄露，轮换 endpoint token。
+1. 關閉 `enabled`，有效模式變為 off。
+2. 停止 Worker 領取新任務；有界等待活動任務。
+3. queued/retry 保留等待明確處置，不自動刪除歷史證據。
+4. 若發生 secret 洩露，輪換 endpoint token。
 
-只有在 Prompt 配置通道无法使用且影响仍持续时，才关闭全局 `risk_control_enabled`；这会同时停用现有内容审核，是最后手段。
+只有在 Prompt 配置通道無法使用且影響仍持續時，才關閉全域性 `risk_control_enabled`；這會同時停用現有內容稽核，是最後手段。
 
-### 13.2 数据和部署回滚
+### 13.2 資料和部署回滾
 
-- 不回退已应用的 migration，不 drop 两张表，不删除历史事件。
-- 可部署上一版本应用；新表和 setting key 保持向后兼容、无人读取。
-- 停 Worker 不改变现有网关能力；恢复后按状态继续或由管理员明确清理。
-- 回滚后记录触发时间、阈值、config version、影响 group、错误码分布和恢复时间。
+- 不回退已應用的 migration，不 drop 兩張表，不刪除歷史事件。
+- 可部署上一版本應用；新表和 setting key 保持向後相容、無人讀取。
+- 停 Worker 不改變現有閘道器能力；恢復後按狀態繼續或由管理員明確清理。
+- 回滾後記錄觸發時間、閾值、config version、影響 group、錯誤碼分佈和恢復時間。
 
-### 13.3 回滚验收
+### 13.3 回滾驗收
 
-- 所有实例模式正确，stale config=0。
-- 新 403/503/4403/1013 已停止（除现有审核自己的响应）。
-- 上游成功率、首字节延迟恢复基线。
-- 队列不继续增长，Redis payload 最迟按 TTL 清除。
-- 现有 `/admin/risk-control` 和 Content Moderation 仍正常。
+- 所有例項模式正確，stale config=0。
+- 新 403/503/4403/1013 已停止（除現有稽核自己的響應）。
+- 上游成功率、首位元組延遲恢復基線。
+- 佇列不繼續增長，Redis payload 最遲按 TTL 清除。
+- 現有 `/admin/risk-control` 和 Content Moderation 仍正常。
 
-## 14. 最终发布签字模板
+## 14. 最終釋出簽字模板
 
-| 项目 | 结果/链接 | 责任人 | 时间 |
+| 專案 | 結果/連結 | 責任人 | 時間 |
 | --- | --- | --- | --- |
-| 源基线冻结 | TODO | TODO | TODO |
+| 源基線凍結 | TODO | TODO | TODO |
 | OpenSpec strict validate | TODO | TODO | TODO |
-| 后端 unit/race/integration | TODO | TODO | TODO |
+| 後端 unit/race/integration | TODO | TODO | TODO |
 | 前端 lint/typecheck/Vitest/build | TODO | TODO | TODO |
-| 协议与无副作用矩阵 | TODO | TODO | TODO |
-| canary 泄露门禁 | TODO | TODO | TODO |
-| async 72h/10k 报告 | TODO | TODO | TODO |
-| blocking 阈值批准 | TODO | TODO | TODO |
+| 協議與無副作用矩陣 | TODO | TODO | TODO |
+| canary 洩露門禁 | TODO | TODO | TODO |
+| async 72h/10k 報告 | TODO | TODO | TODO |
+| blocking 閾值批准 | TODO | TODO | TODO |
 | 告警和值班人 | TODO | TODO | TODO |
-| 回滚演练 | TODO | TODO | TODO |
+| 回滾演練 | TODO | TODO | TODO |
 
-任何必填项为 TODO、失败或无证据时，不得开启生产 blocking。
+任何必填項為 TODO、失敗或無證據時，不得開啟生產 blocking。
 
-## 15. 2026-07-16 实施验证记录
+## 15. 2026-07-16 實施驗證記錄
 
-验证基线：branch=`dev`，HEAD=`a2779cd5f30d6d3904a9d59088aed09507678dfe`，工作区包含本 change 的未提交实现；时间为 2026-07-16 CST。以下命令退出码均为 0，除首次发现并修复的 lint 问题外不隐藏失败。
+驗證基線：branch=`dev`，HEAD=`a2779cd5f30d6d3904a9d59088aed09507678dfe`，工作區包含本 change 的未提交實現；時間為 2026-07-16 CST。以下命令退出碼均為 0，除首次發現並修復的 lint 問題外不隱藏失敗。
 
-| 门禁 | 实际证据 |
+| 門禁 | 實際證據 |
 | --- | --- |
 | OpenSpec | `openspec validate add-openai-compatible-prompt-audit --type change --strict --no-interactive` → valid |
-| SecurityAudit 单元/集成 | PostgreSQL `127.0.0.1:32768`、Redis `127.0.0.1:32769` 下 `go test ./internal/securityaudit/... -count=1` → pass |
-| Race | 同一真实依赖下 `go test -race ./internal/securityaudit/... -count=1` → pass |
+| SecurityAudit 單元/整合 | PostgreSQL `127.0.0.1:32768`、Redis `127.0.0.1:32769` 下 `go test ./internal/securityaudit/... -count=1` → pass |
+| Race | 同一真實依賴下 `go test -race ./internal/securityaudit/... -count=1` → pass |
 | Migration/Repository/Config | `TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL`、migration/schema、admission/fencing/FK/high-water/concurrent delete、Redis TTL、Worker lifecycle 全部 pass |
-| Handler/Routes | `go test ./internal/handler/... ./internal/server/... -count=1` → pass；路由矩阵由 `TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage` 固定 |
-| 全量后端 | 临时安装 CI 同版 golangci-lint v2.9 后 `make test-backend` → 全量 Go tests pass，`0 issues` |
-| 前端 | ESLint pass；vue-tsc pass；Prompt Audit、RiskControl、Sidebar、router 共 8 个文件 34 tests pass |
-| 生产构建 | `make build` → Go binary 与 Vite production build pass，独立 `PromptAuditView` chunk 生成 |
-| 协议/副作用矩阵 | 13 个实际入口的 Guard-before-side-effect 结构测试；Block/Unavailable/Invalid counter=0；OpenAI/Responses/Claude/Gemini golden；WS 4403/1013；first/subsequent gate；媒体 task/billing gate 全部 pass |
-| 泄露门禁 | 统一 canary 覆盖日志、DB row、管理 JSON、前端保存后 DOM；测试 PostgreSQL 39 个 text/json 列全库扫描 0 命中；Redis key/channel scan 0 命中；feature 源码无 local/session storage 或 console |
-| Async 指标基线 | 100 条合成 async Worker 样本：P50/P95/P99=5/5/5ms，failure=2%，known-benign false-positive=0%，event growth=8/100；只用于验证观测链路 |
-| Deploy 容器 | Docker Hub 超时后使用已缓存的正式运行层 + 当前 `linux/arm64` embed release binary 构建离线增量镜像 `sha256:c86353b0...`；Compose 重建后 app/PostgreSQL/Redis healthy，migration 181 已登记，两张表存在，`/health`=200 |
-| Deploy 管理 API | 本地测试管理员登录成功；`GET config/runtime/events` 均为 200；默认 config=`enabled=false, blocking=false, mode=off, version=1, group_ids=[], endpoints=[]`；runtime active/expected=1/1 |
-| Deploy 页面 | 首次容器检查发现并修复默认 `group_ids:null` 导致的运行时错误；重建后桌面/390px 窄屏 DOM 与截图均通过，截图不含 token/Prompt canary |
-| Deploy 全介质扫描 | 完整生产测试库所有 public text/varchar/json/jsonb 列动态扫描：hit_columns=0/hit_rows=0；两表禁用列=0；Redis canary key=`0`、channel=`[]`、payload key=`0`；容器日志 canary=0 |
+| Handler/Routes | `go test ./internal/handler/... ./internal/server/... -count=1` → pass；路由矩陣由 `TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage` 固定 |
+| 全量後端 | 臨時安裝 CI 同版 golangci-lint v2.9 後 `make test-backend` → 全量 Go tests pass，`0 issues` |
+| 前端 | ESLint pass；vue-tsc pass；Prompt Audit、RiskControl、Sidebar、router 共 8 個檔案 34 tests pass |
+| 生產構建 | `make build` → Go binary 與 Vite production build pass，獨立 `PromptAuditView` chunk 生成 |
+| 協議/副作用矩陣 | 13 個實際入口的 Guard-before-side-effect 結構測試；Block/Unavailable/Invalid counter=0；OpenAI/Responses/Claude/Gemini golden；WS 4403/1013；first/subsequent gate；媒體 task/billing gate 全部 pass |
+| 洩露門禁 | 統一 canary 覆蓋日誌、DB row、管理 JSON、前端儲存後 DOM；測試 PostgreSQL 39 個 text/json 列全庫掃描 0 命中；Redis key/channel scan 0 命中；feature 原始碼無 local/session storage 或 console |
+| Async 指標基線 | 100 條合成 async Worker 樣本：P50/P95/P99=5/5/5ms，failure=2%，known-benign false-positive=0%，event growth=8/100；只用於驗證觀測鏈路 |
+| Deploy 容器 | Docker Hub 超時後使用已快取的正式執行層 + 當前 `linux/arm64` embed release binary 構建離線增量映象 `sha256:c86353b0...`；Compose 重建後 app/PostgreSQL/Redis healthy，migration 181 已登記，兩張表存在，`/health`=200 |
+| Deploy 管理 API | 本地測試管理員登入成功；`GET config/runtime/events` 均為 200；預設 config=`enabled=false, blocking=false, mode=off, version=1, group_ids=[], endpoints=[]`；runtime active/expected=1/1 |
+| Deploy 頁面 | 首次容器檢查發現並修復預設 `group_ids:null` 導致的執行時錯誤；重建後桌面/390px 窄屏 DOM 與截圖均通過，截圖不含 token/Prompt canary |
+| Deploy 全介質掃描 | 完整生產測試庫所有 public text/varchar/json/jsonb 列動態掃描：hit_columns=0/hit_rows=0；兩表停用列=0；Redis canary key=`0`、channel=`[]`、payload key=`0`；容器日誌 canary=0 |
 
-### 15.1 Requirement 自动化证据索引
+### 15.1 Requirement 自動化證據索引
 
-- A01/G01/G02/G12：`coordinator_test.go`、`prompt_config_test.go`、`prompt_config_integration_test.go`、原 ContentModeration/RiskControl 回归。
-- A02/A03/G06：`prompt_outbound_security_test.go`、`prompt_qwen3guard_test.go`、配置 secret 往返与 probe handler 测试。
+- A01/G01/G02/G12：`coordinator_test.go`、`prompt_config_test.go`、`prompt_config_integration_test.go`、原 ContentModeration/RiskControl 迴歸。
+- A02/A03/G06：`prompt_outbound_security_test.go`、`prompt_qwen3guard_test.go`、配置 secret 往返與 probe handler 測試。
 - A04/A05/A09：`prompt_snapshot_test.go`、`TestPromptAuditDatabaseAndAdminJSONNeverPersistCanaryPromptOrRawErrors`、schema leakage gate。
-- A06/A07：`prompt_worker_test.go`、Redis payload 集成、Repository admission/claim_version/reclaim 集成和 race。
+- A06/A07：`prompt_worker_test.go`、Redis payload 整合、Repository admission/claim_version/reclaim 整合和 race。
 - A08：Qwen3Guard strict/alias/unknown/aggregate/IssueSummary tests。
 - A10/A12/G09：event transaction、FK/filter/high-water/confirmation/concurrent delete、record-once tests。
 - A11/G10/G11：runtime aggregation、config invalidation/TTL、metrics/log dictionary/canary tests。
@@ -480,13 +480,13 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 - G05：Guard complete chunks、last-chunk failure、Block early-stop、shared deadline/context tests。
 - C01–C11：`frontend/src/features/prompt-audit/__tests__/`、Sidebar/router/RiskControl tests、handler/admin route tests、lint/typecheck/build。
 
-### 15.2 尚未构成生产 blocking 批准的事项
+### 15.2 尚未構成生產 blocking 批准的事項
 
-本地实现验证通过不等于生产启用批准。最终签字表中的真实 async 72h/10k 流量报告、至少两个真实 endpoint 连续健康、业务流量误报抽检、告警接线、值班人和回滚演练仍为 TODO；在这些外部运营证据完成前，生产只能保持 off 或受控 async，不能开启 blocking。
+本地實現驗證通過不等於生產啟用批准。最終簽字表中的真實 async 72h/10k 流量報告、至少兩個真實 endpoint 連續健康、業務流量誤報抽檢、告警接線、值班人和回滾演練仍為 TODO；在這些外部運營證據完成前，生產只能保持 off 或受控 async，不能開啟 blocking。
 
-### 15.3 页面证据
+### 15.3 頁面證據
 
 - 桌面：`/Users/mt/.codex/visualizations/2026/07/16/019f6a2c-ce90-7ae2-8eca-6a3a66b837f2/prompt-audit-desktop.png`
 - 390px 窄屏：`/Users/mt/.codex/visualizations/2026/07/16/019f6a2c-ce90-7ae2-8eca-6a3a66b837f2/prompt-audit-narrow.png`
 
-截图只包含默认关闭状态、空事件/空节点和测试管理员展示名；未配置节点 token、未产生 Prompt 事件，并已目视确认没有 canary、Authorization、完整 Prompt 或内部错误。截图完成后测试库已恢复 `risk_control_enabled=false`，Prompt Audit 保持默认 off。
+截圖只包含預設關閉狀態、空事件/空節點和測試管理員展示名；未配置節點 token、未產生 Prompt 事件，並已目視確認沒有 canary、Authorization、完整 Prompt 或內部錯誤。截圖完成後測試庫已恢復 `risk_control_enabled=false`，Prompt Audit 保持預設 off。

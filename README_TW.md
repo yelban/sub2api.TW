@@ -1,8 +1,10 @@
-# Sub2API
-
 <div align="center">
 
-[![Go](https://img.shields.io/badge/Go-1.25.7-00ADD8.svg)](https://golang.org/)
+<img src="assets/logo.svg" alt="Sub2API Logo" width="128" />
+
+# Sub2API
+
+[![Go](https://img.shields.io/badge/Go-1.27.0-00ADD8.svg)](https://golang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3.4+-4FC08D.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D.svg)](https://redis.io/)
@@ -16,83 +18,55 @@
 
 </div>
 
-> **Sub2API 官方僅使用  `sub2api.org` 與 `pincc.ai` 兩個域名。其他使用 Sub2API 名義的網站可能為第三方部署或服務，與本專案無關，請自行甄別。**
----
 
-## 線上體驗
+## ⚠️ 重要提醒
 
-體驗地址：**[https://demo.sub2api.org/](https://demo.sub2api.org/)**
+使用本專案前，請務必仔細閱讀以下內容：
 
-演示帳號（共享演示環境；自建部署不會自動建立該帳號）：
-
-| 郵箱 | 密碼 |
-|------|------|
-| admin@sub2api.org | admin123 |
-
-## 專案概述
-
-Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱的 API 配額。使用者透過平臺生成的 API Key 呼叫上游 AI 服務，平臺負責鑑權、計費、負載均衡和請求轉發。
-
-## 核心功能
-
-- **多帳號管理** - 支援多種上游帳號型別（OAuth、API Key）
-- **API Key 分發** - 為使用者生成和管理 API Key
-- **精確計費** - Token 級別的用量追蹤和成本計算
-- **智慧排程** - 智慧帳號選擇，支援粘性會話
-- **併發控制** - 使用者級和帳號級併發限制
-- **速率限制** - 可配置的請求和 Token 速率限制
-- **內建支付系統** - 支援 EasyPay 易支付、支付寶官方、微信官方、Stripe，使用者自助充值，無需獨立部署支付服務（[配置指南](docs/PAYMENT_CN.md)）
-- **管理後臺** - Web 介面進行監控和管理
-- **外部系統整合** - 支援透過 iframe 嵌入外部系統（如工單等），擴充套件管理後臺功能
+- **🚨 服務條款風險**：使用本專案可能違反 Anthropic 等上游服務商的服務條款。請在使用前仔細閱讀相關服務商的使用者協議，由此產生的一切風險由使用者自行承擔。
+- **⚖️ 合規使用**：請在符合您所在國家或地區法律法規的前提下使用本專案，嚴禁將其用於任何違法違規用途。
+- **📖 免責宣告**：本專案僅供技術學習與研究使用，作者不對因使用本專案導致的帳戶封禁、服務中斷、資料丟失或其他任何直接或間接損失承擔責任。
+- **🚫 無商業授權**：本專案從未授權任何個人或組織基於本專案開展任何形式的商業化運營。任何以本專案名義或基於本專案從事的商業行為均與本專案及其開發者無關，由此產生的一切糾紛、損失和法律責任由行為主體自行承擔。
 
 ## ❤️ 贊助商
 
-> [想出現在這裡？](mailto:support@pincc.ai)
+> [想出現在這裡？](mailto:support@sub2api.org)
 
 <table>
+
 <tr>
-<td width="180" align="center" valign="middle"><a href="https://shop.pincc.ai/"><img src="assets/partners/logos/pincc-logo.png" alt="pincc" width="150"></a></td>
-<td valign="middle"><b><a href="https://shop.pincc.ai/">PinCC</a></b> 是基於 Sub2API 搭建的官方中轉服務，提供 Claude Code、Codex、Gemini 等主流模型的穩定中轉，開箱即用，免去自建部署與運維煩惱。</td>
+<td width="180"><a href="https://cctk.ai/register?aff=SUB2API"><img src="assets/partners/logos/cctk.jpg" alt="CCTK.AI" width="150"></a></td>
+<td>感謝 CCTK.AI 贊助了本專案！<a href="https://cctk.ai/register?aff=SUB2API">CCTK.AI</a> 是一個專注於穩定與價效比的 AI API 閘道器平臺，提供 Claude、OpenAI、Gemini 等主流模型的高速中轉服務，無縫相容 Claude Code、Codex 等主流程式設計工具，以遠低於官方的成本獲得同等的模型能力。點選<a href="https://cctk.ai/register?aff=SUB2API">此連結</a>註冊，即刻體驗更快、更穩、更省的 AI API 接入。</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://www.packyapi.com/register?aff=sub2api"><img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150"></a></td>
-<td>感謝 PackyCode 贊助了本專案！PackyCode 是一家穩定、高效的API中轉服務商，提供 Claude Code、Codex、Gemini 等多種中轉服務。PackyCode 為本軟體的使用者提供了特別優惠，使用<a href="https://www.packyapi.com/register?aff=sub2api">此連結</a>註冊並在充值時填寫"sub2api"優惠碼，首次充值可以享受9折優惠！</td>
+<td width="180"><a href="https://www.openmodel.ai?ref=sub2api"><img src="assets/partners/logos/openmodel.jpg" alt="openmodel" width="150"></a></td>
+<td>一個API，頂級模型隨便用！<a href="https://www.openmodel.ai?ref=sub2api">OpenModel</a> 專注於生產級、高可用的 AI API 閘道器，讓你的應用真正做到高速穩定：自動故障轉移、智慧選最優渠道、生產級 SLA 保障。遠超單一供應商的 SLA，讓穩定性成為您的核心競爭力。</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://ctok.ai"><img src="assets/partners/logos/ctok.png" alt="CTok" width="150"></a></td>
-<td>感謝 CTok.ai 贊助了本專案！CTok.ai 致力於打造一站式 AI 程式設計工具服務平臺。我們提供 Claude Code 專業套餐及技術社群服務，同時支援 Google Gemini 和 OpenAI Codex。透過精心設計的套餐方案和專業的技術社群，為開發者提供穩定的服務保障和持續的技術支援，讓 AI 輔助程式設計真正成為開發者的生產力工具。點選<a href="https://ctok.ai">這裡</a>註冊！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
-<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：透過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
+<td width="180"><a href="https://etok.ai"><img src="assets/partners/logos/etok.png" alt="ETok" width="150"></a></td>
+<td>感謝 ETok.ai 贊助了本專案！ETok.ai 致力於打造一站式 AI 程式設計工具服務平臺。我們提供 Claude Code 專業套餐及技術社群服務，同時支援 Google Gemini 和 OpenAI Codex。通過精心設計的套餐方案和專業的技術社群，為開發者提供穩定的服務保障和持續的技術支援，讓 AI 輔助程式設計真正成為開發者的生產力工具。點選<a href="https://etok.ai">這裡</a>註冊！</td>
 </tr>
 
 <tr>
 <td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。透過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受所有充值永久 95 折優惠。</td>
+<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。通過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受充值最高 95 折優惠。</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://code.silkapi.com/register?aff=SUB2API"><img src="assets/partners/logos/silkapi.png" alt="silkapi" width="150"></a></td>
-<td>感謝 絲綢API 贊助了本專案！ <a href="https://code.silkapi.com/register?aff=SUB2API">絲綢API</a> 是基於 Sub2API 搭建的中轉服務，專注於提供 Codex 高速穩定API中轉。</td>
+<td width="180"><a href="https://aigocode.com/invite/SUB2API"><img src="assets/partners/logos/aigocode.png" alt="AIGoCode" width="150"></a></td>
+<td>感謝 AIGoCode 贊助了本專案！AIGoCode 是一站式整合 Claude Code、Codex 以及最新 Gemini 模型的綜合平臺，為您提供穩定、高效、高價效比的 AI 程式設計服務。平臺提供靈活的訂閱方案，零封號風險，免 VPN 直連，響應極速。AIGoCode 為 sub2api 使用者準備了專屬福利：通過<a href="https://aigocode.com/invite/SUB2API">此連結</a>註冊，首次充值可額外獲得 10% 贈送額度！</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://ylscode.com/"><img src="assets/partners/logos/ylscode.png" alt="ylscode" width="150"></a></td>
-<td>感謝 伊莉思Code 贊助了本專案！ <a href="https://ylscode.com/">伊莉思Code</a> 致力於構建安全的企業級Coding Agent生產力服務，提供穩定快速的 Codex / Claude / Gemini 訂閱服務與即用即付API多種方案靈活選擇，限時註冊贈送 3 天 Codex 試用福利！</td>
-</tr>
-
-<tr>
-<td width="180"><a href="https://www.aicodemirror.com/register?invitecode=KMVZQM"><img src="assets/partners/logos/AICodeMirror.jpg" alt="AICodeMirror" width="150"></a></td>
-<td>感謝 AICodeMirror 贊助了本專案！AICodeMirror 提供 Claude Code / Codex / Gemini CLI 官方高穩定性中轉服務，企業級併發、快速開票、7×24 小時專屬技術支援。Claude Code / Codex / Gemini 官方通道低至原價 38% / 2% / 9%，充值更享額外折扣！AICodeMirror 為 sub2api 使用者提供專屬福利：透過<a href="https://www.aicodemirror.com/register?invitecode=KMVZQM">此連結</a>註冊，首次充值立享 8 折優惠，企業客戶最高可享 75 折！</td>
+<td width="180"><a href="https://codex-everywhere.com"><img src="assets/partners/logos/codex-everywhere.jpg" alt="CodexEverywhere" width="150"></a></td>
+<td>Real GPT-5.6 series at 3% of OpenAI pricing — <a href="https://codex-everywhere.com">CodexEverywhere</a> is democratizing access to frontier models for developers worldwide. We believe in transparency and honesty, with model quality verified by active community oversight for months. USD and crypto friendly. Start with a free $20 trial at <a href="https://codex-everywhere.com">codex-everywhere.com</a>.</td>
 </tr>
 
 <tr>
 <td width="180"><a href="https://shop.bmoplus.com/?utm_source=github"><img src="assets/partners/logos/bmoplus.jpg" alt="bmoplus" width="150"></a></td>
-<td>感謝 BmoPlus 贊助了本專案！BmoPlus 是一家專為AI訂閱重度使用者打造的可靠 AI 帳號代充服務商，提供穩定的 ChatGPT Plus / ChatGPT Pro(全程質保) / Claude Pro / Super Grok / Gemini Pro 的官方代充&成品帳號。 透過<a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus AI成品號專賣/代充</a>註冊下單的使用者，可享GPT 官網訂閱一折 的震撼價格！</td>
+<td>感謝 BmoPlus 贊助了本專案！BmoPlus 是一家專為AI訂閱重度使用者打造的可靠 AI 帳號代充服務商，提供穩定的 ChatGPT Plus / ChatGPT Pro(全程質保) / Claude Pro / Super Grok / Gemini Pro 的官方代充&成品帳號。 通過<a href="https://shop.bmoplus.com/?utm_source=github">BmoPlus AI成品號專賣/代充</a>註冊下單的使用者，可享GPT 官網訂閱一折 的震撼價格！</td>
 </tr>
 
 <tr>
@@ -104,22 +78,124 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 <td width="180"><a href="https://pateway.ai/?ch=1tsfr51"><img src="assets/partners/logos/pateway.png" alt="pateway" width="150"></a></td>
 <td>感謝 PatewayAI 贊助了本專案！PatewayAI 是一家面向重度 AI 開發者、專注官方直連的高品質模型 API 中轉服務商。提供 Claude 全系列與 Codex 系列模型，100% 官方源直供，不摻假不注水，歡迎檢驗。計費透明，Token 級帳單可逐筆核驗。
 同時支援企業級高併發，併為企業客戶提供了專業的管理平臺，企業客戶可簽訂正式合同並開具發票，更多詳情進入官網獲取聯絡方式。
-現在透過 <a href="https://pateway.ai/?ch=1tsfr51">此連結</a> 註冊即送 $3 試用額度，使用者充值低至 6 折，邀請好友雙向贈送，邀請獎勵可達 $150。</td>
+現在通過 <a href="https://pateway.ai/?ch=1tsfr51">此連結</a> 註冊即送 $3 試用額度，使用者充值低至 6 折，邀請好友雙向贈送，邀請獎勵可達 $150。</td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://api.pptoken.org/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
-<td>感謝 PPToken.org 贊助本專案！ <a href="https://api.pptoken.org/register?promo=SUB2API">PPToken.org</a> 主打 GPT 系列模型 API 中轉服務，支援 Codex、Claude Code、OpenAI 相容客戶端及 Gemini CLI 等工具接入。充值 1:1，1 元=1 美元額度；GPT 模型最低 0.16 倍倍率，綜合成本約為官方價格的 0.22 折，最快首字 Token 約 1 秒，適合開發者低成本、高響應速度接入 GPT 模型能力。技術支援： 7×24 小時真人響應（不是機器人），群內@技術，10 分鐘內有回覆 。贊助商福利：前 200 名使用者透過 <a href="https://api.pptoken.org/register?promo=SUB2API">[專屬註冊連結]</a> 註冊，輸入優惠碼 `SUB2API`，可領取 Codex / Claude Code 免費試用額度，無門檻、不綁卡。
+<td width="180"><a href="https://api.pptoken.cc/register?promo=SUB2API"><img src="assets/partners/logos/pptoken.png" alt="pptoken" width="150"></a></td>
+<td>感謝 PPToken.cc 贊助本專案！ <a href="https://api.pptoken.cc/register?promo=SUB2API">PPToken.cc</a> 主打 GPT 系列模型 API 中轉服務，支援 Codex、Claude Code、OpenAI 相容客戶端及 Gemini CLI 等工具接入。充值 1:1，1 元=1 美元額度；GPT 模型最低 0.16 倍倍率，綜合成本約為官方價格的 0.22 折，最快首字 Token 約 1 秒，適合開發者低成本、高響應速度接入 GPT 模型能力。技術支援： 7×24 小時真人響應（不是機器人），群內@技術，10 分鐘內有回覆 。贊助商福利：前 200 名使用者通過 <a href="https://api.pptoken.cc/register?promo=SUB2API">[專屬註冊連結]</a> 註冊，輸入優惠碼 `SUB2API`，可領取 Codex / Claude Code 免費試用額度，無門檻、不綁卡。
 </td>
 </tr>
 
 <tr>
-<td width="180"><a href="https://runapi.co/register?aff=fu2E"><img src="assets/partners/logos/runapi.png" alt="RunAPI" width="150"></a></td>
-<td>感謝 RunAPI 贊助本專案！ <a href="https://runapi.co/register?aff=fu2E">RunAPI</a> 是高效穩定的API OpenRouter平替平臺，一個 API Key 即可訪問 OpenAI、Claude、Gemini、DeepSeek、Grok 等 150+ 主流模型，低至 1 折，極其穩定，可以無縫相容 Claude Code、OpenClaw 等工具。
+<td width="180"><a href="https://veilx.io/#/hello/SJRBRVDV"><img src="assets/partners/logos/veilx.png" alt="veilx" width="150"></a></td>
+<td>感謝 Veilx 贊助本專案！ <a href="https://veilx.io/#/hello/SJRBRVDV">Veilx</a> CDN 專為超大規模 API 請求場景打造，針對 AI 中轉站業務與 AI API 呼叫鏈路進行了深度最佳化，輕鬆應對高併發、高頻請求與大流量傳輸，為開發者與企業提供更快、更穩、更低延遲的加速體驗。無論是 OpenAI、Claude、Gemini 等 AI 介面中轉，還是聊天、繪圖、Embedding、流式輸出等複雜場景，Veilx 都能顯著提升響應速度與連線穩定性，有效降低網路波動帶來的超時與失敗問題。同時，Veilx 提供中國三網最佳化回國極速線路，大幅提升中國大陸地區訪問海外 AI 服務的速度與穩定性，特別適合全球 AI 中轉平臺、海外 AI SaaS、跨境業務與高併發 API 系統部署。專為 AI API 而生，讓你的 AI 中轉服務更快、更穩、更省心。<a href="https://veilx.io/#/hello/SJRBRVDV">購買地址</a>
 </td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://roxybrowser.com/invite/bgGKG7"><img src="assets/partners/logos/RoxyBrowser.png" alt="RoxyBrowser" width="150"></a></td>
+<td>感謝 RoxyBrowser 贊助本專案！<a href="https://roxybrowser.com/invite/bgGKG7">RoxyBrowser</a> 是 Sub2API 的理想搭檔：內建原生 Roxy AI Agent 與高質量原生住宅 IP，支援通過簡單命令實現批次自動化，顯著提升多帳號管理的安全性與效率！點選<a href="https://roxybrowser.com/invite/bgGKG7">此連結</a>註冊，可領取免費住宅 IP 套餐與終身 9 折優惠。
+</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.proxy4free.com/?keyword=4yjqecpc"><img src="assets/partners/logos/proxy4free.png" alt="proxy4free" width="150"></a></td>
+<td>感謝 Proxy4Free 贊助本專案！Proxy4Free 是面向開發者和 AI 應用的資料代理服務商，提供住宅代理、靜態住宅代理、ISP 代理及資料中心代理等多種代理解決方案，適用於 Web Scraping、Browser Automation、AI Agent 等場景。支援全球 IP 資源、穩定連線與靈活切換，幫助開發者提升資料採整合功率，降低 IP 封禁風險。通過<a href="https://www.proxy4free.com/?keyword=4yjqecpc">此連結註冊</a>即可開始體驗，輕鬆構建更穩定、高效的自動化工作流。
+</td>
+</tr>
+
+<tr>
+<td width="180"><a href="http://www.fastaitoken.com/register"><img src="assets/partners/logos/fastaitoken.jpg" alt="fastaitoken" width="150"></a></td>
+<td>🎉 感謝 FastAIToken 對本專案的贊助！ <a href="http://www.fastaitoken.com/register">FastAIToken</a> 是面向開發者的 AI API 聚合平臺，支援 OpenAI、Claude、Gemini 等主流大模型，充值 1:1，1 元 = 1 美元 API 額度，讓開發者以更低成本、更便捷地使用全球領先的大模型服務。<br>
+
+🚀 平臺提供多種渠道自由選擇：超級低價的0.02x OpenAI 福利分組（限時）、低至 0.25x OpenAI 分組、0.7x Claude 95%固定快取、1.2x Claude Max 渠道；同時提供公開狀態頁，即時展示各分組的可用率、延遲及執行狀態，服務透明可靠，並提供 7×24 小時真人技術支援（非機器人），快速響應開發者需求。
+</td>
+</tr>
+
+<tr>
+<td width="180"><a href="http://aimzoon.com"><img src="assets/partners/logos/aimzoon.jpg" alt="aimzoon" width="150"></a></td>
+<td>感謝 Aimzoon 對本專案的贊助！ <a href="http://aimzoon.com">Aimzoon</a> 提供穩定、高價效比的 AI API 接入服務，支援開發者將常用 AI 服務快速接入 Codex、Claude Code、Gemini CLI 等程式設計工具。無需複雜配置，更快接入，更穩呼叫，更省成本。codex倍率優惠，特價倍率等促銷不斷，註冊即送免費體驗額度，讓 AI 程式設計真正進入日常工作流。<a href="http://aimzoon.com">點選這裡</a>註冊體驗！
+</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://nagora.ai/"><img src="assets/partners/logos/nagora.png" alt="Nagora" width="150"></a></td>
+<td><a href="https://nagora.ai/">Nagora</a> 是專為開發者和團隊打造的多模型 AI API 閘道器。通過一個帳戶和一枚 API Key，即可統一呼叫 26+ 款主流文本與影像模型，相容 OpenAI、Anthropic 與 Gemini 協議，並可無縫接入 Claude Code、Codex、Gemini CLI 等開發工具。平臺提供智慧路由、自動故障轉移、透明計費與統一帳單，同時支援預算、限速、併發控制，讓個人開發、團隊協作和生產環境中的 AI 呼叫更穩定、更可控。無需改造現有應用，只需替換 Base URL 與 API Key，最快 1 分鐘即可完成接入。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://s.qiniu.com/u6rQrq"><img src="assets/partners/logos/qiniu.jpg" alt="七牛雲AI" width="150"></a></td>
+<td>感謝 七牛雲AI 贊助本專案！七牛雲AI 是七牛雲（02567.HK）旗下企業級大模型 MaaS 平臺，一站式呼叫全球 150+ 主流模型，相容全球主流模型廠商協議，覆蓋文本、影像、音訊、影片、檔案處理等全模態處理能力，服務超過169萬企業及開發者使用者。七牛雲 AI 為 Sub2API 的使用者提供了專屬福利：通過<a href="https://s.qiniu.com/u6rQrq">此連結</a>註冊，企業使用者免費領1200萬Token，開發者免費領300萬Token。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://api.fenno.ai/s/dC4k"><img src="assets/partners/logos/fennoai.jpg" alt="FennoAI" width="150"></a></td>
+<td>感謝 FennoAI 贊助本專案！FennoAI 是一家面向企業研發團隊和開發者的高穩定、高效能 API 中轉服務商，相容 OpenAI 與 Anthropic 協議，可無縫接入 Codex、Claude Code、OpenCode 等主流 AI 程式設計工具。平臺具備企業級穩定性，可支撐千億 Token/日的呼叫規模，並支援境內外主體公對公結算及開票，滿足企業級研發與採購需求。作為 Sub2API 使用者專屬福利，通過<a href="https://api.fenno.ai/s/dC4k">專屬連結</a>購買訂閱，僅需 1.99 美元即可獲得價值 50 美元的 Coding Plan 額度。同時支援邀請獎勵，邀請好友購買最高可獲得 20% 返佣，邀請越多，獎勵越高。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://lanox.ai/?c=6"><img src="assets/partners/logos/lanox.jpg" alt="LanoX AI" width="150"></a></td>
+<td>感謝 LanoX AI 對本專案的贊助！<a href="https://lanox.ai/?c=6">LanoX AI</a> 為開發者、團隊與企業提供穩定、高價效比的全球模型接入服務。 🎁 新使用者福利 — 免費領取 百萬 Token ,更有500+ 免費模型 — 低成本測試、驗證、部署更輕鬆 🧠 全球主流模型 — GPT · Claude · Gemini · Qwen · Grok... 🎬 多模態創作 — Seedance 2.0 · GPT Image · Gemini Nano Banana 🛡️ 企業級穩定服務 — 高可用💎原生能力輸出💎不降智💎不混模💎呼叫與計費透明💎 💰 更低呼叫成本 — 頂級模型低至官方價 1 折起，檔案清晰、接入簡單、支援開票與企業批次呼叫 🏢 企業優選 — 適用於 AI 產品、Agent、內容平臺、研發團隊批次呼叫</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.rapidproxy.io/?ref=sub2api"><img src="assets/partners/logos/rapidproxy.jpg" alt="RapidProxy" width="150"></a></td>
+<td><a href="https://www.rapidproxy.io/?ref=sub2api">RapidProxy</a> 是面向開發者的資料採集代理解決方案，提供穩定可靠的住宅代理服務。通過 9000 萬+全球住宅 IP和 200+國家覆蓋、智慧輪換機制和精準地區定位能力，幫助爬蟲、AI 資料訓練、SEO 監控、電商資料分析等專案突破訪問限制，提高資料採集效率。支援 Playwright、Selenium、Puppeteer 等主流自動化框架，價格低至 $0.65/GB，<a href="https://www.rapidproxy.io/?ref=sub2api">立即免費測試吧</a>。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://hao.ai"><img src="assets/partners/logos/haoai.png" alt="hao.ai" width="150"></a></td>
+<td><a href="https://hao.ai">hao.ai</a> 是面向開發者與團隊的高速、穩定大模型統一 API 閘道器。通過一個 API Key 和統一介面，即可接入 GPT、Claude、xAI Grok 等主流模型，相容 OpenAI、Anthropic 等常用協議與 SDK。平臺提供模型路由、故障回退、團隊管理及完整呼叫日誌，模型價格低至官方參考價的 1.5 折，幫助使用者更簡單、更穩定、更低成本地構建 AI 應用。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.swiftproxy.net/?ref=sub2api"><img src="assets/partners/logos/swiftprox.png" alt="Swiftproxy" width="150"></a></td>
+<td>Swiftproxy 是面向開發者的高效能代理解決方案，提供穩定可靠的住宅代理和靜態住宅代理服務。擁有 9000 萬+ 純淨住宅 IP，覆蓋全球，支援靈活輪換和精準地理定位，幫助網頁抓取、AI 自動化、瀏覽器自動化、SEO 監控和多帳號管理等專案突破訪問限制，提升工作流效率。支援 HTTP(S) 和 SOCKS5 協議，相容 Playwright、Selenium、Puppeteer 等主流自動化工具，動態代理流量用完為止永不過期，支援免費測試 — <a href="https://www.swiftproxy.net/?ref=sub2api">立即開始免費測試</a>！</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.duckip.cn/?keyword=cu7oog6y"><img src="assets/partners/logos/duckip.png" alt="DuckIP" width="150"></a></td>
+<td><a href="https://www.duckip.cn/?keyword=cu7oog6y">DuckIP</a> - 9000 萬+ 全球住宅網路資源，覆蓋 195+ 國家和地區，支援輪換和粘性會話，適用於公共資料採集、RAG 更新、模型評估和多區域資料工作負載。🟢住宅代理 - 8 折優惠；🟢靜態住宅代理 - ¥50.00/IP 起；🟢無限住宅代理 - ¥19.8/小時 起。✅免費領取 500M 試用流量。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://go.apimart.ai/gh-sub2api"><img src="assets/partners/logos/apimart.jpg" alt="APIMart" width="150"></a></td>
+<td>感謝 APIMart 贊助了本專案！<a href="https://go.apimart.ai/gh-sub2api">APIMart</a> 是專注於 AI 圖片/影片生成的低價 API 平臺，GPT-Image-2 低至 $0.006/張，1 美元可生成 160+ 張圖片。圖片、影片一套非同步 API 通吃：提交任務獲取 ID，通過輪詢或回撥獲取結果；批次生成上萬張圖片也不會超時，切換模型無需修改程式碼。按量付費、無月費，通過<a href="https://go.apimart.ai/gh-sub2api">此註冊連結</a>註冊即可開始使用。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://www.axisnow.io/"><img src="assets/partners/logos/axisnow.jpg" alt="AxisNow" width="150"></a></td>
+<td>感謝 AxisNow 贊助了本專案！<a href="https://www.axisnow.io/">AxisNow</a> 保護並加速網站與 API，兼顧中國大陸及全球的訪問體驗，並通過客戶端 SDK，將加速與安全能力延伸至原生/移動 App — <strong>自建私有部署 CDN</strong>｜<strong>訂閱式高防 CDN</strong>｜<strong>自主可控、靈活組合的 CDN 網路</strong>。</td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://pp.dog/register?aff=SUB2API"><img src="assets/partners/logos/ppdog.png" alt="PP.dog" width="150"></a></td>
+<td><a href="https://pp.dog/register?aff=SUB2API">PP.dog</a> 是自建帳號池的源頭 API 閘道器，專注為下游中轉站與高頻開發者提供 API 閘道器中繼服務，幫您省去自建號池的一切麻煩——✅ 源頭直供：自持海量帳號池，無中間商賺差價；🧧 成本屠夫：綜合倍率低至 0.03x，成本僅為官方的千分之3.5；🚀 極速體驗：首 Token 延遲 < 1s，流暢媲美官方原生 API。<a href="https://www.pp.dog/register?aff=SUB2API">立即接入PP.dog</a></td>
+</tr>
+
+<tr>
+<td width="180"><a href="https://colaproxy.com/?utm_source=sub2api&utm_medium=sub2api&ref=sub2api"><img src="assets/partners/logos/cola-proxy.jpg" alt="ColaProxy" width="150"></a></td>
+<td>ColaProxy 提供專為網頁抓取、自動化和多帳號管理打造的高質量住宅代理。免費試用，流量永不過期，價格低至 $0.3/GB，支援無限併發連線和智慧 IP 輪換，帶來更流暢、更穩定的代理體驗。使用優惠碼 COLA10 立享 9 折優惠，立即開始使用可靠的住宅代理擴充套件您的專案。<a href="https://colaproxy.com/?utm_source=sub2api&utm_medium=sub2api&ref=sub2api">立即開始使用 ColaProxy</a></td>
 </tr>
 
 </table>
+
+## 專案概述
+
+Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱的 API 配額。使用者通過平臺生成的 API Key 呼叫上游 AI 服務，平臺負責鑑權、計費、負載均衡和請求轉發。
+
+## 核心功能
+
+- **多帳號管理** - 支援多種上游帳號型別（OAuth、API Key）
+- **API Key 分發** - 為使用者生成和管理 API Key
+- **精確計費** - Token 級別的用量追蹤和成本計算
+- **智慧排程** - 智慧帳號選擇，支援粘性會話
+- **併發控制** - 使用者級和帳號級併發限制
+- **速率限制** - 可配置的請求和 Token 速率限制
+- **內建支付系統** - 支援 EasyPay 易支付、支付寶官方、微信官方、Stripe，使用者自助充值，無需獨立部署支付服務（[配置指南](docs/PAYMENT_CN.md)）
+- **管理後臺** - Web 介面進行監控和管理
+- **外部系統整合** - 支援通過 iframe 嵌入外部系統（如工單等），擴充套件管理後臺功能
 
 ## 生態專案
 
@@ -134,7 +210,7 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 
 | 元件 | 技術 |
 |------|------|
-| 後端 | Go 1.25.7, Gin, Ent |
+| 後端 | Go 1.27.0, Gin, Ent |
 | 前端 | Vue 3.4+, Vite 5+, TailwindCSS |
 | 資料庫 | PostgreSQL 15+ |
 | 快取/佇列 | Redis 7+ |
@@ -143,13 +219,37 @@ Sub2API 是一個 AI API 閘道器平臺，用於分發和管理 AI 產品訂閱
 
 ## Nginx 反向代理注意事項
 
-透過 Nginx 反向代理 Sub2API（或 CRS 服務）並搭配 Codex CLI 使用時，需要在 Nginx 配置的 `http` 塊中新增：
+通過 Nginx 反向代理 Sub2API（或 CRS 服務）並搭配 Codex CLI 使用時，需要在 Nginx 配置的 `http` 塊中新增：
 
 ```nginx
 underscores_in_headers on;
 ```
 
 Nginx 預設會丟棄名稱中含下劃線的請求頭（如 `session_id`），這會導致多帳號環境下的粘性會話功能失效。
+
+## Codex Fast/Flex 策略說明
+
+管理員後臺的 `系統設定 -> 閘道器服務 -> OpenAI Fast/Flex 策略` 只負責處理請求體中的 `service_tier`，不會修改 Codex 客戶端的模型目錄，也不會讓 Codex UI 自動出現 Speed 或 `/fast` 選項。
+
+策略支援以下處理方式：
+
+- `pass`：保留客戶端傳入的 `service_tier`；`fast` 會規範為上游使用的 `priority`。
+- `filter`：移除 `service_tier`，按普通優先順序請求。
+- `block`：拒絕匹配的 Fast/Flex 請求。
+- `force_priority`：將匹配請求強制設定為 `priority`，會按 Priority/Fast 價格計費。為避免升級後改變既有規則語義，`all` 只匹配顯式存在的 tier；如需讓省略 `service_tier` 的 OpenAI 請求也強制升級，必須新增 `service_tier=missing + force_priority` 規則。非 OpenAI 平臺不會執行預設 tier 注入。這種方式可以讓請求實際使用 Fast，但 Codex UI 仍可能不顯示 Fast 狀態。
+
+Codex 的 Fast 入口由客戶端模型目錄驅動。只有當前模型目錄宣告瞭 `additional_speed_tiers: ["fast"]` 和對應的 `service_tiers`，Codex 才會顯示 `/fast`。通過 API Key 或自定義模型提供商連線 Sub2API 時，如果模型目錄沒有這些欄位，即使後臺配置了 `force_priority`，重啟 Codex 後也不會出現 Speed 選項。
+
+客戶端可在 `~/.codex/config.toml` 中直接指定預設請求級別：
+
+```toml
+service_tier = "fast"
+
+[features]
+fast_mode = true
+```
+
+其中 `service_tier = "fast"` 會讓請求攜帶 Fast 設定；`features.fast_mode` 只啟用客戶端 Fast 功能。模型目錄沒有宣告 Fast 能力時，`/fast` 仍可能不顯示。可通過 Sub2API 使用記錄確認最終 `service_tier` 是否為 `priority`。
 
 ---
 
@@ -269,6 +369,7 @@ cd sub2api/deploy
 
 # 2. 複製環境配置檔案
 cp .env.example .env
+chmod 600 .env
 
 # 3. 編輯配置（生成安全密碼）
 nano .env
@@ -400,7 +501,23 @@ rm -rf data/ postgres_data/ redis_data/
 
 ---
 
-### 方式三：原始碼編譯
+### 方式三：Apple container（macOS）
+
+Apple 晶片 Mac 在 macOS 26 上可使用 Apple `container` 1.1.0 或更高版本執行完整的 Sub2API、PostgreSQL 和 Redis：
+
+```bash
+git clone https://github.com/Wei-Shaw/sub2api.git
+cd sub2api/deploy
+./apple-container.sh init
+./apple-container.sh up
+./apple-container.sh status
+```
+
+該方式面向本地開發和人工運維，不提供持續重啟監管；生產部署仍推薦 Docker Compose。生命週期命令、持久化、升級和執行時限制見 [deploy/APPLE_CONTAINER.md](deploy/APPLE_CONTAINER.md)。
+
+---
+
+### 方式四：原始碼編譯
 
 從原始碼編譯安裝，適合開發或定製需求。
 
@@ -429,7 +546,8 @@ pnpm run build
 
 # 4. 編譯後端（嵌入前端）
 cd ../backend
-go build -tags embed -o sub2api ./cmd/server
+VERSION="$(./scripts/resolve-version.sh)"
+go build -tags embed -ldflags="-X main.Version=${VERSION}" -o sub2api ./cmd/server
 
 # 5. 建立配置檔案
 cp ../deploy/config.example.yaml ./config.yaml
@@ -471,33 +589,6 @@ default:
   rate_multiplier: 1.0
 ```
 
-### Sora 功能狀態（暫不可用）
-
-> ⚠️ 當前 Sora 相關功能因上游接入與媒體鏈路存在技術問題，暫時不可用。
-> 現階段請勿在生產環境依賴 Sora 能力。
-> 檔案中的 `gateway.sora_*` 配置僅作預留，待技術問題修復後再恢復可用。
-
-### Sora 媒體簽名 URL（功能恢復後可選）
-
-當配置 `gateway.sora_media_signing_key` 且 `gateway.sora_media_signed_url_ttl_seconds > 0` 時，閘道器會將 Sora 輸出的媒體地址改寫為臨時簽名 URL（`/sora/media-signed/...`）。這樣無需 API Key 即可在瀏覽器中直接訪問，且具備過期控制與防篡改能力（簽名包含 path + query）。
-
-```yaml
-gateway:
-  # /sora/media 是否強制要求 API Key（預設 false）
-  sora_media_require_api_key: false
-  # 媒體臨時簽名金鑰（為空則停用簽名）
-  sora_media_signing_key: "your-signing-key"
-  # 臨時簽名 URL 有效期（秒）
-  sora_media_signed_url_ttl_seconds: 900
-```
-
-> 若未配置簽名金鑰，`/sora/media-signed` 將返回 503。  
-> 如需更嚴格的訪問控制，可將 `sora_media_require_api_key` 設為 true，僅允許攜帶 API Key 的 `/sora/media` 訪問。
-
-訪問策略說明：
-- `/sora/media`：內部呼叫或客戶端攜帶 API Key 才能下載
-- `/sora/media-signed`：外部可訪問，但有簽名 + 過期控制
-
 `config.yaml` 還支援以下安全相關配置：
 
 - `cors.allowed_origins` 配置 CORS 白名單
@@ -508,8 +599,17 @@ gateway:
 - `security.response_headers.enabled` 可啟用可配置響應頭過濾（關閉時使用預設白名單）
 - `security.csp` 配置 Content-Security-Policy
 - `billing.circuit_breaker` 計費異常時 fail-closed
-- `server.trusted_proxies` 啟用可信代理解析 X-Forwarded-For
+- `security.trust_forwarded_ip_for_api_key_acl` 控制舊版原始轉發頭接管（為升級相容預設開啟）；關閉後嚴格使用 `server.trusted_proxies`，其中只應填寫直接連線 Sub2API 的精確代理 CIDR
+- `security.forwarded_client_ip_headers` 最多配置 16 個第三方 CDN 客戶端 IP 請求頭；僅在舊版接管開啟時按順序優先於內建請求頭解析
 - `turnstile.required` 在 release 模式強制啟用 Turnstile
+
+自定義客戶端 IP 請求頭可通過 YAML 配置，也可使用逗號分隔的環境變數：
+
+```bash
+SECURITY_FORWARDED_CLIENT_IP_HEADERS=True-Client-IP,X-CDN-Client-IP
+```
+
+請求頭名稱會經過合法性校驗、規範化和大小寫無關去重。管理員可在安全設定中動態更新列表，無需重啟；新安裝會持久化 YAML/環境變數預設值，舊安裝缺少資料庫欄位時會自動回填。關閉舊版接管後，自定義頭和內建原始轉發頭均被忽略，只使用 `server.trusted_proxies`。開啟接管時必須限制源站僅允許 CDN/代理訪問，並確保邊緣代理覆蓋所有受信客戶端 IP 請求頭。完整遷移規則和信任邊界見 [`deploy/EDGE_SECURITY.md`](deploy/EDGE_SECURITY.md)。
 
 **閘道器防禦縱深建議（重點）**
 
@@ -521,20 +621,20 @@ gateway:
 
 **⚠️ 安全警告：HTTP URL 配置**
 
-當 `security.url_allowlist.enabled=false` 時，系統預設執行最小 URL 校驗，**拒絕 HTTP URL**，僅允許 HTTPS。要允許 HTTP URL（例如用於開發或內網測試），必須顯式設定：
+當 `security.url_allowlist.enabled=false` 時，系統僅執行最小 URL 校驗，且**預設允許 HTTP URL**（開發友好模式，Docker Compose 部署的預設值一致）。生產環境建議顯式收緊為僅允許 HTTPS：
 
 ```yaml
 security:
   url_allowlist:
     enabled: false                # 停用白名單檢查
-    allow_insecure_http: true     # 允許 HTTP URL（⚠️ 不安全）
+    allow_insecure_http: false    # 僅允許 HTTPS（生產環境推薦）
 ```
 
-**或透過環境變數：**
+**或通過環境變數：**
 
 ```bash
 SECURITY_URL_ALLOWLIST_ENABLED=false
-SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=true
+SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=false
 ```
 
 **允許 HTTP 的風險：**
@@ -548,7 +648,7 @@ SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP=true
 - ✅ 獲取 HTTPS 前測試帳號連通性
 - ❌ 生產環境（僅使用 HTTPS）
 
-**未設定此項時的錯誤示例：**
+**設定 `allow_insecure_http: false` 後，HTTP URL 會返回如下錯誤：**
 ```
 Invalid base URL: invalid url scheme: http
 ```
@@ -558,6 +658,25 @@ Invalid base URL: invalid url scheme: http
 - 阻斷私網/迴環/鏈路本地地址
 - 強制僅允許 TLS 出站
 - 在反向代理層移除敏感響應頭
+
+#### ⚠️ 重要：建立管理員帳號
+
+初始管理員帳號**只能通過 setup 嚮導建立**（首次啟動時訪問 `http://<host>:8080`）。`config.yaml` 中的 `default.admin_email` / `default.admin_password` 欄位**不會被用來建立管理員**——它們只是出於歷史原因保留在模板裡。
+
+由於上面第 5 步預先建立了 `config.yaml`，**setup 嚮導在首次啟動時會被跳過**：服務檢測到 config 已存在，會直接進入正常模式，此時 `users` 表為空，首次登入會返回 `invalid email or password`。
+
+**建立管理員的兩種方式：**
+
+1. **推薦——讓嚮導自動生成 `config.yaml`：** 跳過上面的第 5 步（不要執行 `cp`）。直接執行 `./sub2api`，訪問 `http://localhost:8080`，嚮導會引導你完成資料庫、Redis 和管理員帳號配置，並自動寫出 `config.yaml`。
+
+2. **如果你已經建立了 `config.yaml`：** 首次啟動前先把它臨時移走以觸發嚮導，完成後再恢復：
+   ```bash
+   mv config.yaml config.yaml.bak
+   ./sub2api        # 嚮導在 http://localhost:8080 啟動，並生成新的 config.yaml
+   # 嚮導完成後 Ctrl+C 停服，再恢復你的配置：
+   mv config.yaml.bak config.yaml
+   ./sub2api        # 重啟進入正常模式，用剛建立的管理員登入
+   ```
 
 ```bash
 # 6. 執行應用
@@ -611,6 +730,14 @@ go generate ./cmd/server
 
 ---
 
+## OpenAI 圖片模型
+
+支援 `gpt-image-2.5-flare`、`gpt-image-2.5-sunburst` 及其 `2026-09-08` 日期快照，可通過 `/v1/images/generations`、`/v1/images/edits` 呼叫。`quality` 支援 `xhigh`、`max`、`auto`，合法自定義尺寸和圖片 usage 明細保持透傳。
+
+OAuth / Setup Token 圖片請求使用 Responses 主控模型呼叫 `image_generation` 工具，預設主控為 `gpt-5.6-luna`。可設定 `SUB2API_IMAGES_MAIN_MODEL` 切換為帳號支援的文本模型；Docker Compose 使用者修改 `.env` 後執行 `docker compose up -d` 重建容器。該配置不會替換所選圖片模型，也不會覆蓋 `/v1/responses` 請求中已經提供的文本主控模型。
+
+升級後，無模型限制的帳號自動支援新模型。已有顯式帳號對映或分組白名單需要加入兩個 2.5 模型（日期快照按需加入）；升級不會自動擴大管理員設定的模型許可權。新模型內建價格包含官方文本輸入、圖片輸入和圖片輸出 token 費率，遠端價格表尚未更新時使用內建 2.5 價格；實際按次或按 token 計費仍由既有分組/渠道配置決定。
+
 ## 簡易模式
 
 簡易模式適合個人開發者或內部團隊快速使用，不依賴完整 SaaS 功能。
@@ -623,7 +750,7 @@ go generate ./cmd/server
 
 ## Antigravity 使用說明
 
-Sub2API 支援 [Antigravity](https://antigravity.so/) 帳戶，授權後可透過專用端點訪問 Claude 和 Gemini 模型。
+Sub2API 支援 [Antigravity](https://antigravity.so/) 帳戶，授權後可通過專用端點訪問 Claude 和 Gemini 模型。
 
 ### 專用端點
 
@@ -643,12 +770,8 @@ export ANTHROPIC_AUTH_TOKEN="sk-xxx"
 
 Antigravity 帳戶支援可選的**混合排程**功能。開啟後，通用端點 `/v1/messages` 和 `/v1beta/` 也會排程該帳戶。
 
-> **⚠️ 注意**：Anthropic Claude 和 Antigravity Claude **不能在同一上下文中混合使用**，請透過分組功能做好隔離。
+> **⚠️ 注意**：Anthropic Claude 和 Antigravity Claude **不能在同一上下文中混合使用**，請通過分組功能做好隔離。
 
-
-### 已知問題
-在 Claude Code 中，無法自動退出Plan Mode。（正常使用原生Claude Api時，Plan 完成後，Claude Code會彈出彈出選項讓使用者同意或拒絕Plan。） 
-解決辦法：shift + Tab，手動退出Plan mode，然後輸入內容 告訴 Claude Code 同意或拒絕 Plan
 ---
 
 ## 專案結構
@@ -679,23 +802,13 @@ sub2api/
     └── install.sh            # 一鍵安裝指令碼
 ```
 
-## 免責宣告
-
-> **使用本專案前請仔細閱讀：**
->
-> :rotating_light: **服務條款風險**: 使用本專案可能違反 Anthropic 的服務條款。請在使用前仔細閱讀 Anthropic 的使用者協議，使用本專案的一切風險由使用者自行承擔。
->
-> :book: **免責宣告**: 本專案僅供技術學習和研究使用，作者不對因使用本專案導致的帳戶封禁、服務中斷或其他損失承擔任何責任。
-
----
-
 ## Star History
 
-<a href="https://star-history.com/#Wei-Shaw/sub2api&Date">
+<a href="https://star-history.dera.page/#Wei-Shaw/sub2api&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Wei-Shaw/sub2api&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=Wei-Shaw/sub2api&type=Date" />
  </picture>
 </a>
 

@@ -1,248 +1,248 @@
 ## ADDED Requirements
 
-### Requirement: 提示词审计必须是独立且默认关闭的安全审计引擎
-系统 SHALL 在现有内容审核之外提供独立的提示词审计引擎。新引擎 MUST 拥有独立配置、运行态、任务、事件和开关，并 MUST 默认关闭；现有 OpenAI Moderations 内容审核的配置、判定、关键词、Hash、邮件、自动封号、日志表和清理行为 MUST NOT 因本能力而改变。
+### Requirement: 提示詞審計必須是獨立且預設關閉的安全審計引擎
+系統 SHALL 在現有內容稽核之外提供獨立的提示詞審計引擎。新引擎 MUST 擁有獨立配置、執行態、任務、事件和開關，並 MUST 預設關閉；現有 OpenAI Moderations 內容稽核的配置、判定、關鍵詞、Hash、郵件、自動封號、日誌表和清理行為 MUST NOT 因本能力而改變。
 
-#### Scenario: 升级后未启用新引擎
-- **WHEN** 系统完成包含本能力的升级且管理员尚未保存提示词审计配置
-- **THEN** 所有模型请求 MUST 继续按升级前的内容审核和转发链路执行
-- **THEN** 系统 MUST NOT 创建提示词审计任务、写入提示词审计事件或调用外部 Guard
+#### Scenario: 升級後未啟用新引擎
+- **WHEN** 系統完成包含本能力的升級且管理員尚未儲存提示詞審計配置
+- **THEN** 所有模型請求 MUST 繼續按升級前的內容稽核和轉發鏈路執行
+- **THEN** 系統 MUST NOT 建立提示詞審計任務、寫入提示詞審計事件或呼叫外部 Guard
 
-#### Scenario: 两个审计引擎同时启用
-- **WHEN** 现有内容审核和新增提示词审计都已启用
-- **THEN** 两个引擎 MUST 使用各自的配置与风险语义独立执行
-- **THEN** 提示词审计命中 MUST NOT 自动触发现有内容审核的邮件、封号或 Hash 黑名单副作用
+#### Scenario: 兩個審計引擎同時啟用
+- **WHEN** 現有內容稽核和新增提示詞審計都已啟用
+- **THEN** 兩個引擎 MUST 使用各自的配置與風險語義獨立執行
+- **THEN** 提示詞審計命中 MUST NOT 自動觸發現有內容稽核的郵件、封號或 Hash 黑名單副作用
 
-### Requirement: 提示词审计节点必须使用 OpenAI 兼容协议
-系统 SHALL 仅支持通过 OpenAI 兼容 Chat Completions 接口调用提示词审计节点。节点配置 MUST 支持名称、Base URL、API Key、Model、超时、单片输入上限、启用状态和有序优先级；默认模型 MUST 为 `sileader/qwen3guard:0.6b`。
+### Requirement: 提示詞審計節點必須使用 OpenAI 相容協議
+系統 SHALL 僅支援通過 OpenAI 相容 Chat Completions 介面呼叫提示詞審計節點。節點配置 MUST 支援名稱、Base URL、API Key、Model、超時、單片輸入上限、啟用狀態和有序優先順序；預設模型 MUST 為 `sileader/qwen3guard:0.6b`。
 
-#### Scenario: Worker 调用已配置节点
-- **WHEN** Worker 领取到可处理任务并选择一个启用节点
-- **THEN** 系统 MUST 向 `{base_url}/v1/chat/completions` 发送请求
-- **THEN** 请求 MUST 使用 `role=user`、`temperature=0`、确定性的输出限制和管理员配置的模型
-- **THEN** 系统 MUST NOT 调用旧的 `/v1/scan/prompt` 或 `llm_guard` 专用协议
+#### Scenario: Worker 呼叫已配置節點
+- **WHEN** Worker 領取到可處理任務並選擇一個啟用節點
+- **THEN** 系統 MUST 向 `{base_url}/v1/chat/completions` 傳送請求
+- **THEN** 請求 MUST 使用 `role=user`、`temperature=0`、確定性的輸出限制和管理員配置的模型
+- **THEN** 系統 MUST NOT 呼叫舊的 `/v1/scan/prompt` 或 `llm_guard` 專用協議
 
-#### Scenario: 管理员保存未填写模型的节点
-- **WHEN** 管理员保存一个 Base URL 有效但 Model 为空的节点
-- **THEN** 系统 MUST 将节点模型归一为 `sileader/qwen3guard:0.6b`
+#### Scenario: 管理員儲存未填寫模型的節點
+- **WHEN** 管理員儲存一個 Base URL 有效但 Model 為空的節點
+- **THEN** 系統 MUST 將節點模型歸一為 `sileader/qwen3guard:0.6b`
 
-#### Scenario: 管理员探测节点
-- **WHEN** 管理员请求探测一个节点
-- **THEN** 后端 MUST 使用服务端网络环境执行真实的认证与模型连通性探测
-- **THEN** 响应 MUST 包含成功状态、稳定错误码、HTTP 状态、耗时、是否可重试和检查时间
-- **THEN** 响应 MUST NOT 回显 API Key
+#### Scenario: 管理員探測節點
+- **WHEN** 管理員請求探測一個節點
+- **THEN** 後端 MUST 使用服務端網路環境執行真實的認證與模型連通性探測
+- **THEN** 響應 MUST 包含成功狀態、穩定錯誤碼、HTTP 狀態、耗時、是否可重試和檢查時間
+- **THEN** 響應 MUST NOT 回顯 API Key
 
-### Requirement: 审计节点凭据必须受到安全保护且出站目标由管理员负责
-系统 MUST 使用现有 SecretEncryptor 加密持久化节点 API Key，并 MUST 对响应体实施大小限制。节点地址及其网络目标由管理员自行配置和负责；系统 MUST NOT 按公网、私网、回环、link-local、元数据、保留地址或 DNS 解析结果阻止保存、探测和实际调用，也 MUST NOT 禁止 HTTP 或正常 HTTP 重定向。完整凭据只允许短暂存在于管理员写入请求、前端未持久化输入内存、服务端解密内存和发往 Guard 的 Authorization Header；它们以及 URL query、提示词正文 MUST NOT 出现在日志、错误响应、管理读取响应或前端持久化/调试状态中。
+### Requirement: 審計節點憑據必須受到安全保護且出站目標由管理員負責
+系統 MUST 使用現有 SecretEncryptor 加密持久化節點 API Key，並 MUST 對響應體實施大小限制。節點地址及其網路目標由管理員自行配置和負責；系統 MUST NOT 按公網、私網、迴環、link-local、後設資料、保留地址或 DNS 解析結果阻止儲存、探測和實際呼叫，也 MUST NOT 禁止 HTTP 或正常 HTTP 重定向。完整憑據只允許短暫存在於管理員寫入請求、前端未持久化輸入記憶體、服務端解密記憶體和發往 Guard 的 Authorization Header；它們以及 URL query、提示詞正文 MUST NOT 出現在日誌、錯誤響應、管理讀取響應或前端持久化/除錯狀態中。
 
-#### Scenario: 保存带 API Key 的节点
-- **WHEN** 管理员保存一个包含 API Key 的节点
-- **THEN** settings 中 MUST 只保存加密密文和是否已配置标记
-- **THEN** 后续读取配置 MUST 只返回 `has_token=true` 或等价状态
+#### Scenario: 儲存帶 API Key 的節點
+- **WHEN** 管理員儲存一個包含 API Key 的節點
+- **THEN** settings 中 MUST 只儲存加密密文和是否已配置標記
+- **THEN** 後續讀取配置 MUST 只返回 `has_token=true` 或等價狀態
 
-#### Scenario: 保存管理员配置的内网或特殊地址
-- **WHEN** Base URL 使用 HTTP(S) 且指向私网、回环、link-local、元数据、保留地址或解析到这些地址的域名
-- **THEN** 系统 MUST 接受该节点配置并从服务端网络环境执行探测和实际调用
-- **THEN** 系统 MUST NOT 对 DNS 结果进行地址类别拦截
+#### Scenario: 儲存管理員配置的內網或特殊地址
+- **WHEN** Base URL 使用 HTTP(S) 且指向私網、迴環、link-local、後設資料、保留地址或解析到這些地址的域名
+- **THEN** 系統 MUST 接受該節點配置並從服務端網路環境執行探測和實際呼叫
+- **THEN** 系統 MUST NOT 對 DNS 結果進行地址類別攔截
 
-#### Scenario: 节点返回重定向或超大响应
+#### Scenario: 節點返回重定向或超大響應
 - **WHEN** Guard 返回正常 HTTP 重定向
-- **THEN** 系统 MUST 使用标准 HTTP 客户端行为跟随重定向
-- **WHEN** Guard 返回超过配置上限的响应体
-- **THEN** 系统 MUST 将响应判定为无效或不可用
+- **THEN** 系統 MUST 使用標準 HTTP 客戶端行為跟隨重定向
+- **WHEN** Guard 返回超過配置上限的響應體
+- **THEN** 系統 MUST 將響應判定為無效或不可用
 
-### Requirement: 系统必须按协议提取用户输入提示词快照
-系统 SHALL 从目标项目所有已支持、包含用户文本的模型入口提取提示词快照。快照 MUST 包含 request ID、user ID、用户名、用户邮箱、API key ID/名称、group ID/名称、provider、endpoint、protocol、model、提示词 Hash、脱敏预览、Unicode 字符数和消息数量；文本审计 MUST 优先扫描最新用户输入，同时完整覆盖需要审计的历史用户文本。
+### Requirement: 系統必須按協議提取使用者輸入提示詞快照
+系統 SHALL 從目標專案所有已支援、包含使用者文本的模型入口提取提示詞快照。快照 MUST 包含 request ID、user ID、使用者名稱、使用者郵箱、API key ID/名稱、group ID/名稱、provider、endpoint、protocol、model、提示詞 Hash、脫敏預覽、Unicode 字元數和訊息數量；文本審計 MUST 優先掃描最新使用者輸入，同時完整覆蓋需要審計的歷史使用者文本。
 
-#### Scenario: 提取 OpenAI Chat Completions 输入
-- **WHEN** `/v1/chat/completions` 或等价兼容入口包含一个或多个 `role=user` 消息
-- **THEN** 系统 MUST 提取用户文本内容并把最新用户输入置于扫描顺序最前
-- **THEN** 系统 MUST 不把 assistant 或 tool 输出当作用户提示词主体
+#### Scenario: 提取 OpenAI Chat Completions 輸入
+- **WHEN** `/v1/chat/completions` 或等價相容入口包含一個或多個 `role=user` 訊息
+- **THEN** 系統 MUST 提取使用者文本內容並把最新使用者輸入置於掃描順序最前
+- **THEN** 系統 MUST 不把 assistant 或 tool 輸出當作使用者提示詞主體
 
-#### Scenario: 提取 OpenAI Responses 输入
-- **WHEN** `/v1/responses` 请求使用字符串、消息数组或内容块表达用户输入
-- **THEN** 系统 MUST 提取其中的用户文本并保留 Responses 协议标识
+#### Scenario: 提取 OpenAI Responses 輸入
+- **WHEN** `/v1/responses` 請求使用字串、訊息陣列或內容塊表達使用者輸入
+- **THEN** 系統 MUST 提取其中的使用者文本並保留 Responses 協議標識
 
-#### Scenario: 提取 Claude 和 Gemini 输入
-- **WHEN** Claude Messages 或 Gemini 兼容入口包含用户角色文本
-- **THEN** 系统 MUST 提取可审计文本并保留真实 protocol、endpoint 和 model
+#### Scenario: 提取 Claude 和 Gemini 輸入
+- **WHEN** Claude Messages 或 Gemini 相容入口包含使用者角色文本
+- **THEN** 系統 MUST 提取可審計文本並保留真實 protocol、endpoint 和 model
 
-#### Scenario: 提取图像或媒体生成提示词
-- **WHEN** OpenAI Images、Grok 媒体或目标项目其他生成入口包含文本 prompt
-- **THEN** 新引擎 MUST 审计文本 prompt
-- **THEN** 新引擎 MUST NOT 把图片二进制、base64 图片或远程图片内容发送给 Qwen3Guard
-- **THEN** 图片内容审核 MUST 继续由现有内容审核引擎负责
+#### Scenario: 提取影像或媒體生成提示詞
+- **WHEN** OpenAI Images、Grok 媒體或目標專案其他生成入口包含文本 prompt
+- **THEN** 新引擎 MUST 審計文本 prompt
+- **THEN** 新引擎 MUST NOT 把圖片二進位制、base64 圖片或遠端圖片內容傳送給 Qwen3Guard
+- **THEN** 圖片內容稽核 MUST 繼續由現有內容稽核引擎負責
 
-#### Scenario: 请求没有用户文本
-- **WHEN** 请求体有效但没有可审计的用户文本
-- **THEN** 系统 MUST 跳过提示词任务并记录稳定的 skipped reason
+#### Scenario: 請求沒有使用者文本
+- **WHEN** 請求體有效但沒有可審計的使用者文本
+- **THEN** 系統 MUST 跳過提示詞任務並記錄穩定的 skipped reason
 
-### Requirement: 提示词数据库快照必须脱敏且不可恢复原文
-系统 SHALL 在写入数据库前计算 SHA-256 Hash 和脱敏裁剪预览。PostgreSQL、结构化日志、管理 API 和前端 MUST NOT 保存或返回完整原始提示词；用于实际扫描的正文只允许保存在请求内存或 Redis 短 TTL 载荷中。
+### Requirement: 提示詞資料庫快照必須脫敏且不可恢復原文
+系統 SHALL 在寫入資料庫前計算 SHA-256 Hash 和脫敏裁剪預覽。PostgreSQL、結構化日誌、管理 API 和前端 MUST NOT 儲存或返回完整原始提示詞；用於實際掃描的正文只允許儲存在請求記憶體或 Redis 短 TTL 載荷中。
 
-#### Scenario: 创建异步任务
-- **WHEN** 系统为用户输入创建异步审计任务
-- **THEN** `prompt_audit_jobs` MUST 保存 Hash、脱敏预览、字符数、消息数、分列的用户/API Key 展示快照和可关联请求上下文
-- **THEN** 表中 MUST 不存在 raw_prompt、payload 或等价原文字段
+#### Scenario: 建立非同步任務
+- **WHEN** 系統為使用者輸入建立非同步審計任務
+- **THEN** `prompt_audit_jobs` MUST 儲存 Hash、脫敏預覽、字元數、訊息數、分列的使用者/API Key 展示快照和可關聯請求上下文
+- **THEN** 表中 MUST 不存在 raw_prompt、payload 或等價原文欄位
 
-#### Scenario: 管理员查看事件详情
-- **WHEN** 管理员打开提示词审计事件详情
-- **THEN** 页面和 API MUST 只展示脱敏预览、Hash、分类、结构化风险摘要、证据摘要和技术元数据
-- **THEN** 任何证据片段 MUST 经过脱敏、长度限制并包含不可逆 Hash，而不是完整命中正文
+#### Scenario: 管理員檢視事件詳情
+- **WHEN** 管理員開啟提示詞審計事件詳情
+- **THEN** 頁面和 API MUST 只展示脫敏預覽、Hash、分類、結構化風險摘要、證據摘要和技術後設資料
+- **THEN** 任何證據片段 MUST 經過脫敏、長度限制並包含不可逆 Hash，而不是完整命中正文
 
-### Requirement: 异步审计必须使用持久任务和短期 Redis 载荷
-系统 SHALL 使用 PostgreSQL `prompt_audit_jobs` 作为任务事实源，并使用 Redis 保存默认 30 分钟 TTL 的完整扫描正文。异步任务投递 MUST 不阻塞或改变主模型请求结果。
+### Requirement: 非同步審計必須使用持久任務和短期 Redis 載荷
+系統 SHALL 使用 PostgreSQL `prompt_audit_jobs` 作為任務事實源，並使用 Redis 儲存預設 30 分鐘 TTL 的完整掃描正文。非同步任務投遞 MUST 不阻塞或改變主模型請求結果。
 
-#### Scenario: 成功投递异步任务
-- **WHEN** 提示词审计处于 async_audit、请求在审计范围内且队列未满
-- **THEN** 系统 MUST 先创建不可被 Worker 领取的 staging 任务
-- **THEN** 系统 MUST 成功写入 Redis 载荷后再把任务发布为 queued
-- **THEN** 主请求 MUST 继续进入现有网关链路
+#### Scenario: 成功投遞非同步任務
+- **WHEN** 提示詞審計處於 async_audit、請求在審計範圍內且佇列未滿
+- **THEN** 系統 MUST 先建立不可被 Worker 領取的 staging 任務
+- **THEN** 系統 MUST 成功寫入 Redis 載荷後再把任務釋出為 queued
+- **THEN** 主請求 MUST 繼續進入現有閘道器鏈路
 
-#### Scenario: Redis 载荷写入失败
-- **WHEN** 数据库任务已创建但 Redis 载荷写入失败
-- **THEN** 系统 MUST 将任务标记为 failed 或保持可清理的 staging 状态
-- **THEN** 系统 MUST 输出 `prompt_audit.enqueue_dropped` 和稳定错误码
-- **THEN** 主模型请求 MUST 不受影响
+#### Scenario: Redis 載荷寫入失敗
+- **WHEN** 資料庫任務已建立但 Redis 載荷寫入失敗
+- **THEN** 系統 MUST 將任務標記為 failed 或保持可清理的 staging 狀態
+- **THEN** 系統 MUST 輸出 `prompt_audit.enqueue_dropped` 和穩定錯誤碼
+- **THEN** 主模型請求 MUST 不受影響
 
-#### Scenario: 队列达到容量上限
-- **WHEN** queued、retry、processing 和 staging 活跃任务达到配置容量
-- **THEN** 系统 MUST 拒绝创建新的异步任务并记录 `reason=queue_full`
-- **THEN** 主模型请求 MUST 继续转发
+#### Scenario: 佇列達到容量上限
+- **WHEN** queued、retry、processing 和 staging 活躍任務達到配置容量
+- **THEN** 系統 MUST 拒絕建立新的非同步任務並記錄 `reason=queue_full`
+- **THEN** 主模型請求 MUST 繼續轉發
 
-#### Scenario: 多实例同时争抢最后队列容量
-- **WHEN** 多个实例并发入队且剩余容量不足以容纳全部请求
-- **THEN** active count 检查与 staging INSERT MUST 在同一数据库准入锁事务中串行化
-- **THEN** 已接受的 active jobs MUST NOT 超过该配置快照的 queue_capacity
-- **THEN** 未获准任务 MUST 按 queue_full 或 queue_admission_busy 丢弃且不影响主请求
+#### Scenario: 多例項同時爭搶最後佇列容量
+- **WHEN** 多個例項併發入隊且剩餘容量不足以容納全部請求
+- **THEN** active count 檢查與 staging INSERT MUST 在同一資料庫准入鎖事務中序列化
+- **THEN** 已接受的 active jobs MUST NOT 超過該配置快照的 queue_capacity
+- **THEN** 未獲準任務 MUST 按 queue_full 或 queue_admission_busy 丟棄且不影響主請求
 
-### Requirement: 进程内 Worker 必须可靠消费持久任务
-系统 SHALL 在主服务进程内启动可配置数量的 Worker。多实例 Worker MUST 通过 PostgreSQL 原子领取任务，并为每次领取生成单调递增的 claim version fencing token；租约刷新、事件提交和终态更新 MUST 校验该 token。系统还 MUST 支持重试退避、processing 租约刷新、滞留任务回收、最大尝试次数和优雅关闭。
+### Requirement: 程序內 Worker 必須可靠消費持久任務
+系統 SHALL 在主服務程序內啟動可配置數量的 Worker。多例項 Worker MUST 通過 PostgreSQL 原子領取任務，併為每次領取生成單調遞增的 claim version fencing token；租約重新整理、事件提交和終態更新 MUST 校驗該 token。系統還 MUST 支援重試退避、processing 租約重新整理、滯留任務回收、最大嘗試次數和優雅關閉。
 
-#### Scenario: 多 Worker 并发领取任务
-- **WHEN** 多个进程或 Worker 同时寻找可执行任务
-- **THEN** 每个任务 MUST 只被一个 Worker 原子领取
-- **THEN** 领取过程 MUST 使用数据库行锁/条件更新或等价的无重复执行机制
+#### Scenario: 多 Worker 併發領取任務
+- **WHEN** 多個程序或 Worker 同時尋找可執行任務
+- **THEN** 每個任務 MUST 只被一個 Worker 原子領取
+- **THEN** 領取過程 MUST 使用資料庫行鎖/條件更新或等價的無重複執行機制
 
-#### Scenario: 已回收的旧 Worker 恢复
-- **WHEN** Worker A 的 processing 租约已被回收且任务随后由 Worker B 以更高 claim version 重新领取
-- **THEN** Worker A 的租约刷新、事件写入和终态更新 MUST 因 claim version 不匹配而失败
-- **THEN** Worker A MUST NOT 覆盖 Worker B 的任务状态或创建重复事件
+#### Scenario: 已回收的舊 Worker 恢復
+- **WHEN** Worker A 的 processing 租約已被回收且任務隨後由 Worker B 以更高 claim version 重新領取
+- **THEN** Worker A 的租約重新整理、事件寫入和終態更新 MUST 因 claim version 不匹配而失敗
+- **THEN** Worker A MUST NOT 覆蓋 Worker B 的任務狀態或建立重複事件
 
-#### Scenario: 可重试节点故障
-- **WHEN** Guard 返回 429、5xx、连接失败或超时且任务仍有剩余尝试次数
-- **THEN** Worker MUST 将任务置为 retry 并设置有界退避的 next_attempt_at
+#### Scenario: 可重試節點故障
+- **WHEN** Guard 返回 429、5xx、連線失敗或超時且任務仍有剩餘嘗試次數
+- **THEN** Worker MUST 將任務置為 retry 並設定有界退避的 next_attempt_at
 
-#### Scenario: 不可重试错误或达到最大尝试次数
-- **WHEN** Guard 返回认证失败、严格解析失败或任务达到最大尝试次数
-- **THEN** Worker MUST 将任务标记为 failed 并保存脱敏后的稳定错误码
-- **THEN** Redis 载荷 MUST 被删除或等待短 TTL 自动清理
+#### Scenario: 不可重試錯誤或達到最大嘗試次數
+- **WHEN** Guard 返回認證失敗、嚴格解析失敗或任務達到最大嘗試次數
+- **THEN** Worker MUST 將任務標記為 failed 並儲存脫敏後的穩定錯誤碼
+- **THEN** Redis 載荷 MUST 被刪除或等待短 TTL 自動清理
 
-#### Scenario: 回收滞留 processing 任务
-- **WHEN** processing 任务的租约超过允许时长
-- **THEN** 系统 MUST 按剩余尝试次数把任务回收到 retry 或标记 failed
-- **THEN** 系统 MUST 输出可关联 job ID 的回收日志
+#### Scenario: 回收滯留 processing 任務
+- **WHEN** processing 任務的租約超過允許時長
+- **THEN** 系統 MUST 按剩餘嘗試次數把任務回收到 retry 或標記 failed
+- **THEN** 系統 MUST 輸出可關聯 job ID 的回收日誌
 
-#### Scenario: Worker 启动失败
-- **WHEN** 数据库、Redis、配置或加密依赖导致 Worker 无法启动
-- **THEN** 主 API MUST 继续提供非提示词审计能力
-- **THEN** 运行态 MUST 显示 error/degraded 和稳定错误码，而不是显示健康
+#### Scenario: Worker 啟動失敗
+- **WHEN** 資料庫、Redis、配置或加密依賴導致 Worker 無法啟動
+- **THEN** 主 API MUST 繼續提供非提示詞審計能力
+- **THEN** 執行態 MUST 顯示 error/degraded 和穩定錯誤碼，而不是顯示健康
 
-### Requirement: Qwen3Guard 返回必须被严格归一化
-系统 SHALL 严格解析单一 `Safety` 行和单一 `Categories` 行，并支持 Violent、Non-violent Illegal Acts、Sexual Content or Sexual Acts、PII、Suicide & Self-Harm、Unethical Acts、Politically Sensitive Topics、Copyright Violation、Jailbreak 九类输入风险。额外非空说明、重复字段、未知 Safety 或无法解析响应 MUST 视为 invalid_response。
+### Requirement: Qwen3Guard 返回必須被嚴格歸一化
+系統 SHALL 嚴格解析單一 `Safety` 行和單一 `Categories` 行，並支援 Violent、Non-violent Illegal Acts、Sexual Content or Sexual Acts、PII、Suicide & Self-Harm、Unethical Acts、Politically Sensitive Topics、Copyright Violation、Jailbreak 九類輸入風險。額外非空說明、重複欄位、未知 Safety 或無法解析響應 MUST 視為 invalid_response。
 
-#### Scenario: Safe 结果
+#### Scenario: Safe 結果
 - **WHEN** Guard 返回 `Safety: Safe`
-- **THEN** 归一化结果 MUST 为 pass/low/Allow
+- **THEN** 歸一化結果 MUST 為 pass/low/Allow
 
-#### Scenario: Controversial 结果
+#### Scenario: Controversial 結果
 - **WHEN** Guard 返回 `Safety: Controversial`
-- **THEN** 默认结果 MUST 为 flag/Warn
-- **THEN** 命中已启用的 Jailbreak、PII 或 Suicide & Self-Harm 时 MUST 提升为 critical/Block
+- **THEN** 預設結果 MUST 為 flag/Warn
+- **THEN** 命中已啟用的 Jailbreak、PII 或 Suicide & Self-Harm 時 MUST 提升為 critical/Block
 
-#### Scenario: Unsafe 结果
-- **WHEN** Guard 返回 `Safety: Unsafe` 且命中至少一个已启用类别
-- **THEN** 结果 MUST 为 critical/Block
+#### Scenario: Unsafe 結果
+- **WHEN** Guard 返回 `Safety: Unsafe` 且命中至少一個已啟用類別
+- **THEN** 結果 MUST 為 critical/Block
 
-#### Scenario: Unsafe 包含未知类别
-- **WHEN** Guard 返回 Unsafe 但类别未知或不可映射
-- **THEN** 系统 MUST 记录 `unknown_unsafe` 并保持 Block 语义
+#### Scenario: Unsafe 包含未知類別
+- **WHEN** Guard 返回 Unsafe 但類別未知或不可對映
+- **THEN** 系統 MUST 記錄 `unknown_unsafe` 並保持 Block 語義
 
-#### Scenario: 严格响应解析失败
-- **WHEN** Guard 响应缺少字段、包含重复字段、出现额外非空说明或 Safety 不在允许枚举中
-- **THEN** 系统 MUST 返回 `prompt_guard_invalid_response`
-- **THEN** 系统 MUST NOT 把该结果伪装为 Safe
+#### Scenario: 嚴格響應解析失敗
+- **WHEN** Guard 響應缺少欄位、包含重複欄位、出現額外非空說明或 Safety 不在允許列舉中
+- **THEN** 系統 MUST 返回 `prompt_guard_invalid_response`
+- **THEN** 系統 MUST NOT 把該結果偽裝為 Safe
 
-### Requirement: 长提示词必须完整进行 Unicode 分片审计
-系统 SHALL 按 Unicode rune 而不是字节对提示词分片。最新用户输入 MUST 作为优先片段，其他输入按确定顺序完整覆盖；异步任务必须在每片开始前刷新 processing 租约，并为每片开始、完成、失败及最终聚合输出不含正文的结构化日志。
+### Requirement: 長提示詞必須完整進行 Unicode 分片審計
+系統 SHALL 按 Unicode rune 而不是位元組對提示詞分片。最新使用者輸入 MUST 作為優先片段，其他輸入按確定順序完整覆蓋；非同步任務必須在每片開始前重新整理 processing 租約，併為每片開始、完成、失敗及最終聚合輸出不含正文的結構化日誌。
 
-#### Scenario: 输入超过节点单片上限
-- **WHEN** 提示词 Unicode 字符数超过节点 input_limit
-- **THEN** 系统 MUST 生成覆盖全部非空文本的连续分片
-- **THEN** 任一分片 Block MUST 使聚合结果为 Block
-- **THEN** 只有全部必要分片成功后才能产生 Allow
+#### Scenario: 輸入超過節點單片上限
+- **WHEN** 提示詞 Unicode 字元數超過節點 input_limit
+- **THEN** 系統 MUST 生成覆蓋全部非空文本的連續分片
+- **THEN** 任一分片 Block MUST 使聚合結果為 Block
+- **THEN** 只有全部必要分片成功後才能產生 Allow
 
-#### Scenario: 最新输入包含风险
-- **WHEN** 最新用户输入位于长会话尾部并包含 Block 风险
-- **THEN** 该输入 MUST 在历史文本之前接受扫描
-- **THEN** 同步模式 MAY 在确认 Block 后停止后续分片，但 MUST NOT 部分放行
+#### Scenario: 最新輸入包含風險
+- **WHEN** 最新使用者輸入位於長會話尾部並包含 Block 風險
+- **THEN** 該輸入 MUST 在歷史文本之前接受掃描
+- **THEN** 同步模式 MAY 在確認 Block 後停止後續分片，但 MUST NOT 部分放行
 
-#### Scenario: 多分片扫描完成
-- **WHEN** 一个提示词被拆成多个分片并完成聚合
-- **THEN** 日志 MUST 包含 chunk_index、chunk_total、chunk_chars、input_chars、input_limit、guard endpoint、action 和 latency
-- **THEN** 日志 MUST NOT 包含分片正文、脱敏前证据或内部优先级分隔符
+#### Scenario: 多分片掃描完成
+- **WHEN** 一個提示詞被拆成多個分片並完成聚合
+- **THEN** 日誌 MUST 包含 chunk_index、chunk_total、chunk_chars、input_chars、input_limit、guard endpoint、action 和 latency
+- **THEN** 日誌 MUST NOT 包含分片正文、脫敏前證據或內部優先順序分隔符
 
-### Requirement: 审计事件必须独立、可关联且可安全管理
-系统 SHALL 把归一化结果写入 `prompt_audit_events`，并支持是否保存 Pass 事件。事件 MUST 包含请求上下文、分列的用户名/邮箱/API Key 名称快照、脱敏提示词快照、decision、risk_level、action、分类、scanner、证据、策略、节点、配置版本、分片数和耗时；管理 DTO MUST 从这些事实确定性派生结构化 `issue_summaries`，不得复制保存第二套风险事实。
+### Requirement: 審計事件必須獨立、可關聯且可安全管理
+系統 SHALL 把歸一化結果寫入 `prompt_audit_events`，並支援是否儲存 Pass 事件。事件 MUST 包含請求上下文、分列的使用者名稱/郵箱/API Key 名稱快照、脫敏提示詞快照、decision、risk_level、action、分類、scanner、證據、策略、節點、配置版本、分片數和耗時；管理 DTO MUST 從這些事實確定性派生結構化 `issue_summaries`，不得複製儲存第二套風險事實。
 
-#### Scenario: 风险事件被记录
-- **WHEN** Worker 或同步 Guard 得到 flag/critical 结果
-- **THEN** 系统 MUST 创建独立提示词审计事件
-- **THEN** 事件 MUST 可通过 request_id、user_id、api_key_id、group_id 和 prompt_hash 检索
+#### Scenario: 風險事件被記錄
+- **WHEN** Worker 或同步 Guard 得到 flag/critical 結果
+- **THEN** 系統 MUST 建立獨立提示詞審計事件
+- **THEN** 事件 MUST 可通過 request_id、user_id、api_key_id、group_id 和 prompt_hash 檢索
 
-#### Scenario: Pass 事件存储关闭
-- **WHEN** 结果为 pass 且 store_pass_events=false
-- **THEN** 系统 MUST 完成任务但 MAY 不创建事件
+#### Scenario: Pass 事件儲存關閉
+- **WHEN** 結果為 pass 且 store_pass_events=false
+- **THEN** 系統 MUST 完成任務但 MAY 不建立事件
 
-#### Scenario: 同步结果写入失败
-- **WHEN** 同步 Guard 已完成判定但事件持久化失败
-- **THEN** 系统 MUST 输出 `prompt_guard.result_record_failed`
-- **THEN** 持久化失败 MUST NOT 把已确定的 Allow 改成 Block，也 MUST NOT 撤销已确定的 Block
+#### Scenario: 同步結果寫入失敗
+- **WHEN** 同步 Guard 已完成判定但事件持久化失敗
+- **THEN** 系統 MUST 輸出 `prompt_guard.result_record_failed`
+- **THEN** 持久化失敗 MUST NOT 把已確定的 Allow 改成 Block，也 MUST NOT 撤銷已確定的 Block
 
-### Requirement: 提示词审计运行态必须反映真实依赖和处理状态
-系统 SHALL 提供运行态接口，返回有效模式、期望/生效配置版本、配置加载时间与错误、Worker 心跳、队列容量与各状态数量、处理/失败统计、最近错误、节点连通性、数据库/Redis 状态和同步 Guard 指标。
+### Requirement: 提示詞審計執行態必須反映真實依賴和處理狀態
+系統 SHALL 提供執行態介面，返回有效模式、期望/生效配置版本、配置載入時間與錯誤、Worker 心跳、佇列容量與各狀態數量、處理/失敗統計、最近錯誤、節點連通性、資料庫/Redis 狀態和同步 Guard 指標。
 
-#### Scenario: 管理员查询健康运行态
-- **WHEN** Worker 正常心跳、数据库与 Redis 可用且至少一个节点探测成功
-- **THEN** 运行态 MUST 显示 running/ok 和真实统计值
+#### Scenario: 管理員查詢健康執行態
+- **WHEN** Worker 正常心跳、資料庫與 Redis 可用且至少一個節點探測成功
+- **THEN** 執行態 MUST 顯示 running/ok 和真實統計值
 
 #### Scenario: Redis 不可用
-- **WHEN** 提示词审计已启用但 Redis 载荷存储不可用
-- **THEN** 异步运行态 MUST 显示 error 或 degraded
-- **THEN** 页面 MUST NOT 仅因 Base URL 已配置而显示健康
+- **WHEN** 提示詞審計已啟用但 Redis 載荷儲存不可用
+- **THEN** 非同步執行態 MUST 顯示 error 或 degraded
+- **THEN** 頁面 MUST NOT 僅因 Base URL 已配置而顯示健康
 
-### Requirement: 管理员必须能够查询和安全删除提示词审计事件
-系统 SHALL 提供分页列表、详情、单条删除、批量 ID 删除和按筛选删除。筛选 MUST 支持 decision、risk level、endpoint、group、user、API key、request ID、prompt Hash、关键字和时间范围。
+### Requirement: 管理員必須能夠查詢和安全刪除提示詞審計事件
+系統 SHALL 提供分頁列表、詳情、單條刪除、批次 ID 刪除和按篩選刪除。篩選 MUST 支援 decision、risk level、endpoint、group、user、API key、request ID、prompt Hash、關鍵字和時間範圍。
 
-#### Scenario: 按筛选查询事件
-- **WHEN** 管理员提交一个或多个受支持筛选条件
-- **THEN** 系统 MUST 返回稳定排序的分页事件和总数
+#### Scenario: 按篩選查詢事件
+- **WHEN** 管理員提交一個或多個受支援篩選條件
+- **THEN** 系統 MUST 返回穩定排序的分頁事件和總數
 
-#### Scenario: 预览按筛选删除
-- **WHEN** 管理员提交包含明确时间范围的删除筛选
-- **THEN** 系统 MUST 返回 matched_count、规范化筛选摘要、snapshot_max_id、filter_hash 和绑定当前管理员且短期有效的 confirmation_token
-- **THEN** 系统 MUST 不立即删除数据
+#### Scenario: 預覽按篩選刪除
+- **WHEN** 管理員提交包含明確時間範圍的刪除篩選
+- **THEN** 系統 MUST 返回 matched_count、規範化篩選摘要、snapshot_max_id、filter_hash 和綁定當前管理員且短期有效的 confirmation_token
+- **THEN** 系統 MUST 不立即刪除資料
 
-#### Scenario: 确认按筛选删除
-- **WHEN** 管理员提交相同筛选、有效 filter_hash、未过期 confirmation_token 和显式 confirm=true
-- **THEN** 系统 MUST 只分批删除匹配且 id 不高于预览 snapshot_max_id 的事件，以及已无事件引用的孤立任务
-- **THEN** 系统 MUST 清理相关 Redis 载荷并写入管理操作审计
+#### Scenario: 確認按篩選刪除
+- **WHEN** 管理員提交相同篩選、有效 filter_hash、未過期 confirmation_token 和顯式 confirm=true
+- **THEN** 系統 MUST 只分批刪除匹配且 id 不高於預覽 snapshot_max_id 的事件，以及已無事件引用的孤立任務
+- **THEN** 系統 MUST 清理相關 Redis 載荷並寫入管理操作審計
 
-#### Scenario: 伪造或重放其他管理员的删除确认
-- **WHEN** confirmation_token 无法认证、已过期、操作者不匹配、Hash 不匹配或缺失
-- **THEN** 系统 MUST 拒绝删除并返回稳定错误码
-- **THEN** 客户端自行计算 filter_hash MUST NOT 绕过 delete-preview
+#### Scenario: 偽造或重放其他管理員的刪除確認
+- **WHEN** confirmation_token 無法認證、已過期、操作者不匹配、Hash 不匹配或缺失
+- **THEN** 系統 MUST 拒絕刪除並返回穩定錯誤碼
+- **THEN** 客戶端自行計算 filter_hash MUST NOT 繞過 delete-preview
 
-#### Scenario: 无时间范围的大范围删除
-- **WHEN** 管理员尝试按筛选删除但未提供明确时间范围
-- **THEN** 系统 MUST 拒绝操作并返回稳定错误码
+#### Scenario: 無時間範圍的大範圍刪除
+- **WHEN** 管理員嘗試按篩選刪除但未提供明確時間範圍
+- **THEN** 系統 MUST 拒絕操作並返回穩定錯誤碼

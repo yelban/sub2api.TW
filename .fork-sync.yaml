@@ -16,8 +16,8 @@
 # OpenCC 自動同步：當簡體中文更新時，自動重新產生繁體中文
 opencc_sync:
   # i18n 翻譯檔
-  - source: frontend/src/i18n/locales/zh-Hans.ts
-    target: frontend/src/i18n/locales/zh-Hant.ts
+  - source: frontend/src/i18n/locales/zh
+    target: frontend/src/i18n/locales/zh-Hant
     config: s2twp  # 簡體 → 繁體（臺灣用語）
 
   # 檔案檔案（上游為簡體，轉換為繁體）

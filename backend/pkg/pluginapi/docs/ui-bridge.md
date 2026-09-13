@@ -1,18 +1,18 @@
 # UI Bridge v1
 
-## 加载方式
+## 載入方式
 
-宿主为每次打开配置页创建短时 UI 会话：
+宿主為每次開啟配置頁建立短時 UI 會話：
 
 ```text
 /api/v1/plugin-ui/<asset-token>/index.html#bridge_token=<bridge-token>
 ```
 
-资源 Token 用于读取包内 `ui/` 文件，Bridge Token 只存在于 URL fragment，不会发送到服务器。iframe 使用 `sandbox="allow-scripts"`，不授予 `allow-same-origin`。
+資源 Token 用於讀取包內 `ui/` 檔案，Bridge Token 只存在於 URL fragment，不會發送到伺服器。iframe 使用 `sandbox="allow-scripts"`，不授予 `allow-same-origin`。
 
-UI 只能加载包内、已在清单声明的资源。CSP 禁止外部网络连接、表单提交和外部 frame。
+UI 只能載入包內、已在清單宣告的資源。CSP 禁止外部網路連線、表單提交和外部 frame。
 
-## 消息信封
+## 訊息信封
 
 UI 到宿主：
 
@@ -38,19 +38,19 @@ UI 到宿主：
 
 ## 方法
 
-| `type` | UI 参数 | 成功响应 |
+| `type` | UI 引數 | 成功響應 |
 |---|---|---|
-| `sub2api.plugin.ready` | 无 | 无响应 |
-| `config.load` | 无 | `config` |
-| `config.save` | `config` 对象 | 规范化后的 `config` |
-| `config.test` | 无 | `result` |
-| `ui.resize` | `height` | 无响应 |
-| `ui.notify` | `level`、`message` | 无响应 |
+| `sub2api.plugin.ready` | 無 | 無響應 |
+| `config.load` | 無 | `config` |
+| `config.save` | `config` 物件 | 規範化後的 `config` |
+| `config.test` | 無 | `result` |
+| `ui.resize` | `height` | 無響應 |
+| `ui.notify` | `level`、`message` | 無響應 |
 
-`config.test` 在 v1 中测试已保存配置。UI 若要测试当前表单，应先调用 `config.save`。
+`config.test` 在 v1 中測試已儲存配置。UI 若要測試當前表單，應先呼叫 `config.save`。
 
-## 必须执行的校验
+## 必須執行的校驗
 
-UI 接收消息时必须验证 `event.source === parent`、消息来源标识、Bridge Token 和等待中的 `request_id`。每个请求必须有超时和卸载清理。
+UI 接收訊息時必須驗證 `event.source === parent`、訊息來源標識、Bridge Token 和等待中的 `request_id`。每個請求必須有超時和解除安裝清理。
 
-宿主不会向 iframe 提供管理员 Token。插件 UI 不得尝试访问管理 API、Cookie、父页面 DOM 或浏览器存储中的宿主数据。
+宿主不會向 iframe 提供管理員 Token。外掛 UI 不得嘗試訪問管理 API、Cookie、父頁面 DOM 或瀏覽器儲存中的宿主資料。
