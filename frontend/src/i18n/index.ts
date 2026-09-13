@@ -1,6 +1,6 @@
 import { createI18n } from 'vue-i18n'
 
-type LocaleCode = 'en' | 'zh-Hans' | 'zh-Hant'
+type LocaleCode = 'en' | 'zh' | 'zh-Hant'
 
 type LocaleMessages = Record<string, any>
 
@@ -9,21 +9,21 @@ const DEFAULT_LOCALE: LocaleCode = 'en'
 
 const localeLoaders: Record<LocaleCode, () => Promise<{ default: LocaleMessages }>> = {
   en: () => import('./locales/en'),
-  'zh-Hans': () => import('./locales/zh-Hans'),
+  zh: () => import('./locales/zh'),
   'zh-Hant': () => import('./locales/zh-Hant')
 }
 
 function isLocaleCode(value: string): value is LocaleCode {
-  return value === 'en' || value === 'zh-Hans' || value === 'zh-Hant'
+  return value === 'en' || value === 'zh' || value === 'zh-Hant'
 }
 
 function getDefaultLocale(): LocaleCode {
   const saved = localStorage.getItem(LOCALE_KEY)
 
-  // 遷移舊的 'zh' 設定到 'zh-Hans'
-  if (saved === 'zh') {
-    localStorage.setItem(LOCALE_KEY, 'zh-Hans')
-    return 'zh-Hans'
+  // 舊版 fork 以 'zh-Hans' 表示簡體，遷移到上游的 'zh'
+  if (saved === 'zh-Hans') {
+    localStorage.setItem(LOCALE_KEY, 'zh')
+    return 'zh'
   }
 
   if (saved && isLocaleCode(saved)) {
@@ -33,14 +33,11 @@ function getDefaultLocale(): LocaleCode {
   const browserLang = navigator.language.toLowerCase()
   if (browserLang.startsWith('zh')) {
     // zh-TW, zh-HK, zh-MO, zh-Hant → 繁體
-    if (
-      ['zh-tw', 'zh-hk', 'zh-mo'].includes(browserLang) ||
-      browserLang.includes('hant')
-    ) {
+    if (['zh-tw', 'zh-hk', 'zh-mo'].includes(browserLang) || browserLang.includes('hant')) {
       return 'zh-Hant'
     }
     // zh-CN, zh-SG, zh-Hans, zh → 簡體
-    return 'zh-Hans'
+    return 'zh'
   }
 
   return DEFAULT_LOCALE
@@ -51,8 +48,8 @@ export const i18n = createI18n({
   locale: getDefaultLocale(),
   fallbackLocale: DEFAULT_LOCALE,
   messages: {},
-  // 禁用 HTML 訊息警告 - 引導步驟使用富文字內容（driver.js 支援 HTML）
-  // 這些內容是內部定義的，不存在 XSS 風險
+  // 禁用 HTML 消息警告 - 引导步骤使用富文本内容（driver.js 支持 HTML）
+  // 这些内容是内部定义的，不存在 XSS 风险
   warnHtmlMessage: false
 })
 
@@ -85,13 +82,21 @@ export async function setLocale(locale: string): Promise<void> {
   localStorage.setItem(LOCALE_KEY, locale)
   document.documentElement.setAttribute('lang', locale)
 
-  // 同步更新瀏覽器頁籤標題，使其跟隨語言切換
-  const { resolveDocumentTitle } = await import('@/router/title')
+  // 同步更新浏览器页签标题，使其跟随语言切换
+  const { resolveRouteDocumentTitle } = await import('@/router/title')
   const { default: router } = await import('@/router')
   const { useAppStore } = await import('@/stores/app')
+  const { useAuthStore } = await import('@/stores/auth')
+  const { useAdminSettingsStore } = await import('@/stores/adminSettings')
   const route = router.currentRoute.value
   const appStore = useAppStore()
-  document.title = resolveDocumentTitle(route.meta.title, appStore.siteName, route.meta.titleKey as string)
+  const authStore = useAuthStore()
+  const adminSettingsStore = useAdminSettingsStore()
+  const customMenuItems = [
+    ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
+    ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
+  ]
+  document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems)
 }
 
 export function getLocale(): LocaleCode {
@@ -101,7 +106,7 @@ export function getLocale(): LocaleCode {
 
 export const availableLocales = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'zh-Hans', name: '简体中文', flag: '🇨🇳' },
+  { code: 'zh', name: '简体中文', flag: '🇨🇳' },
   { code: 'zh-Hant', name: '繁體中文', flag: '🇹🇼' }
 ] as const
 
