@@ -285,4 +285,4 @@ sed -i '' 's/帳/帳/g' <target>
 2. **新增翻譯 key**：OpenCC 會自動處理新增的簡體內容
 3. **衝突處理**：i18n 檔案衝突時，優先採用上游版本，再重新執行中文化流程
 4. **新增校正詞彙**：更新 `scripts/convert-config.sh` 的 `MANUAL_CORRECTIONS` 陣列
-5. **介面品牌名稱**：介面文字的 `Sub2API` 在 `index.ts` 的 `applyBrand()` 載入翻譯時換成 `Tok2Hub`，涵蓋所有語言，不必改翻譯檔；「上游 Sub2API 站點」這類指別臺例項的文字保留原名
+5. **介面品牌名稱**：介面文字的 `Sub2API` 在 `index.ts` 的 `applyBrand()` 載入翻譯時換成 `Tok2Hub`，涵蓋所有語言，不必改翻譯檔；「上游 Sub2API 站點」這類指其他站點的文字保留原名
