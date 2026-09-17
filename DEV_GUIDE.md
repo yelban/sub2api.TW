@@ -1,6 +1,6 @@
 # sub2api 專案開發指南
 
-> 本文件記錄專案環境配置、常見坑點和注意事項，供 Claude Code 和團隊成員參考。
+> 本檔案記錄專案環境配置、常見坑點和注意事項，供 Claude Code 和團隊成員參考。
 
 ## 一、專案基本資訊
 
@@ -203,7 +203,7 @@ go test -tags=integration ./...
 **解決**：
 ```bash
 cd backend
-go generate ./ent  # 重新生成 ent 程式碼（json.RawMessage 欄位會生成為同類型的 jsontext.Value，屬預期）
+go generate ./ent  # 重新生成 ent 程式碼（json.RawMessage 欄位會生成為同型別的 jsontext.Value，屬預期）
 git add ent/       # 生成的檔案也要提交
 ```
 
@@ -335,12 +335,12 @@ sub2api-bmai/
 │   ├── package.json         # 依賴配置
 │   └── pnpm-lock.yaml       # pnpm 鎖檔案（必須提交）
 └── .claude/
-    └── CLAUDE.md            # 本文件
+    └── CLAUDE.md            # 本檔案
 ```
 
 ## 七、參考資源
 
 - [上游倉庫](https://github.com/Wei-Shaw/sub2api)
-- [Ent 文件](https://entgo.io/docs/getting-started)
-- [Vue3 文件](https://vuejs.org/)
-- [pnpm 文件](https://pnpm.io/)
+- [Ent 檔案](https://entgo.io/docs/getting-started)
+- [Vue3 檔案](https://vuejs.org/)
+- [pnpm 檔案](https://pnpm.io/)

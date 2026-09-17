@@ -3,7 +3,7 @@
 - [x] 1.1 在 `backend/internal/domain` 新增 `GroupCodexModelsManifestConfig{Enabled, AccountIDs, FallbackToScheduler}`，JSON 鍵為 `enabled`、`account_ids`、`fallback_to_scheduler`
 - [x] 1.2 在 `backend/ent/schema/group.go` 新增 JSONB 欄位 `codex_models_manifest_config`（預設空結構體），執行 `go generate ./ent`
 - [x] 1.3 新增遷移 `backend/migrations/234_group_codex_models_manifest_config.sql`（`ADD COLUMN IF NOT EXISTS ... JSONB NOT NULL DEFAULT '{}'::jsonb`）
-- [x] 1.4 `service.Group` 新增 `CodexModelsManifestConfig` 欄位並新增類型別名；`group_repo.go` 建立與更新兩處 setter 寫入該欄位
+- [x] 1.4 `service.Group` 新增 `CodexModelsManifestConfig` 欄位並新增型別別名；`group_repo.go` 建立與更新兩處 setter 寫入該欄位
 - [x] 1.5 `api_key_repo.go`：分組欄位投影列表與 `groupEntityToService` 加入新欄位
 - [x] 1.6 `api_key_auth_cache.go` 快照結構體與 `api_key_auth_cache_impl.go` 兩處對映加入新欄位
 - [x] 1.7 `admin_group_duplicate.go` 複製分組時將該配置重置為關閉且帳號列表為空

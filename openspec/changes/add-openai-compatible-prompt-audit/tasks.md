@@ -21,7 +21,7 @@
 ## 3. 建立資料庫遷移和 Repository
 
 - [x] 3.1 基於實施時最大遷移序號新增不可變 SQL migration，建立 `prompt_audit_jobs` 和 `prompt_audit_events`
-- [x] 3.2 為 jobs 新增 staging/queued/processing/retry/done/failed 狀態欄位、遞增 claim_version fencing token、租約、嘗試次數、配置版本、執行模式、使用者名稱/郵箱/API Key 名稱和請求快照列
+- [x] 3.2 為 jobs 新增 staging/queued/processing/retry/done/failed 狀態列位、遞增 claim_version fencing token、租約、嘗試次數、配置版本、執行模式、使用者名稱/郵箱/API Key 名稱和請求快照列
 - [x] 3.3 為 events 新增分列身份快照、脫敏提示詞快照、decision/risk/action、JSONB scanner 資料、節點/策略/版本、分片數和耗時列
 - [x] 3.4 新增 jobs 的排程、request、user、API key、group、Hash、時間索引，並檢查索引名不與現有 schema 衝突
 - [x] 3.5 新增 events 的 job、request、decision/time、risk/time、user/API key/group/time、Hash 和時間索引
@@ -98,7 +98,7 @@
 - [x] 8.8 實現 store_pass_events=false 時僅完成 job、不寫 Pass event
 - [x] 8.9 實現風險事件和 `prompt_audit.finding_recorded/processed/process_failed` 日誌
 - [x] 8.10 實現 Worker panic 單任務恢復、優雅停止和 shutdown timeout 日誌
-- [x] 8.11 新增佇列滿、Redis SET 失敗、釋出失敗、程序中斷、重複領取、租約重新整理、滯留回收、舊 Worker claim_version 失效和重試整合測試
+- [x] 8.11 新增佇列滿、Redis SET 失敗、釋出失敗、程式中斷、重複領取、租約重新整理、滯留回收、舊 Worker claim_version 失效和重試整合測試
 - [x] 8.12 證明非同步模式所有失敗都不改變模型請求狀態、錯誤體和上游轉發次數
 - [x] 8.13 為逐分片開始/完成/失敗和聚合輸出穩定日誌，欄位只含索引、字元數、限制、節點、動作、耗時和錯誤碼
 

@@ -1,8 +1,8 @@
 # Sub2API 外掛開發教程
 
-本文面向希望為 Sub2API 開發、打包和釋出外掛的團隊。外掛是獨立程序和靜態 UI 組成的 `.s2plugin` 包，宿主通過穩定的 gRPC 協議呼叫它。本文以當前宿主已經定義的 `openai.oauth.outbound_transport.v1` 能力作為協議示例，說明開發者需要準備什麼、哪些職責屬於外掛、哪些職責仍由 Sub2API 負責。
+本文面向希望為 Sub2API 開發、打包和釋出外掛的團隊。外掛是獨立程式和靜態 UI 組成的 `.s2plugin` 包，宿主通過穩定的 gRPC 協議呼叫它。本文以當前宿主已經定義的 `openai.oauth.outbound_transport.v1` 能力作為協議示例，說明開發者需要準備什麼、哪些職責屬於外掛、哪些職責仍由 Sub2API 負責。
 
-本文不是一個可直接安裝的完整外掛，也不代表 Sub2API 已經發布對應的官方外掛包。當前文件主要描述公開協議、宿主邊界和開發流程。後續是否釋出可安裝包、支援哪些 Provider，以及如何提供示例倉庫，都需要另行公告。
+本文不是一個可直接安裝的完整外掛，也不代表 Sub2API 已經發布對應的官方外掛包。當前檔案主要描述公開協議、宿主邊界和開發流程。後續是否釋出可安裝包、支援哪些 Provider，以及如何提供示例倉庫，都需要另行公告。
 
 ## 1. 準備開發環境
 
@@ -15,8 +15,8 @@
 
 協議定義和通用說明位於：
 
-- `backend/pkg/pluginapi/v1/plugin.proto`：程序間訊息和流式請求定義；
-- `backend/pkg/pluginapi/v1/runtime.go`：外掛程序啟動入口；
+- `backend/pkg/pluginapi/v1/plugin.proto`：程式間訊息和流式請求定義；
+- `backend/pkg/pluginapi/v1/runtime.go`：外掛程式啟動入口；
 - `backend/pkg/pluginapi/v1/manifest.schema.json`：包清單 JSON Schema；
 - `backend/pkg/pluginapi/docs/`：開發、UI Bridge、包格式和安全邊界說明。
 
@@ -45,7 +45,7 @@ my-plugin/
 3. `internal/pluginconfig/`：配置結構、預設值、嚴格校驗和規範化；
 4. `internal/transport/`：HTTP 客戶端、代理、請求頭、請求體、網路連線引數、響應流和資源回收；
 5. `ui/index.html` 與 `ui/assets/`：外掛自己的配置介面；
-6. 單元測試、程序整合測試和目標平臺構建配置。
+6. 單元測試、程式整合測試和目標平臺構建配置。
 
 入口檔案應保持很小，只負責呼叫 `pluginv1.Serve`。實際邏輯放在可獨立測試的包中，避免把配置解析、網路請求和協議組裝全部寫在 `main.go`。
 
@@ -56,11 +56,11 @@ my-plugin/
 | 方法 | 要求 |
 | --- | --- |
 | `GetInfo` | 返回的外掛 ID、版本、協議版本、傳輸 API 版本和能力必須與清單一致。 |
-| `Health` | 快速返回程序是否可以接收新請求，不執行長時間網路探測。 |
+| `Health` | 快速返回程式是否可以接收新請求，不執行長時間網路探測。 |
 | `ValidateConfig` | 嚴格解析 JSON，拒絕未知欄位和非法範圍，並返回完整的規範化配置。 |
 | `ApplyConfig` | 成功後原子切換配置；失敗時保留舊配置和舊連線。 |
 | `TestConfig` | 針對已儲存配置進行快速診斷，返回簡短、可展示的結果。 |
-| `Forward` | 按協議接收請求流，發出上游請求，再按順序返回響應流。 |
+| `Forward` | 按協議接收請求流，發出上遊請求，再按順序返回響應流。 |
 
 請求幀順序為 `start`、零到多個 `body_chunk`、`body_end`；響應幀順序為 `start`、零到多個 `body_chunk`、`end`。不能繼續處理時傳送 `error` 幀。
 
@@ -139,7 +139,7 @@ UI 是外掛包內的靜態頁面，不需要修改 Sub2API 前端原始碼。�
 }
 ```
 
-打包器會自動填充目標平臺執行時、UI 和執行時檔案的 SHA-256。清單中的 `requires.sub2api` 是硬兼容範圍；`tested_sub2api_versions` 應只填寫真實驗證過的版本；`recommended_sub2api_version` 用於管理頁面展示。當前宿主僅處理 `openai.oauth.outbound_transport.v1`，宣告其他能力不會自動產生新路由。後續增加 Provider 支援時，會在協議、能力清單和宿主路由完成適配後，再補充對應的清單示例。
+打包器會自動填充目標平臺執行時、UI 和執行時檔案的 SHA-256。清單中的 `requires.sub2api` 是硬相容範圍；`tested_sub2api_versions` 應只填寫真實驗證過的版本；`recommended_sub2api_version` 用於管理頁面展示。當前宿主僅處理 `openai.oauth.outbound_transport.v1`，宣告其他能力不會自動產生新路由。後續增加 Provider 支援時，會在協議、能力清單和宿主路由完成適配後，再補充對應的清單示例。
 
 ## 7. 生成金鑰並簽名
 
@@ -217,7 +217,7 @@ SUB2API_TEST_PLUGIN_PACKAGE=plugins/my-openai-plugin/dist/my-openai-plugin.s2plu
 | --- | --- |
 | 安裝提示簽名不受信任 | 檢查 `signature.json.key_id`、Base64 公鑰和配置鍵是否完全一致。 |
 | 外掛顯示不相容 | 檢查 `requires.sub2api`、`plugin_protocol`、`transport_api` 和 `ui_bridge`。 |
-| 外掛程序無法啟動 | 檢查目標系統和架構對應的執行時路徑、可執行許可權和執行使用者許可權。 |
+| 外掛程式無法啟動 | 檢查目標系統和架構對應的執行時路徑、可執行許可權和執行使用者許可權。 |
 | 配置頁無法載入 | 檢查 `ui.entrypoint`、UI 檔案雜湊、Bridge Token 校驗和 iframe 訊息來源。 |
 | 儲存後配置未生效 | 檢視 `ValidateConfig`、`ApplyConfig` 返回的規範化配置和診斷資訊。 |
 | 請求失敗後重復執行 | 檢查 `ForwardResponseError.request_sent` 是否準確反映請求是否可能已發出。 |

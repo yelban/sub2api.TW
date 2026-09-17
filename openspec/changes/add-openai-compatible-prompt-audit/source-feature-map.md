@@ -49,7 +49,7 @@ ok github.com/mt21625457/aicodex/internal/gatewayadapter/transport 3.233s
 | 23 | 完整 scan text 使用 Redis 30 分鐘 TTL；`payload_store.go` | prompt-input-audit：持久任務 + Redis TTL | `prompt_payload_store.go` | A06 |
 | 24 | 非同步 enqueue、範圍/容量檢查；`enqueue.go` | prompt-input-audit：非同步持久投遞 | `prompt_enqueue.go` | A06 |
 | 25 | PromptAuditJob/Event 持久事實；Ent schema/store | prompt-input-audit：jobs/events | SQL migration、`prompt_repository.go` | A05、A07、A10 |
-| 26 | 程序內 Worker、可配置數量、Start/Stop；`worker.go` | prompt-input-audit：可靠 Worker | `prompt_worker.go`、`prompt_module.go` | A07 |
+| 26 | 程式內 Worker、可配置數量、Start/Stop；`worker.go` | prompt-input-audit：可靠 Worker | `prompt_worker.go`、`prompt_module.go` | A07 |
 | 27 | retry/backoff/max attempts；`worker.go` | prompt-input-audit：可靠 Worker | `prompt_worker.go` | A07 |
 | 28 | processing stale reclaim；`worker.go` | prompt-input-audit：可靠 Worker | `prompt_worker.go`、Repository | A07 |
 | 29 | runtime queue/Worker/DB/payload/connectivity/heartbeat；`runtime.go` | prompt-input-audit：真實執行態 | `prompt_runtime.go` | A11、C07 |
@@ -90,7 +90,7 @@ ok github.com/mt21625457/aicodex/internal/gatewayadapter/transport 3.233s
 | token/channel/group 字串 | API key/group/provider 可信 ID + 快照 | 使用目標身份域，保留查詢/複核能力 |
 | 6068/9068 雙埠一致性 | `/v1`、root alias、`/backend-api/codex` 等目標路由一致性 | G04 以目標實際 routes 自動列舉，不復制不存在的埠拓撲 |
 | 源 queued 後再寫 payload 的競態 | staging → Redis SET EX → queued | 是可靠性增強；A06/A07 證明 Worker 不提前領取 |
-| 源程序內喚醒佇列 + DB 事實 | PostgreSQL 原子 claim + 遞增 claim_version fencing + 程序內 Worker | 支援多例項並防舊 Worker 覆蓋，無功能損失；A07 併發測試證明 |
+| 源程式內喚醒佇列 + DB 事實 | PostgreSQL 原子 claim + 遞增 claim_version fencing + 程式內 Worker | 支援多例項並防舊 Worker 覆蓋，無功能損失；A07 併發測試證明 |
 | 源 MemoryRepository | 只作為目標測試 fake，不作為生產 fallback | 生產需要持久任務；依賴失敗由 A11 顯示 degraded，不偽裝成功 |
 | `scan_url`/舊 llm_guard 協議相容 | 只接受 Base URL + OpenAI compatible | 目標是新增 setting、無舊 Prompt Audit 配置；A02 明確禁止舊協議 |
 | 源舊 strategy 遷移 | 第一版僅 `priority`，其他值拒絕 | 目標無歷史 Prompt config；G01/配置測試保證確定性 |

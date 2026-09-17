@@ -210,7 +210,7 @@ Sub2API 內建支付系統，支援使用者自助充值，無需部署獨立的
 
 1. 登入 [Stripe Dashboard](https://dashboard.stripe.com/)
 2. 進入 **Developers → Webhooks**
-3. 新增端點，填寫回調地址
+3. 新增端點，填寫回撥地址
 4. 訂閱事件：`payment_intent.succeeded`、`payment_intent.payment_failed`
 5. 將生成的 Webhook Secret（`whsec_...`）填入服務商配置
 
@@ -219,7 +219,7 @@ Sub2API 內建支付系統，支援使用者自助充值，無需部署獨立的
 - 回撥地址必須是 **HTTPS**（Stripe 強制要求，其他服務商強烈推薦）
 - 確保伺服器防火牆允許支付平臺的回撥請求
 - 系統會自動進行簽名驗證，防止偽造回撥
-- 支付成功後自動完成餘額充值，無需人工干預
+- 支付成功後自動完成餘額充值，無需人工幹預
 
 ---
 
@@ -278,7 +278,7 @@ Sub2API 內建支付系統，支援使用者自助充值，無需部署獨立的
 
 | 對比項 | Sub2ApiPay | 內建支付 |
 |--------|-----------|---------|
-| 部署方式 | 獨立服務（Next.js + PostgreSQL） | 內置於 Sub2API，無需額外部署 |
+| 部署方式 | 獨立服務（Next.js + PostgreSQL） | 內建於 Sub2API，無需額外部署 |
 | 支付方式 | EasyPay、支付寶、微信、Stripe | 相同 |
 | 配置方式 | 環境變數 + 獨立管理後臺 | Sub2API 管理後臺內統一配置 |
 | 充值對接 | 通過 Admin API 回撥 | 內部直接處理，更可靠 |

@@ -116,11 +116,11 @@
 - **THEN** 已接受的 active jobs MUST NOT 超過該配置快照的 queue_capacity
 - **THEN** 未獲準任務 MUST 按 queue_full 或 queue_admission_busy 丟棄且不影響主請求
 
-### Requirement: 程序內 Worker 必須可靠消費持久任務
-系統 SHALL 在主服務程序內啟動可配置數量的 Worker。多例項 Worker MUST 通過 PostgreSQL 原子領取任務，併為每次領取生成單調遞增的 claim version fencing token；租約重新整理、事件提交和終態更新 MUST 校驗該 token。系統還 MUST 支援重試退避、processing 租約重新整理、滯留任務回收、最大嘗試次數和優雅關閉。
+### Requirement: 程式內 Worker 必須可靠消費持久任務
+系統 SHALL 在主服務程式內啟動可配置數量的 Worker。多例項 Worker MUST 通過 PostgreSQL 原子領取任務，併為每次領取生成單調遞增的 claim version fencing token；租約重新整理、事件提交和終態更新 MUST 校驗該 token。系統還 MUST 支援重試退避、processing 租約重新整理、滯留任務回收、最大嘗試次數和優雅關閉。
 
 #### Scenario: 多 Worker 併發領取任務
-- **WHEN** 多個程序或 Worker 同時尋找可執行任務
+- **WHEN** 多個程式或 Worker 同時尋找可執行任務
 - **THEN** 每個任務 MUST 只被一個 Worker 原子領取
 - **THEN** 領取過程 MUST 使用資料庫行鎖/條件更新或等價的無重複執行機制
 
@@ -230,7 +230,7 @@
 
 #### Scenario: 預覽按篩選刪除
 - **WHEN** 管理員提交包含明確時間範圍的刪除篩選
-- **THEN** 系統 MUST 返回 matched_count、規範化篩選摘要、snapshot_max_id、filter_hash 和綁定當前管理員且短期有效的 confirmation_token
+- **THEN** 系統 MUST 返回 matched_count、規範化篩選摘要、snapshot_max_id、filter_hash 和繫結當前管理員且短期有效的 confirmation_token
 - **THEN** 系統 MUST 不立即刪除資料
 
 #### Scenario: 確認按篩選刪除

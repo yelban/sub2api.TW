@@ -1,6 +1,6 @@
 ## Why
 
-當前專案的“風控中心”只提供基於 OpenAI Moderations 的內容稽核，非同步觀察依賴程序內佇列，且沒有 aicodex-api 已具備的持久任務佇列、短期敏感載荷儲存、Qwen3Guard 分類、同步 fail-closed 門禁和獨立提示詞事件工作臺。直接替換或擴寫現有內容稽核會混淆兩種風險模型，並可能改變關鍵詞、Hash、郵件和自動封號等既有行為，因此需要以並列、預設關閉的獨立能力引入。
+當前專案的“風控中心”只提供基於 OpenAI Moderations 的內容稽核，非同步觀察依賴程式內佇列，且沒有 aicodex-api 已具備的持久任務佇列、短期敏感載荷儲存、Qwen3Guard 分類、同步 fail-closed 門禁和獨立提示詞事件工作臺。直接替換或擴寫現有內容稽核會混淆兩種風險模型，並可能改變關鍵詞、Hash、郵件和自動封號等既有行為，因此需要以並列、預設關閉的獨立能力引入。
 
 本變更以 `/Users/mt/code/mt-ai/aicodex/aicodex-api` 當前磁碟實現為功能參考基線，把其中與目標專案實際協議入口相適配的提示詞輸入審計能力遷入 sub2api，同時保持現有 OpenAI 相容介面、內容稽核頁面、資料庫記錄和錯誤語義不變。
 
@@ -8,7 +8,7 @@
 
 - 新增獨立的 OpenAI 相容提示詞審計引擎，審計節點通過 `{base_url}/v1/chat/completions` 呼叫 Qwen3Guard，並嚴格解析 `Safety` 與 `Categories`。
 - 新增三態執行模式：關閉、非同步只審計、同步審計並阻止；所有新增開關預設關閉。
-- 新增 PostgreSQL 持久任務佇列、Redis 短 TTL 原文載荷、程序內 Worker、重試退避、processing 租約重新整理和滯留任務回收。
+- 新增 PostgreSQL 持久任務佇列、Redis 短 TTL 原文載荷、程式內 Worker、重試退避、processing 租約重新整理和滯留任務回收。
 - 新增脫敏提示詞快照、Hash、Unicode 分片、最新使用者輸入優先和九類 Qwen3Guard 風險分類。
 - 新增逐分片安全日誌、結構化風險摘要，以及使用者名稱、郵箱、API Key 名稱分列的管理員複核資訊；風險摘要只使用脫敏證據。
 - 新增同步 fail-closed 門禁，在帳號選擇、計費檢查和上游呼叫之前完成；覆蓋目標專案現有 Chat Completions、Responses、Claude Messages、Gemini、影像/媒體文本入口及 Responses WebSocket 首輪與後續輪次。

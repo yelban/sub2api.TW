@@ -44,7 +44,7 @@
 
 ### D4：併發拉取與純函式合併
 - 用 `sync.WaitGroup` 對每個可用帳號併發執行：`FetchCodexModelsManifest(ctx, acc, clientVersion, "")` → API Key 帳號再 `CompleteAPIKeyCodexModelsManifestForClient`。結果寫入按配置順序索引的切片，失敗記錄到同下標的錯誤切片；各帳號獨立完成，不因單帳號失敗取消其他請求。
-- Codex 合併函式 `mergeCodexModelsManifestBodies(bodies [][]byte) ([]byte, error)`：以第一個 body 的頂層信封為基底，`models` 按 slug 並集，先出現者優先；slug 為空或解析失敗的條目按出現順序保留一次。輸出後設置 `ETag = codexModelsManifestBodyETag(body)`，再交給 `MergeGroupConfiguredCodexModels` 做分組過濾與 304 判斷。
+- Codex 合併函式 `mergeCodexModelsManifestBodies(bodies [][]byte) ([]byte, error)`：以第一個 body 的頂層信封為基底，`models` 按 slug 並集，先出現者優先；slug 為空或解析失敗的條目按出現順序保留一次。輸出後設定 `ETag = codexModelsManifestBodyETag(body)`，再交給 `MergeGroupConfiguredCodexModels` 做分組過濾與 304 判斷。
 - 部分失敗：`slog.Warn` 帶 group_id 與失敗帳號 ID 列表。
 - 實現放在新檔案 `openai_codex_models_pinned.go`，避免繼續膨脹 2300 行的主檔案。
 

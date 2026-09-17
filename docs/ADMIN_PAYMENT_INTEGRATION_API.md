@@ -1,13 +1,13 @@
 ﻿# ADMIN_PAYMENT_INTEGRATION_API
 
-> 單檔案中英雙語文件 / Single-file bilingual documentation (Chinese + English)
+> 單檔案中英雙語檔案 / Single-file bilingual documentation (Chinese + English)
 
 ---
 
 ## 中文
 
 ### 目標
-本文件用於對接外部支付系統（如 `sub2apipay`）與 Sub2API 的 Admin API，覆蓋：
+本檔案用於對接外部支付系統（如 `sub2apipay`）與 Sub2API 的 Admin API，覆蓋：
 - 支付成功後充值
 - 使用者查詢
 - 人工餘額修正

@@ -21,10 +21,10 @@ ui/assets/...
 欄位規範見 [`v1/manifest.schema.json`](../v1/manifest.schema.json)。版本欄位含義：
 
 - `version`：外掛自身語義化版本。
-- `requires.sub2api`：宿主硬兼容範圍。
+- `requires.sub2api`：宿主硬相容範圍。
 - `recommended_sub2api_version`：建議宿主版本。
 - `tested_sub2api_versions`：釋出者真實驗證過的版本。
-- `plugin_protocol`：程序握手協議。
+- `plugin_protocol`：程式握手協議。
 - `transport_api`：請求和響應幀協議。
 - `ui_bridge`：配置 UI 訊息協議。
 

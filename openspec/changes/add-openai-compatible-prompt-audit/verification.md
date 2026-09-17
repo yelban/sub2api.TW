@@ -242,7 +242,7 @@ WHERE table_name IN ('prompt_audit_jobs', 'prompt_audit_events')
 - Worker 在 claim 後崩潰，租約到期由另一 Worker reclaim。
 - 舊 Worker 恢復後，舊 claim_version 的 refresh/event/done/retry/failed 全部 affected rows=0，無法覆蓋新領取者狀態或建立重複事件。
 - staging 在 Redis SET 前不可領取。
-- 程序在 Redis SET 與 queued publish 間退出，staging 被回收且 payload TTL 到期。
+- 程式在 Redis SET 與 queued publish 間退出，staging 被回收且 payload TTL 到期。
 - event + done 事務中 event insert 失敗時不得留下 done 無 event 的風險任務。
 - delete-by-filter 與併發新事件/查詢同時執行時，只刪除 id≤snapshot_max_id；偽造、過期或其他管理員的 confirmation_token 均失敗。
 
@@ -286,7 +286,7 @@ AUTH_CANARY_<random>
 URL_QUERY_CANARY_<random>
 ```
 
-不要在 shell 命令列或 CI 引數中直接傳真實 secret；由測試程序生成並只在測試記憶體儲存。
+不要在 shell 命令列或 CI 引數中直接傳真實 secret；由測試程式生成並只在測試記憶體儲存。
 
 ### 9.2 檢查介質
 
@@ -465,7 +465,7 @@ go test ./internal/securityaudit -run TestPromptAuditSyntheticAsyncBaseline -cou
 | Deploy 容器 | Docker Hub 超時後使用已快取的正式執行層 + 當前 `linux/arm64` embed release binary 構建離線增量映象 `sha256:c86353b0...`；Compose 重建後 app/PostgreSQL/Redis healthy，migration 181 已登記，兩張表存在，`/health`=200 |
 | Deploy 管理 API | 本地測試管理員登入成功；`GET config/runtime/events` 均為 200；預設 config=`enabled=false, blocking=false, mode=off, version=1, group_ids=[], endpoints=[]`；runtime active/expected=1/1 |
 | Deploy 頁面 | 首次容器檢查發現並修復預設 `group_ids:null` 導致的執行時錯誤；重建後桌面/390px 窄屏 DOM 與截圖均通過，截圖不含 token/Prompt canary |
-| Deploy 全介質掃描 | 完整生產測試庫所有 public text/varchar/json/jsonb 列動態掃描：hit_columns=0/hit_rows=0；兩表停用列=0；Redis canary key=`0`、channel=`[]`、payload key=`0`；容器日誌 canary=0 |
+| Deploy 全介質掃描 | 完整生產測試庫所有 public text/varchar/json/jsonb 列動態掃描：hit_columns=0/hit_rows=0；兩錶停用列=0；Redis canary key=`0`、channel=`[]`、payload key=`0`；容器日誌 canary=0 |
 
 ### 15.1 Requirement 自動化證據索引
 

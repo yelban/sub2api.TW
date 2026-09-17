@@ -20,7 +20,7 @@ sub2api 當前已經存在一套完整的內容稽核能力：
 - OpenAI 相容 Qwen3Guard 審計池。
 - 持久 PromptAuditJob / PromptAuditEvent。
 - Redis 30 分鐘臨時原文載荷。
-- 程序內 Worker、重試、租約和滯留回收。
+- 程式內 Worker、重試、租約和滯留回收。
 - 脫敏快照、Hash、Unicode 分片、最新輸入優先。
 - 九類風險和嚴格 `Safety/Categories` 解析。
 - 非同步審計與同步 fail-closed 阻斷。
@@ -241,7 +241,7 @@ token_ciphertext, timeout_ms, input_limit, enabled
 
 config_version 每次成功儲存單調加一。change_summary 只儲存節點數量、開關、分類數量、分組數量及其 Hash 等脫敏摘要。
 
-儲存請求必須攜帶管理員讀取草稿時的 `expected_config_version`。ConfigStore 在 PostgreSQL 短事務中獲取 `prompt_audit_config` 專用 advisory transaction lock，重新讀取 settings 當前值並比較版本；不一致時返回 409 `prompt_audit_config_conflict`，不得覆蓋其他管理員的新配置。版本一致時才計算 current+1、加密並寫回。首次無 setting 時按 version=1/default-off 參與比較。程序內 mutex 不能代替該多例項 CAS。
+儲存請求必須攜帶管理員讀取草稿時的 `expected_config_version`。ConfigStore 在 PostgreSQL 短事務中獲取 `prompt_audit_config` 專用 advisory transaction lock，重新讀取 settings 當前值並比較版本；不一致時返回 409 `prompt_audit_config_conflict`，不得覆蓋其他管理員的新配置。版本一致時才計算 current+1、加密並寫回。首次無 setting 時按 version=1/default-off 參與比較。程式內 mutex 不能代替該多例項 CAS。
 
 **備選方案：新增配置表。** 第一版放棄，因為目標專案已有 settings 配置模式，源實現也使用 option JSON；任務和事件才需要獨立關係表。
 
@@ -394,7 +394,7 @@ Worker 只領取 queued/retry，因此不會在 Redis SET 前看到任務。
 - 步驟 3 失敗：不寫 Redis。
 - 步驟 4 失敗：job → failed，原請求繼續。
 - 步驟 5 失敗：刪除 Redis key；job 由 staging 清理器標記 failed。
-- 程序在 4/5 之間退出：Redis 自動過期，staging 回收器標記 failed。
+- 程式在 4/5 之間退出：Redis 自動過期，staging 回收器標記 failed。
 
 這比源實現“先 queued 再寫 Redis”更適合多例項，避免 Worker 提前領取。
 
@@ -437,7 +437,7 @@ Worker 必須把 RETURNING 得到的 `claim_version` 作為 fencing token 儲存
 Runner 生命週期由應用啟動/停止管理：
 
 - Start 驗證 DB、Redis、配置。
-- Worker panic 單任務恢復並記錄，不能殺死程序。
+- Worker panic 單任務恢復並記錄，不能殺死程式。
 - Shutdown 停止領取新任務，等待活動任務到有界超時。
 
 ### 12. OpenAI 相容 Client 使用嚴格 Qwen3Guard 契約
@@ -673,7 +673,7 @@ prompt_audit.events_filter_deleted
 
 ### 21. 不新增外部執行時依賴
 
-使用現有 go-redis、database/sql、Gin、SecretEncryptor、logger、Vue 3、Axios 和測試工具。Qwen3Guard 是外部 OpenAI 相容服務，不在本倉庫啟動模型程序。
+使用現有 go-redis、database/sql、Gin、SecretEncryptor、logger、Vue 3、Axios 和測試工具。Qwen3Guard 是外部 OpenAI 相容服務，不在本倉庫啟動模型程式。
 
 不引入新的 Go 佇列庫、ORM、前端狀態庫或 UI 框架。
 

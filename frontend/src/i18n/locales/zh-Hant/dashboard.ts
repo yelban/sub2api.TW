@@ -83,6 +83,21 @@ export default {
     columnAlwaysVisible: '該列固定顯示，不可隱藏',
     createKey: '建立金鑰',
     editKey: '編輯金鑰',
+    bulkEdit: {
+      title: '批次編輯',
+      selectedCount: '已選擇 {count} 個金鑰',
+      selectKey: '選擇金鑰 {name}',
+      clearSelection: '取消選擇',
+      hint: '勾選需要修改的欄位，未勾選的欄位保持原值。',
+      limitHint: '輸入 0 表示不限制；已用額度保持不變。',
+      ipHint: '每行一個 IP 或 CIDR；留空將清空所選金鑰的此項名單。',
+      invalidLimit: '請輸入大於或等於 0 的有效金額。',
+      invalidExpiration: '請選擇有效的過期時間，或勾選永久有效。',
+      apply: '應用到 {count} 個金鑰',
+      success: '已更新 {count} 個金鑰',
+      partialFailure: '已更新 {success} 個金鑰，{failed} 個失敗',
+      failureHint: '以下金鑰更新失敗，可修改設定後重試。再次提交只會更新失敗的金鑰。'
+    },
     deleteKey: '刪除金鑰',
     deleteConfirmMessage: "確定要刪除 '{name}' 嗎？此操作無法撤銷。",
     id: 'ID',
@@ -101,6 +116,19 @@ export default {
     nameLabel: '名稱',
     namePlaceholder: '我的 API 金鑰',
     groupLabel: '分組',
+    providerLabel: '廠商',
+    providers: {
+      anthropic: 'Anthropic',
+      openai: 'OpenAI',
+      domestic: '國產模型',
+      other: '其他'
+    },
+    providerHints: {
+      anthropic: '選擇 Anthropic / Claude 的可用分組',
+      openai: '選擇 OpenAI / GPT 的可用分組',
+      domestic: '包含 DeepSeek、Kimi、智譜 GLM、MiniMax',
+      other: '包含 Gemini、Grok、Antigravity、OpenCode 和混合分組'
+    },
     selectGroup: '選擇分組',
     statusLabel: '狀態',
     selectStatus: '選擇狀態',

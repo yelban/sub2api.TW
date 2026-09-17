@@ -8,7 +8,7 @@
 /api/v1/plugin-ui/<asset-token>/index.html#bridge_token=<bridge-token>
 ```
 
-資源 Token 用於讀取包內 `ui/` 檔案，Bridge Token 只存在於 URL fragment，不會發送到伺服器。iframe 使用 `sandbox="allow-scripts"`，不授予 `allow-same-origin`。
+資源 Token 用於讀取包內 `ui/` 檔案，Bridge Token 只存在於 URL fragment，不會傳送到伺服器。iframe 使用 `sandbox="allow-scripts"`，不授予 `allow-same-origin`。
 
 UI 只能載入包內、已在清單宣告的資源。CSP 禁止外部網路連線、表單提交和外部 frame。
 

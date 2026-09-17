@@ -50,8 +50,8 @@
 </tr>
 
 <tr>
-<td width="180"><a href="https://apikey.fun/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
-<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fun/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。通過專屬連結 <a href="https://apikey.fun/register?aff=SUB2API">APIKEY</a> 註冊，可享受充值最高 95 折優惠。</td>
+<td width="180"><a href="https://apikey.fan/register?aff=SUB2API"><img src="assets/partners/logos/apikey-fun.png" alt="APIKEY.FUN" width="150"></a></td>
+<td>感謝 APIKEY.FUN 贊助了本專案！<a href="https://apikey.fan/register?aff=SUB2API">APIKEY.FUN</a> 是 sub2api 開源專案的核心貢獻者之一，致力於提供開放、穩定、高價效比的 AI API 接入服務。平臺支援 Claude、OpenAI、Gemini 等熱門模型的 API 中轉服務，價格低至官方原價的 7%。通過專屬連結 <a href="https://apikey.fan/register?aff=SUB2API">APIKEY</a> 註冊，可享受充值最高 95 折優惠。</td>
 </tr>
 
 <tr>
@@ -102,14 +102,6 @@
 <tr>
 <td width="180"><a href="https://www.proxy4free.com/?keyword=4yjqecpc"><img src="assets/partners/logos/proxy4free.png" alt="proxy4free" width="150"></a></td>
 <td>感謝 Proxy4Free 贊助本專案！Proxy4Free 是面向開發者和 AI 應用的資料代理服務商，提供住宅代理、靜態住宅代理、ISP 代理及資料中心代理等多種代理解決方案，適用於 Web Scraping、Browser Automation、AI Agent 等場景。支援全球 IP 資源、穩定連線與靈活切換，幫助開發者提升資料採整合功率，降低 IP 封禁風險。通過<a href="https://www.proxy4free.com/?keyword=4yjqecpc">此連結註冊</a>即可開始體驗，輕鬆構建更穩定、高效的自動化工作流。
-</td>
-</tr>
-
-<tr>
-<td width="180"><a href="http://www.fastaitoken.com/register"><img src="assets/partners/logos/fastaitoken.jpg" alt="fastaitoken" width="150"></a></td>
-<td>🎉 感謝 FastAIToken 對本專案的贊助！ <a href="http://www.fastaitoken.com/register">FastAIToken</a> 是面向開發者的 AI API 聚合平臺，支援 OpenAI、Claude、Gemini 等主流大模型，充值 1:1，1 元 = 1 美元 API 額度，讓開發者以更低成本、更便捷地使用全球領先的大模型服務。<br>
-
-🚀 平臺提供多種渠道自由選擇：超級低價的0.02x OpenAI 福利分組（限時）、低至 0.25x OpenAI 分組、0.7x Claude 95%固定快取、1.2x Claude Max 渠道；同時提供公開狀態頁，即時展示各分組的可用率、延遲及執行狀態，服務透明可靠，並提供 7×24 小時真人技術支援（非機器人），快速響應開發者需求。
 </td>
 </tr>
 
