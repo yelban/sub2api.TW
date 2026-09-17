@@ -41,7 +41,8 @@ export const useAdminComplianceStore = defineStore('adminCompliance', () => {
     try {
       const nextStatus = await adminComplianceAPI.accept({
         phrase,
-        language: currentLocale.value
+        // fork：zh-Hant 顯示英文短語，送出語言要跟顯示一致（後端把 zh* 都當簡體比對）
+        language: currentLocale.value === 'zh' ? 'zh' : 'en'
       })
       status.value = nextStatus
       forceVisible.value = nextStatus.required
