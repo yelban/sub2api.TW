@@ -53,6 +53,24 @@ export const i18n = createI18n({
   warnHtmlMessage: false
 })
 
+// fork 品牌：介面文字的 Sub2API 顯示為 Tok2Hub。
+// 「上游 Sub2API 站點」指的是別台 Sub2API 實例，保留原名。
+const BRAND_NAME = 'Tok2Hub'
+const BRAND_PATTERN = /(?<!上游 |upstream )Sub2API/g
+
+function applyBrand(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.replace(BRAND_PATTERN, BRAND_NAME)
+  }
+  if (Array.isArray(value)) {
+    return value.map(applyBrand)
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, applyBrand(child)]))
+  }
+  return value
+}
+
 const loadedLocales = new Set<LocaleCode>()
 
 export async function loadLocaleMessages(locale: LocaleCode): Promise<void> {
@@ -62,7 +80,7 @@ export async function loadLocaleMessages(locale: LocaleCode): Promise<void> {
 
   const loader = localeLoaders[locale]
   const module = await loader()
-  i18n.global.setLocaleMessage(locale, module.default)
+  i18n.global.setLocaleMessage(locale, applyBrand(module.default) as LocaleMessages)
   loadedLocales.add(locale)
 }
 
