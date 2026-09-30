@@ -625,6 +625,8 @@ export default {
       billingModePerRequest: '按次',
       billingModeImage: '按圖片',
       billingModeVideo: '按影片',
+      videoPrice: '影片單價',
+      unitPerSecond: '/ 秒',
       inputPrice: '輸入',
       outputPrice: '輸出',
       cacheWritePrice: '快取寫入',
@@ -678,8 +680,8 @@ export default {
       cacheReadShort: '讀',
       tierHint: '按單次請求的總上下文（輸入 + 快取寫入 + 快取讀取）所在檔位對整單計價',
       tierHintMarginal: '僅超過閾值的部分按該檔計價，輸出不加價',
-      maxReasoningMultiplierBadge: 'Max ×{multiplier}',
-      maxReasoningMultiplierHint: '最終轉發的推理強度為 max 時，整次請求的計費與額度消耗乘以 {multiplier}',
+      reasoningMultiplierBadge: '{effort} ×{multiplier}',
+      reasoningMultiplierHint: '最終轉發的思考等級為 {effort} 時，整次請求的計費與額度消耗乘以 {multiplier}；未配置的等級按 1 倍計費',
       marginalBadge: '超出部分計價',
       timePricingRowHint: '按 {timezone} 時間，在該時段內發起的請求按本行價格計費',
       timePricingRowHintWeekdays:
@@ -788,6 +790,7 @@ export default {
     days: '天',
     codeRedeemSuccess: '兌換成功！',
     failedToRedeem: '兌換失敗，請檢查兌換碼後重試。',
+    historyLoadFailed: '載入兌換記錄失敗，請重試。',
     userRefreshFailed: '兌換成功，但帳戶資訊重新整理失敗。',
     subscriptionRefreshFailed: '兌換成功，但訂閱狀態重新整理失敗。',
     pleaseEnterCode: '請輸入兌換碼'

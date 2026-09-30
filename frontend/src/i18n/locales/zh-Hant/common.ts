@@ -211,7 +211,7 @@ export default {
     channelStatus: '渠道狀態',
     riskControl: '風控中心',
     securityAudit: '安全審計',
-    contentModeration: '內容稽核',
+    contentModeration: '內容審計',
     promptAudit: '提示詞審計',
     auditLogs: '操作日誌',
   },

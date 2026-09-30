@@ -1,55 +1,55 @@
-# Sub2API 本地插件协议
+# Sub2API 本地外掛協議
 
-本目录是插件开发者可以依赖的公开契约。`v1/plugin.proto` 和 `v1/runtime.go` 定义进程协议，`v1/manifest.schema.json` 定义包清单，`docs/` 记录开发和发布规范。Provider 私有实现不应放入本目录。
+本目錄是外掛開發者可以依賴的公開契約。`v1/plugin.proto` 和 `v1/runtime.go` 定義程序協議，`v1/manifest.schema.json` 定義包清單，`docs/` 記錄開發和釋出規範。Provider 私有實現不應放入本目錄。
 
-## 开发文档
+## 開發文件
 
-- [开发指南](docs/development.md)：从运行时、配置到集成测试的完整流程。
-- [UI Bridge](docs/ui-bridge.md)：沙箱配置 UI 的消息结构和安全要求。
-- [包格式](docs/package-format.md)：清单、文件哈希、签名和版本规则。
-- [安全边界](docs/security.md)：进程权限、敏感数据和故障策略。
+- [開發指南](docs/development.md)：從執行時、配置到整合測試的完整流程。
+- [UI Bridge](docs/ui-bridge.md)：沙箱配置 UI 的訊息結構和安全要求。
+- [包格式](docs/package-format.md)：清單、檔案雜湊、簽名和版本規則。
+- [安全邊界](docs/security.md)：程序許可權、敏感資料和故障策略。
 
-## 实体与运行方式
+## 實體與執行方式
 
-插件的交付实体是一个 `.s2plugin` 文件，本质上是带清单、签名、独立可执行文件和静态 UI 的 ZIP 包。管理员在独立的插件管理页手动上传，Sub2API 不从网络自动下载插件，也不要求 Docker。
+外掛的交付實體是一個 `.s2plugin` 檔案，本質上是帶清單、簽名、獨立執行檔和靜態 UI 的 ZIP 包。管理員在獨立的外掛管理頁手動上傳，Sub2API 不從網路自動下載外掛，也不要求 Docker。
 
-启用后，Sub2API 以子进程方式拉起当前操作系统和 CPU 架构对应的二进制，通过本机 gRPC 流传递请求与响应。插件进程退出时会随 Sub2API 清理；停用时先停止接收新请求，再等待正在处理的请求结束。
+啟用後，Sub2API 以子程序方式拉起當前作業系統和 CPU 架構對應的二進位制，通過本機 gRPC 流傳遞請求與響應。外掛程序退出時會隨 Sub2API 清理；停用時先停止接收新請求，再等待正在處理的請求結束。
 
-多实例部署不要求共享插件目录。宿主会在数据库保存已验签的原始插件包，各实例缺少本地文件时会重新验签和解包，并周期性对齐启用状态、灰度比例和加密配置。所有实例必须连接同一数据库并使用相同的加密密钥。
+多例項部署不要求共享外掛目錄。宿主會在資料庫儲存已驗籤的原始外掛包，各例項缺少本地檔案時會重新驗籤和解包，並週期性對齊啟用狀態、灰度比例和加密配置。所有例項必須連線同一資料庫並使用相同的加密金鑰。
 
-独立进程是代码和发布边界，不是操作系统安全沙箱。插件拥有 Sub2API 服务用户所拥有的文件和网络权限，因此只应安装可信发布者的签名包。闭源二进制可提高源码分发门槛，但不能承诺无法反编译。
+獨立程序是程式碼和釋出邊界，不是作業系統安全沙箱。外掛擁有 Sub2API 服務使用者所擁有的檔案和網路許可權，因此只應安裝可信釋出者的簽名包。閉源二進位制可提高原始碼分發門檻，但不能承諾無法反編譯。
 
-## 初期能力边界
+## 初期能力邊界
 
-当前只接受 `openai.oauth.outbound_transport.v1`：
+當前只接受 `openai.oauth.outbound_transport.v1`：
 
-- 仅匹配 `platform=openai` 且 `account_type=oauth` 的上游 HTTP 请求。
-- API Key 账号、其他 provider、OAuth 登录与 Token 刷新流程不进入插件。
-- 插件建立真实的上游 HTTP/TLS 连接并返回原始 HTTP 响应。
-- 命中插件的 OAuth WebSocket 账号会使用 Sub2API 现有 HTTP Bridge，不直接建立上游 WebSocket，避免绕过 v1 HTTP 插件协议。
-- Sub2API 继续负责响应状态处理、SSE 解析、错误映射、用量统计、计费和下游输出。
-- 灰度比例以账号 ID 稳定分桶，未命中的 OAuth 账号继续使用原有内置路径。
+- 僅匹配 `platform=openai` 且 `account_type=oauth` 的上游 HTTP 請求。
+- API Key 帳號、其他 provider、OAuth 登入與 Token 重新整理流程不進入外掛。
+- 外掛建立真實的上游 HTTP/TLS 連線並返回原始 HTTP 響應。
+- 命中外掛的 OAuth WebSocket 帳號會使用 Sub2API 現有 HTTP Bridge，不直接建立上游 WebSocket，避免繞過 v1 HTTP 外掛協議。
+- Sub2API 繼續負責響應狀態處理、SSE 解析、錯誤對映、用量統計、計費和下游輸出。
+- 灰度比例以帳號 ID 穩定分桶，未命中的 OAuth 帳號繼續使用原有內建路徑。
 
-## 宿主服务（HostService）
+## 宿主服務（HostService）
 
-`HostService` 是宿主经 go-plugin broker 反向暴露给插件的通用能力层，独立于具体插件类型，供有状态插件使用。它通过 `TransportPlugin.InitHostServices` 在运行时协商：宿主启动后把一个 broker 流 id 交给插件，插件用它拨号回宿主并获得 `HostServiceClient`。
+`HostService` 是宿主經 go-plugin broker 反向暴露給外掛的通用能力層，獨立於具體外掛型別，供有狀態外掛使用。它通過 `TransportPlugin.InitHostServices` 在執行時協商：宿主啟動後把一個 broker 流 id 交給外掛，外掛用它撥號回宿主並獲得 `HostServiceClient`。
 
-- **可选且向后兼容**：未实现 `InitHostServices` 的旧插件返回 `Unimplemented`，宿主静默跳过，转发能力不受影响。宿主服务有独立的 `HostServiceAPIVersion`，新增能力不会改变传输契约版本，也不会使既有插件失效。
-- **随进程回收**：宿主服务实例与插件进程生命周期绑定，插件退出时 broker 关闭并自动 `GracefulStop`，无需插件手动清理。
+- **可選且向後相容**：未實現 `InitHostServices` 的舊外掛返回 `Unimplemented`，宿主靜默跳過，轉發能力不受影響。宿主服務有獨立的 `HostServiceAPIVersion`，新增能力不會改變傳輸契約版本，也不會使既有外掛失效。
+- **隨程序回收**：宿主服務例項與外掛程序生命週期繫結，外掛退出時 broker 關閉並自動 `GracefulStop`，無需外掛手動清理。
 
-当前提供的通用设施：
+當前提供的通用設施：
 
-- **命名空间键值存储（KV）**：`KVGet` / `KVSet` / `KVDelete` / `KVList`，为插件持久化跨请求、跨副本、跨重启的状态。存储由 Redis 支撑，因此多实例部署天然共享同一份状态。
-  - **命名空间隔离**：宿主根据服务该连接的运行时注入插件身份（`pluginKey`），插件无法伪造，也无法读写其它插件的命名空间。
-  - **护栏**：`namespace` / `key` 仅允许 `[A-Za-z0-9._-]`；单值上限 256 KiB；`ttl_seconds` 为 0 表示不过期、正值有上限；`KVList` 返回条数有上限。
+- **名稱空間鍵值儲存（KV）**：`KVGet` / `KVSet` / `KVDelete` / `KVList`，為外掛持久化跨請求、跨副本、跨重啟的狀態。儲存由 Redis 支撐，因此多例項部署天然共享同一份狀態。
+  - **名稱空間隔離**：宿主根據服務該連線的執行時注入外掛身份（`pluginKey`），外掛無法偽造，也無法讀寫其它外掛的名稱空間。
+  - **護欄**：`namespace` / `key` 僅允許 `[A-Za-z0-9._-]`；單值上限 256 KiB；`ttl_seconds` 為 0 表示不過期、正值有上限；`KVList` 返回條數有上限。
 
-新增宿主设施时，在 `HostService` 上追加 RPC 即可，无需改动传输契约或清单格式。
+新增宿主設施時，在 `HostService` 上追加 RPC 即可，無需改動傳輸契約或清單格式。
 
-## 包结构
+## 包結構
 
 ```text
 manifest.json
-signature.json                 # 生产包必需
+signature.json                 # 生產包必需
 runtimes/linux-amd64/plugin
 runtimes/linux-arm64/plugin
 runtimes/windows-amd64/plugin.exe
@@ -57,45 +57,45 @@ ui/index.html
 ui/assets/...
 ```
 
-`manifest.json` 必须声明所有运行时和 UI 文件的 SHA-256。`signature.json` 使用受信任发布者的 Ed25519 私钥对 `manifest.json` 原始字节签名。官方 OpenAI Transport 公钥由宿主内置，第三方发布者公钥由部署者追加到 `plugins.trusted_publishers`。文件哈希由已签名清单保护。
+`manifest.json` 必須宣告所有執行時和 UI 檔案的 SHA-256。`signature.json` 使用受信任釋出者的 Ed25519 私鑰對 `manifest.json` 原始位元組簽名。官方 OpenAI Transport 公鑰由宿主內建，第三方釋出者公鑰由部署者追加到 `plugins.trusted_publishers`。檔案雜湊由已簽名清單保護。
 
-插件默认保持停用。未签名包默认拒绝安装；`plugins.allow_unsigned` 只应用于开发者自己构建的本地调试包。
+外掛預設保持停用。未簽名包預設拒絕安裝；`plugins.allow_unsigned` 只應用於開發者自己構建的本地除錯包。
 
-## 兼容性
+## 相容性
 
-清单必须同时声明：
+清單必須同時宣告：
 
-- `requires.sub2api`：允许的 Sub2API 语义化版本范围。
-- `requires.recommended_sub2api_version`：建议使用的宿主版本。
-- `requires.tested_sub2api_versions`：发布者实际验证过的宿主版本。
-- `plugin_protocol`、`transport_api`、`ui_bridge`：三个独立协议版本。
+- `requires.sub2api`：允許的 Sub2API 語義化版本範圍。
+- `requires.recommended_sub2api_version`：建議使用的宿主版本。
+- `requires.tested_sub2api_versions`：釋出者實際驗證過的宿主版本。
+- `plugin_protocol`、`transport_api`、`ui_bridge`：三個獨立協議版本。
 
-宿主版本超出范围时，插件可以安装并查看，但保持“不兼容”状态且不能启用。版本在范围内但未列入已测试版本时，管理员必须再次确认才能启用。
+宿主版本超出範圍時，外掛可以安裝並檢視，但保持“不相容”狀態且不能啟用。版本在範圍內但未列入已測試版本時，管理員必須再次確認才能啟用。
 
-## UI 隔离与 Bridge
+## UI 隔離與 Bridge
 
-插件 UI 由包内静态文件实现，宿主使用只有 `allow-scripts` 权限的 sandbox iframe 加载。iframe 没有管理员 Token，也不能直接访问管理 API。宿主为每次打开配置页生成短时资源 URL 和独立 Bridge Token，并且同时校验消息来源窗口与 Token。
+外掛 UI 由包內靜態檔案實現，宿主使用只有 `allow-scripts` 許可權的 sandbox iframe 載入。iframe 沒有管理員 Token，也不能直接訪問管理 API。宿主為每次開啟配置頁生成短時資源 URL 和獨立 Bridge Token，並且同時校驗訊息來源視窗與 Token。
 
-UI 可以发送以下消息。消息按语义分层，鉴权与副作用一致对应（读操作免二次验证，写/主动测试需要二次验证），任何插件都可复用，不针对具体插件定制：
+UI 可以傳送以下訊息。訊息按語義分層，鑑權與副作用一致對應（讀操作免二次驗證，寫/主動測試需要二次驗證），任何外掛都可複用，不針對具體外掛定製：
 
-| 消息 | 语义 | 二次验证 | 映射的插件 RPC |
+| 訊息 | 語義 | 二次驗證 | 對映的外掛 RPC |
 | --- | --- | --- | --- |
-| `config.load` | 读取已保存配置 | 否 | 宿主数据库 |
-| `config.save` | 写入配置 | 是 | `ValidateConfig` + `ApplyConfig` |
-| `config.test` | 主动测试配置/连通性（可产生副作用） | 是 | `TestConfig` |
-| `plugin.status` | 读取运行时状态（无副作用） | 否 | `Health`（`status_json`） |
-| `ui.resize` / `ui.notify` | 仅 UI 交互 | — | — |
+| `config.load` | 讀取已儲存配置 | 否 | 宿主資料庫 |
+| `config.save` | 寫入配置 | 是 | `ValidateConfig` + `ApplyConfig` |
+| `config.test` | 主動測試配置/連通性（可產生副作用） | 是 | `TestConfig` |
+| `plugin.status` | 讀取執行時狀態（無副作用） | 否 | `Health`（`status_json`） |
+| `ui.resize` / `ui.notify` | 僅 UI 互動 | — | — |
 
-每个请求消息带 `request_id`，宿主以 `<type>.result` 返回结果。
+每個請求訊息帶 `request_id`，宿主以 `<type>.result` 返回結果。
 
-- 配置整体使用 Sub2API 的密钥加密后存入数据库；运行中插件会先验证并应用新配置，数据库写入失败时恢复旧配置。
-- `config.test` 的结果由插件 UI 自行展示（内联或经 `ui.notify`），宿主不再对成功结果强制弹出提示，避免插件把它当作轻量状态轮询时刷屏。
-- `plugin.status` 是通用的**只读**状态通道：宿主经 `GET /admin/plugins/:id/status` 调用运行中插件的 `Health`，返回 `{healthy, message, status_json}`。`status_json` 是插件自定义的**不透明** JSON 快照（宿主不解析、不参与健康判定），插件必须以无副作用方式生成（不得应用配置、访问上游或触发探测），因此该端点只读、免二次验证。插件未运行时返回 `healthy=false` 且不含 `status_json`。这样带状态面板的插件无需滥用 `config.test` 即可展示实时状态。
+- 配置整體使用 Sub2API 的金鑰加密後存入資料庫；執行中外掛會先驗證並應用新配置，資料庫寫入失敗時恢復舊配置。
+- `config.test` 的結果由外掛 UI 自行展示（內聯或經 `ui.notify`），宿主不再對成功結果強制彈出提示，避免外掛把它當作輕量狀態輪詢時刷屏。
+- `plugin.status` 是通用的**只讀**狀態通道：宿主經 `GET /admin/plugins/:id/status` 呼叫執行中外掛的 `Health`，返回 `{healthy, message, status_json}`。`status_json` 是外掛自定義的**不透明** JSON 快照（宿主不解析、不參與健康判定），外掛必須以無副作用方式生成（不得應用配置、訪問上游或觸發探測），因此該端點只讀、免二次驗證。外掛未執行時返回 `healthy=false` 且不含 `status_json`。這樣帶狀態面板的外掛無需濫用 `config.test` 即可展示即時狀態。
 
-## 协议源码
+## 協議原始碼
 
-- `v1/plugin.proto`：稳定的进程间消息定义。
-- `v1/runtime.go`：Go 插件进程启动入口和宿主客户端声明。
+- `v1/plugin.proto`：穩定的程序間訊息定義。
+- `v1/runtime.go`：Go 外掛程序啟動入口和宿主客戶端宣告。
 - `v1/manifest.schema.json`：`manifest.json` 的 JSON Schema。
 
-插件通过进程协议协作，不使用 Go 动态链接，也不要求插件与 Sub2API 使用相同编译器或共享内存 ABI。
+外掛通過程序協議協作，不使用 Go 動態連結，也不要求外掛與 Sub2API 使用相同編譯器或共享記憶體 ABI。

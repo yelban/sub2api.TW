@@ -1,15 +1,15 @@
 # Seedance 原生 API
 
-支持火山方舟 Ark 的异步视频任务协议，无需把 `content[]` 转换成 OpenAI `messages` 或 Grok `prompt`。
+支援火山方舟 Ark 的非同步影片任務協議，無需把 `content[]` 轉換成 OpenAI `messages` 或 Grok `prompt`。
 
 ## 配置
 
-1. 创建 OpenAI 平台的 **API Key** 账号，填写 Ark API Key，Base URL 使用 `https://ark.cn-beijing.volces.com/api/v3`。兼容服务可填写自己的 `/api/v3` 或 `/v3` Base URL。
-2. 在账号的端点能力中勾选 **Seedance (Ark)**。默认不启用，避免请求误调度到其他 OpenAI 账号。支持创建、编辑与批量编辑。
-3. 将账号加入 OpenAI 分组并启用分组的「允许图片生成」媒体权限；合成分组也可路由到这些账号。
-4. 配置模型映射，例如将公开模型名 `seedance-video` 映射到实际 `doubao-seedance-*` 模型或 `ep-*` 推理接入点。配置对应模型的输出 token 价格；本接口不使用 Grok 的按秒视频价格。
+1. 建立 OpenAI 平臺的 **API Key** 帳號，填寫 Ark API Key，Base URL 使用 `https://ark.cn-beijing.volces.com/api/v3`。相容服務可填寫自己的 `/api/v3` 或 `/v3` Base URL。
+2. 在帳號的端點能力中勾選 **Seedance (Ark)**。預設不啟用，避免請求誤排程到其他 OpenAI 帳號。支援建立、編輯與批次編輯。
+3. 將帳號加入 OpenAI 分組並啟用分組的「允許圖片生成」媒體許可權；合成分組也可路由到這些帳號。
+4. 配置模型對映，例如將公開模型名 `seedance-video` 對映到實際 `doubao-seedance-*` 模型或 `ep-*` 推理接入點。配置對應模型的輸出 token 價格；本介面不使用 Grok 的按秒影片價格。
 
-## 调用
+## 呼叫
 
 ```bash
 curl "$SUB2API_BASE_URL/api/v3/contents/generations/tasks" \
@@ -17,14 +17,14 @@ curl "$SUB2API_BASE_URL/api/v3/contents/generations/tasks" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "seedance-video",
-    "content": [{"type": "text", "text": "海浪轻轻拍打沙滩"}],
+    "content": [{"type": "text", "text": "海浪輕輕拍打沙灘"}],
     "duration": 5,
     "resolution": "720p",
     "ratio": "16:9",
     "generate_audio": true
   }'
 
-# 使用创建响应中的原生 id 查询，直至 succeeded / failed / cancelled 等终态。
+# 使用建立響應中的原生 id 查詢，直至 succeeded / failed / cancelled 等終態。
 curl "$SUB2API_BASE_URL/api/v3/contents/generations/tasks/$TASK_ID" \
   -H "Authorization: Bearer $SUB2API_KEY"
 
@@ -32,14 +32,14 @@ curl -X DELETE "$SUB2API_BASE_URL/api/v3/contents/generations/tasks/$TASK_ID" \
   -H "Authorization: Bearer $SUB2API_KEY"
 ```
 
-亦支持 `/v3`、`/v1` 和无版本前缀别名。Ark SDK 的 Base URL 可改为 `$SUB2API_BASE_URL/api/v3`。文本、图片、视频、音频内容、角色及扩展参数原样传递，仅按账号配置改写模型名；响应保持上游原生格式。
+亦支援 `/v3`、`/v1` 和無版本字首別名。Ark SDK 的 Base URL 可改為 `$SUB2API_BASE_URL/api/v3`。文本、圖片、影片、音訊內容、角色及擴充套件引數原樣傳遞，僅按帳號配置改寫模型名；響應保持上游原生格式。
 
-## 任务与计费
+## 任務與計費
 
-- 查询和删除只能访问同一用户、同一 API Key、同一分组创建的任务，并始终使用原提交账号；不会转到其他账号查询。
-- 创建时不扣 token 用量。首次查询到 `succeeded` 后，根据上游 `usage.completion_tokens` 计费；重复查询由共享缓存声明和持久化用量去重共同保护。失败、排队及运行中的任务不计费。
-- Redis 保存任务绑定及创建时的模型快照，默认 24 小时。需保留 Redis 状态并在有效期内查询完成结果。当前不会后台轮询；只使用回调而不查询的任务不会自动结算。
-- 不开放上游的任务列表接口，防止共享账号的任务泄露给其他用户。删除遵循上游语义，不自动退款。
-- 异步创建的上游错误不自动重试，以免重复创建付费任务。
+- 查詢和刪除只能訪問同一使用者、同一 API Key、同一分組建立的任務，並始終使用原提交帳號；不會轉到其他帳號查詢。
+- 建立時不扣 token 用量。首次查詢到 `succeeded` 後，根據上游 `usage.completion_tokens` 計費；重複查詢由共享快取宣告和持久化用量去重共同保護。失敗、排隊及執行中的任務不計費。
+- Redis 儲存任務繫結及建立時的模型快照，預設 24 小時。需保留 Redis 狀態並在有效期內查詢完成結果。當前不會後臺輪詢；只使用回撥而不查詢的任務不會自動結算。
+- 不開放上游的任務列表介面，防止共享帳號的任務洩露給其他使用者。刪除遵循上游語義，不自動退款。
+- 非同步建立的上游錯誤不自動重試，以免重複建立付費任務。
 
-协议依据：[火山官方 Go SDK](https://github.com/volcengine/volcengine-go-sdk/blob/master/service/arkruntime/model/content_generation.go)、[创建任务文档](https://www.volcengine.com/docs/82379/1520757)、[查询任务文档](https://www.volcengine.com/docs/82379/1521309)。
+協議依據：[火山官方 Go SDK](https://github.com/volcengine/volcengine-go-sdk/blob/master/service/arkruntime/model/content_generation.go)、[建立任務文件](https://www.volcengine.com/docs/82379/1520757)、[查詢任務文件](https://www.volcengine.com/docs/82379/1521309)。

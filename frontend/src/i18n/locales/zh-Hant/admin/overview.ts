@@ -50,6 +50,7 @@ export default {
       tokens: 'Token',
       cache: '快取',
       recentUsage: '最近使用',
+      actualSpending: '實際消費 ($)',
       viewModelDistribution: '模型分佈',
       viewSpendingRanking: '使用者消費榜',
       spendingRankingTitle: '使用者消費榜',
@@ -122,10 +123,42 @@ export default {
         cronExpr: 'Cron 表示式',
         cronHint: '例如 "0 2 * * *" 表示每天凌晨 2 點',
         retainDays: '備份過期天數',
-        retainDaysHint: '備份檔案超過此天數後自動刪除，0 = 永不過期',
+        retainDaysHint: '普通備份超過此天數後自動刪除，0 = 不按天數清理',
         retainCount: '最大保留份數',
-        retainCountHint: '最多保留的備份數量，0 = 不限制',
+        retainCountHint: '最多保留的普通備份數量，0 = 不按份數清理',
+        ordinaryRetention: '普通備份保留',
+        ordinaryHint: '達到任一清理條件時，清理最舊的普通備份；月度歸檔獨立保留。',
+        preview: '保留效果',
+        previewBoth: '最近 {days} 天內最多保留 {count} 份普通備份。',
+        previewDays: '保留最近 {days} 天的普通備份，份數不限。',
+        previewCount: '保留最新 {count} 份普通備份，天數不限。',
+        previewUnlimited: '普通備份不自動清理。',
         saved: '定時備份配置已儲存'
+      },
+      archive: {
+        title: '月度歸檔',
+        enabled: '啟用',
+        dates: '歸檔日期（可多選）',
+        selectDates: '請至少選擇一個歸檔日期',
+        selectedDates: '已選擇 {count} 個日期',
+        day: '{day} 日',
+        monthEnd: '月末',
+        done: '完成',
+        datesHint: '按備份計劃的時區與備份開始日期匹配，每個日期歸檔首份成功的定時備份。',
+        retention: '歸檔保留方式',
+        count: '歸檔保留數量',
+        copies: '份',
+        forever: '永久保留',
+        foreverHint: '所有新歸檔均永久保留；已有永久歸檔不會因配置變更被自動刪除。',
+        countHint: '所有選定日期的非永久歸檔合計計數，超出時清理最舊歸檔。',
+        fallbackHint: '當日無成功備份時，順延至本月下次成功備份；當月沒有所選日期時按月末處理，同一份備份只計一份。',
+        independentHint: '歸檔不額外執行備份，不佔普通備份名額；本月無後續成功備份則不歸檔。',
+        disabledHint: '關閉後停止產生新歸檔，已有歸檔繼續按原保留方式管理。',
+        invalidRetention: '保留天數和份數須為非負整數；非永久歸檔須填寫至少 1 份。',
+        preview: '每月 {dates} 各歸檔一份，{retention}。',
+        retainLatest: '合計保留最近 {count} 份',
+        badge: '月度歸檔',
+        deleteConfirm: '這是月度歸檔備份。確定要解除歸檔保護並永久刪除此備份嗎？此操作無法撤銷。',
       },
       operations: {
         title: '備份記錄',
@@ -390,10 +423,12 @@ export default {
 
     affiliates: {
       invitesDescription: '檢視全站邀請關係和被邀請使用者累計返利',
-      rebatesDescription: '檢視每一筆產生返利的充值訂單',
-      transfersDescription: '檢視返利額度轉入帳戶餘額的提取流水',
+      rebatesDescription: '檢視每一筆返利入帳，包括充值訂單、兌換碼和管理員充值產生的返利',
+      transfersDescription: '檢視返利額度轉入餘額與線下提現的流水',
       errors: {
-        loadFailed: '載入邀請返利記錄失敗'
+        loadFailed: '載入邀請返利記錄失敗',
+        AFFILIATE_QUOTA_INSUFFICIENT: '可提取返利額度不足',
+        AFFILIATE_WITHDRAW_AMOUNT_INVALID: '提現金額無效'
       },
       records: {
         search: '搜尋',
@@ -418,7 +453,33 @@ export default {
         historyQuotaAfter: '提取後歷史返利',
         invitedAt: '邀請時間',
         rebatedAt: '返利時間',
-        transferredAt: '提取時間'
+        transferredAt: '提取時間',
+        outflowType: '型別'
+      },
+      outflowTypes: {
+        transfer: '轉入餘額',
+        withdraw: '線下提現'
+      },
+      withdraw: {
+        button: '登記線下提現',
+        title: '登記線下提現',
+        user: '使用者',
+        userPlaceholder: '輸入郵箱或使用者名稱搜尋',
+        noUserFound: '未找到匹配的使用者',
+        changeUser: '更換使用者',
+        availableQuota: '當前可提取額度',
+        frozenHint: '凍結期內的返利不計入可提取額度',
+        amount: '提現金額（USD）',
+        amountHint: '填寫已在站外實際打款給該使用者的金額',
+        fillAll: '全部',
+        warning: '登記後將從該使用者的可提取返利額度中扣除，且無法撤銷。請確認已完成站外打款。',
+        submit: '確認登記',
+        submitting: '登記中...',
+        success: '已登記線下提現 {amount}，剩餘可提取 {remaining}',
+        replayed: '這筆線下提現此前已登記（{amount}），本次未重複扣減；登記後剩餘可提取 {remaining}',
+        uncertainHint: '上次提交沒有收到結果，可能已經登記成功。使用者與金額已鎖定，重新提交會沿用同一筆登記，已登記時不會重複扣減。',
+        amountRequired: '請輸入大於 0 的金額',
+        amountExceeds: '提現金額不能超過當前可提取額度'
       },
       overview: {
         title: '使用者返利概覽',
@@ -1080,19 +1141,18 @@ export default {
       },
       modelAllowlist: {
         title: '模型白名單',
-        hint: '開啟後，不在白名單中的模型會被拒絕（404 model_not_found），模型列表介面也只展示白名單內的模型。條目支援精確模型 ID 與末尾 * 通配。注意：Claude Code 會用 haiku 系小模型做標題/摘要等探測，/messages/count_tokens 同樣受白名單控制，請一併勾選所需的小模型。',
+        hint: '開啟後，不在白名單中的模型會被拒絕（404 model_not_found），模型列表介面也只展示白名單內的模型。條目支援精確模型 ID 與任意位置的 * 通配（如 gpt-*-codex）。注意：Claude Code 會用 haiku 系小模型做標題/摘要等探測，/messages/count_tokens 同樣受白名單控制，請一併勾選所需的小模型。',
         loading: '正在載入候選模型...',
         empty: '暫無候選模型，可在下方手工新增條目',
         selectedSummary: '已選 {selected} / {total}',
         selectAll: '全選',
         invertSelection: '反選',
         wildcardTag: '通配',
-        customPlaceholder: '自定義條目，如 claude-* 或 gpt-5.5-codex',
+        customPlaceholder: '自定義條目，如 gpt-*-codex 或 claude-*',
         addCustom: '新增',
         emptySelectionError: '模型白名單已開啟，請至少選擇或新增一個模型條目',
         errors: {
           empty: '請輸入模型條目',
-          invalidWildcard: '萬用字元 * 只能出現在條目末尾',
           duplicate: '該條目已存在'
         }
       },
